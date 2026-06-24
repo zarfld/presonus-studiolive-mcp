@@ -21,6 +21,20 @@ export interface ServerConfig {
   }
 }
 
+/**
+ * Compute writeEnabled flag from server config — pure function.
+ *
+ * Rules (ADR-005 #10, ADR-006):
+ *   - `operationMode: 'control_locked'` → always false, regardless of controlEnabled
+ *   - `controlEnabled: true` (explicit opt-in) → true (unless locked)
+ *   - Default: false
+ *
+ * Exported for testability. Used in createServer().
+ */
+export function computeWriteEnabled(config: ServerConfig): boolean {
+  return config.operationMode !== 'control_locked' && config.controlEnabled === true
+}
+
 export async function createServer(config: ServerConfig = {}): Promise<McpServer> {
   const { operationMode = 'soundcheck_assist', controlEnabled = false } = config
 
@@ -31,8 +45,8 @@ export async function createServer(config: ServerConfig = {}): Promise<McpServer
 
   const clientManager = new PresonusClientManager()
 
-  // Determine write access: never in control_locked mode; requires explicit opt-in otherwise
-  const writeEnabled = operationMode !== 'control_locked' && controlEnabled === true
+  // Determine write access via pure helper — ADR-005 #10 + ADR-006
+  const writeEnabled = computeWriteEnabled(config)
 
   const modeLabel = operationMode
   const writeLabel = writeEnabled ? 'ENABLED (use with caution)' : 'DISABLED'

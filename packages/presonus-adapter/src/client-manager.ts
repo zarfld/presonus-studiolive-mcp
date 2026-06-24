@@ -22,6 +22,18 @@ import type { RawStateTree, RawMeterPacket } from './types.js'
 import { mapRawStateToSnapshot, buildSnapshotFromFlatState } from './state-mapper.js'
 import { PresonusMeterSummarizer } from './meter-summarizer.js'
 
+/**
+ * Compute the reconnect backoff delay for a given attempt count.
+ *
+ * Formula: min(1000 × 2^(attempts-1), 30_000) ms
+ *   attempt 1 → 1000 ms, attempt 2 → 2000 ms, ... capped at 30 s
+ *
+ * Exported as a pure function for testability (REQ-NF-004 #24 / QA-SC-003 #27).
+ */
+export function computeReconnectDelayMs(attempts: number): number {
+  return Math.min(1000 * Math.pow(2, attempts - 1), 30_000)
+}
+
 /** Per-device connection state managed by this class */
 interface DeviceConnection {
   identity: MixerIdentity
@@ -39,6 +51,10 @@ interface DeviceConnection {
   reconnectAttempts: number
   /** Active reconnect timer handle (undefined when connected or not scheduled) */
   reconnectTimer: ReturnType<typeof setTimeout> | undefined
+  /** Timestamp (ms) of last received featherbear 'data' or 'meter' event */
+  lastEventAt: number
+  /** Periodic interval for stale-event-gap detection (REQ-NF-003 #23 Scenario 3) */
+  stalenessCheckInterval: ReturnType<typeof setInterval> | undefined
 }
 
 export class PresonusClientManager {
@@ -69,6 +85,8 @@ export class PresonusClientManager {
       writeEnabled: this._globalWriteEnabled,
       reconnectAttempts: 0,
       reconnectTimer: undefined,
+      lastEventAt: 0,
+      stalenessCheckInterval: undefined,
     }
 
     this.connections.set(identity.deviceId, conn)
@@ -94,6 +112,21 @@ export class PresonusClientManager {
       }
       conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
 
+      // Fetch available projects list (REQ-F-005 #19)
+      try {
+        const rawProjects = typeof client.getProjects === 'function'
+          ? await (client.getProjects(false) as Promise<{ name: string }[]>)
+          : []
+        if (conn.snapshot && Array.isArray(rawProjects)) {
+          conn.snapshot = {
+            ...conn.snapshot,
+            availableProjects: rawProjects.map((p) => p.name).filter((n) => typeof n === 'string'),
+          }
+        }
+      } catch {
+        // getProjects may fail on some firmware versions; graceful fallback to []
+      }
+
       // Patch project/scene from featherbear client properties (authoritative source — REQ-F-005 #19)
       if (conn.snapshot) {
         const project = typeof client.currentProject === 'string' && client.currentProject
@@ -105,6 +138,7 @@ export class PresonusClientManager {
 
       // Subscribe to state updates
       client.on('data', (data: unknown) => {
+        conn.lastEventAt = Date.now()  // REQ-NF-003 #23: track last event time
         if (data && typeof data === 'object') {
           Object.assign(conn.rawState, data)
           conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
@@ -125,6 +159,7 @@ export class PresonusClientManager {
 
       // Subscribe to meters
       client.on('meter', (packet: unknown) => {
+        conn.lastEventAt = Date.now()  // REQ-NF-003 #23: track last event time
         // featherbear emits meter as { 0: lineValues[], 1: returnValues[], ..., type: "level" }
         // Key 0 = LINE channels (group 0 in StudioLive metering protocol)
         if (packet && typeof packet === 'object') {
@@ -142,7 +177,18 @@ export class PresonusClientManager {
         client.meterSubscribe()
       }
 
-      // Subscribe to project/scene changes (featherbear 'setting' event — REQ-F-005 #19)
+      // Initialise lastEventAt and start stale-event-gap monitor (REQ-NF-003 #23 Scenario 3)
+      conn.lastEventAt = Date.now()
+      conn.stalenessCheckInterval = setInterval(() => {
+        if (!conn.connected) return  // suppress if already disconnected
+        const gapMs = Date.now() - conn.lastEventAt
+        if (gapMs > 2000) {
+          process.stderr.write(
+            `[presonus-mcp] WARNING: ${identity.deviceId} — no featherbear events for ${Math.round(gapMs / 1000)} s` +
+            ` (last: ${new Date(conn.lastEventAt).toISOString()}); state may be stale\n`,
+          )
+        }
+      }, 1000)
       client.on('setting', () => {
         if (!conn.snapshot) return
         const project = typeof client.currentProject === 'string' && client.currentProject
@@ -160,8 +206,13 @@ export class PresonusClientManager {
         if (conn.snapshot) {
           conn.snapshot = { ...conn.snapshot, isStale: true, disconnectedAt }
         }
+        // Stop stale-event-gap monitor (no more events expected while disconnected)
+        if (conn.stalenessCheckInterval !== undefined) {
+          clearInterval(conn.stalenessCheckInterval)
+          conn.stalenessCheckInterval = undefined
+        }
         conn.reconnectAttempts++
-        const delayMs = Math.min(1000 * Math.pow(2, conn.reconnectAttempts - 1), 30_000)
+        const delayMs = computeReconnectDelayMs(conn.reconnectAttempts)
         process.stderr.write(
           `[presonus-mcp] ${identity.deviceId} disconnected (${reason}); reconnect attempt ${conn.reconnectAttempts} in ${delayMs} ms\n`,
         )
@@ -239,12 +290,14 @@ export class PresonusClientManager {
 
       // Re-subscribe to events (same as connect())
       client.on('data', (data: unknown) => {
+        conn.lastEventAt = Date.now()
         if (data && typeof data === 'object') {
           Object.assign(conn.rawState, data)
           conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
         }
       })
       client.on('meter', (packet: unknown) => {
+        conn.lastEventAt = Date.now()
         if (packet && typeof packet === 'object') {
           const lineValues = (packet as Record<string | number, unknown>)[0]
           if (Array.isArray(lineValues) && lineValues.length > 0) {
@@ -254,13 +307,30 @@ export class PresonusClientManager {
       })
       if (typeof client.meterSubscribe === 'function') client.meterSubscribe()
 
+      // Restart stale-event-gap monitor after reconnect (REQ-NF-003 #23)
+      conn.lastEventAt = Date.now()
+      conn.stalenessCheckInterval = setInterval(() => {
+        if (!conn.connected) return
+        const gapMs = Date.now() - conn.lastEventAt
+        if (gapMs > 2000) {
+          process.stderr.write(
+            `[presonus-mcp] WARNING: ${deviceId} — no featherbear events for ${Math.round(gapMs / 1000)} s` +
+            ` (last: ${new Date(conn.lastEventAt).toISOString()}); state may be stale\n`,
+          )
+        }
+      }, 1000)
+
       const onLost = (reason: string) => {
         if (!conn.connected) return
         conn.connected = false
         const disconnectedAt = new Date().toISOString()
         if (conn.snapshot) conn.snapshot = { ...conn.snapshot, isStale: true, disconnectedAt }
+        if (conn.stalenessCheckInterval !== undefined) {
+          clearInterval(conn.stalenessCheckInterval)
+          conn.stalenessCheckInterval = undefined
+        }
         conn.reconnectAttempts++
-        const delayMs = Math.min(1000 * Math.pow(2, conn.reconnectAttempts - 1), 30_000)
+        const delayMs = computeReconnectDelayMs(conn.reconnectAttempts)
         process.stderr.write(`[presonus-mcp] ${deviceId} disconnected (${reason}); reconnect in ${delayMs} ms\n`)
         conn.reconnectTimer = setTimeout(() => {
           this._reconnect(deviceId).catch(() => undefined)
@@ -274,7 +344,7 @@ export class PresonusClientManager {
       conn.lastError = String(err)
       conn.connected = false
       conn.reconnectAttempts++
-      const delayMs = Math.min(1000 * Math.pow(2, conn.reconnectAttempts - 1), 30_000)
+      const delayMs = computeReconnectDelayMs(conn.reconnectAttempts)
       process.stderr.write(`[presonus-mcp] ${deviceId} reconnect failed: ${String(err)}; retry in ${delayMs} ms\n`)
       conn.reconnectTimer = setTimeout(() => {
         this._reconnect(deviceId).catch(() => undefined)
@@ -286,6 +356,15 @@ export class PresonusClientManager {
   async disconnect(deviceId: string): Promise<void> {
     const conn = this.connections.get(deviceId)
     if (!conn) return
+    // Stop staleness monitor before cleanup
+    if (conn.stalenessCheckInterval !== undefined) {
+      clearInterval(conn.stalenessCheckInterval)
+      conn.stalenessCheckInterval = undefined
+    }
+    if (conn.reconnectTimer !== undefined) {
+      clearTimeout(conn.reconnectTimer)
+      conn.reconnectTimer = undefined
+    }
     try {
       await conn.client.close?.()
     } finally {
