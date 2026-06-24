@@ -38,234 +38,309 @@ Each term entry must include:
 
 ## 📖 Domain Terms
 
-### Account
+> **Scope**: PreSonus StudioLive MCP Server — live event audio production domain.
+> All terms below are used consistently in requirements (#1–#24), architecture (#6–#14), code (`packages/`), and tests.
+> Last updated: 2026-06-24
 
-**Context**: Banking, Finance  
-**Definition**: A record of financial transactions for a customer, including balance and transaction history.  
-**Type**: Entity (has identity and lifecycle)  
-**Synonyms**: Bank Account, Financial Account (avoid using)  
-**Relationships**:
-- Parent: Customer (Entity)
-- Composed of: AccountNumber (Value Object), Balance (Value Object)
-- Related: Transaction (Entity), OverdraftLimit (Value Object)
-**Examples**:
-- Checking account with $1,500 balance
-- Savings account with 2.5% interest rate
-- Business account with $10,000 overdraft limit
+---
+
+### AVB (Audio Video Bridging)
+
+**Context**: Network audio, mixer interconnect
+**Definition**: IEEE 802.1 Audio Video Bridging — the network protocol used to stream audio between the StudioLive 32SC (FOH console) and StudioLive 32R (stagebox/rack) over a standard Ethernet network.
+**Type**: Technical Standard
+**Synonyms**: Milan (compatible subset), AVB/TSN
+**Relationships**: Used by Stagebox (#stagebox), FOH (#foh)
+**Business Rules**: Both mixer units must be on the same AVB-capable network switch; the 32R acts as an AVB input/output unit slaved to the 32SC.
+**Code Mapping**: `AudioRouteSchema`, `AudioRoute.sourcePort` / `destinationPort`
+**Traceability**: #4 (StR: Routing validation)
+
+---
+
+### Channel
+
+**Context**: Mixer operation
+**Definition**: A single signal path on the mixing console. Each channel has a type (LINE, AUX, FX, SUB, MAIN), a number, a name, and processing (fader, mute, pan, Fat Channel).
+**Type**: Entity (has identity: type + number)
+**Synonyms**: Strip, Input (avoid — ambiguous)
+**Relationships**: Belongs to a mixer (MixerIdentity); has FatChannel processing; contributes to Mixes
 **Business Rules**:
-- Account balance cannot go below overdraft limit
-- Each account has unique account number (immutable)
-- Account status can be: Active, Suspended, Closed
-- Only active accounts can process transactions
-**Code Mapping**: `Account` class, `AccountRepository`, `AccountService`  
-**Traceability**: #REQ-F-ACCOUNT-001, #REQ-NF-SECURITY-003  
-**Examples**:
-- Checking account with $1,500 balance
-- Savings account with 2% interest rate
+- Identity = ChannelSelector (type + number); this is stable
+- Channel names are mutable (set by engineer, reflected in state)
+- Linked stereo channels share fader/pan but remain two separate entities
+**Code Mapping**: `MixerChannelSchema`, `MixerChannel`, `ChannelSelectorSchema`
+**Traceability**: #17 (REQ-F-003)
 
 ---
 
-### Aggregate
+### ChannelSelector
 
-**Context**: Software Design (DDD)  
-**Definition**: A cluster of associated objects (Entities and Value Objects) treated as a single unit for data changes, with one Entity as the Aggregate Root.  
-**Type**: Pattern  
-**Relationships**:
-- Contains: Entity (root), Entity (internal), Value Object
-- Related: Aggregate Root, Bounded Context
+**Context**: Domain model, API contracts
+**Definition**: An immutable value object that uniquely identifies a channel within a mixer: `{ type: ChannelType, channel: number }`. This is the stable addressing scheme used in all tool inputs and resource outputs.
+**Type**: Value Object
+**Examples**: `{ type: "LINE", channel: 1 }`, `{ type: "AUX", channel: 3 }`, `{ type: "MAIN", channel: 1 }`
+**Business Rules**: Channel number is 1-based (first channel = 1, not 0)
+**Code Mapping**: `ChannelSelectorSchema`
+**Traceability**: #11 (ARC-C-001)
+
+---
+
+### ChannelType
+
+**Context**: Domain model
+**Definition**: An enumeration of the functional roles a channel can play on a StudioLive mixer. Each type corresponds to a section of the mixer's signal flow.
+**Type**: Value Object (enum)
+**Values**:
+- `LINE` — Physical microphone/line input channels
+- `RETURN` — Return channels (e.g., from external effects units)
+- `FXRETURN` — Internal FX return channels
+- `TALKBACK` — Talkback microphone channel
+- `AUX` — Auxiliary send mix buses (monitor mixes)
+- `FX` — Internal FX send buses
+- `SUB` — Subgroup buses
+- `MAIN` — Main L/R output bus
+**Code Mapping**: `ChannelTypeSchema` (matches featherbear `ChannelTypes` enum)
+**Traceability**: #11 (ARC-C-001), #9 (ADR-004)
+
+---
+
+### DeviceId
+
+**Context**: Adapter layer, MCP resources
+**Definition**: A stable internal string identifier for a mixer device, derived using the identity priority rule. Format: `serial:<serial>` (preferred) or `ip:<ip>:<port>` (fallback only).
+**Type**: Value Object
+**Business Rules** (identity priority — REQ-F-002 #16):
+1. `serial:<serial>` — when serial is available from discovery
+2. `alias:<alias>` — when a configured alias with expected serial is present
+3. `ip:<ip>:<port>` — temporary fallback; must not be used as stable identity
+**Code Mapping**: `MixerIdentity.deviceId`
+**Traceability**: #16 (REQ-F-002)
+
+---
+
+### Discovery
+
+**Context**: Adapter layer, network
+**Definition**: The process of finding StudioLive III mixers on the local network using UDP broadcast packets. The featherbear `Discovery` class handles this; the adapter layer normalizes results into `DiscoveryResult`.
+**Type**: Domain Service
 **Business Rules**:
-- All changes go through Aggregate Root
-- External references by ID only
-- One transaction modifies one Aggregate
-**Traceability**: Architecture pattern (see `04-design/patterns/ddd-tactical-patterns.md`)  
-**Examples**:
-- Order Aggregate: Order (root) + OrderLines (internal entities)
-- User Aggregate: User (root) + UserProfile (internal)
+- Runs for a configurable timeout (default 5000 ms)
+- Fallback IP is attempted for configured devices that did not respond
+- Results are deduplicated by serial number
+**Code Mapping**: `discoverMixers()`, `DiscoveryResult`, `PresonusDiscoveryService`
+**Traceability**: #15 (REQ-F-001), #21 (REQ-NF-001)
 
 ---
 
-### Customer
+### DiscoveryResult
 
-**Context**: Sales, Support, Billing  
-**Definition**: An individual or organization that purchases or uses our products/services.  
-**Type**: Entity (has identity)  
-**Synonyms**: Client, User (avoid - "User" means authenticated person)  
-**Relationships**:
-- Has: Account, Order, Invoice
-- Related: CustomerProfile, BillingAddress
+**Context**: Adapter layer
+**Definition**: The normalized output of a discovery operation: `{ devices: MixerIdentity[], missingConfigured: DeviceConfig[], unknownDiscovered: MixerIdentity[] }`.
+**Type**: Value Object
+**Code Mapping**: `DiscoveryResult`
+**Traceability**: #15 (REQ-F-001)
+
+---
+
+### EQ (Equalizer)
+
+**Context**: Mixer signal processing (Fat Channel)
+**Definition**: The parametric equalizer section of the Fat Channel strip on each input channel. Available in multiple models (Standard, Passive, Vintage, and add-ons from Fat Channel Collection Vol. 1).
+**Type**: Value Object (parameters of FatChannel)
+**Synonyms**: Parametric EQ, Channel EQ
+**Business Rules**: Model-specific parameters; discriminated union required because different models expose different band counts and control types.
+**Code Mapping**: `FatEqStateSchema`, `FatEqModelSchema`
+**Traceability**: #11 (ARC-C-001)
+
+---
+
+### FatChannel
+
+**Context**: Mixer signal processing
+**Definition**: PreSonus's name for the integrated channel strip processing built into every StudioLive III input channel. Consists of four processors in series: Gate, Compressor, EQ, Limiter. Each section can use different models (factory or licensed add-ons).
+**Type**: Value Object (part of Channel)
 **Business Rules**:
-- Must have valid email address
-- Can have multiple accounts
-- Customer status: Prospect, Active, Inactive, Suspended
-**Traceability**: #REQ-F-CUSTOMER-001  
-**Examples**:
-- Individual customer: John Doe, john@example.com
-- Corporate customer: Acme Corp, billing@acme.com
+- Model IDs are integers in the raw state; mapping to human names requires empirical probing
+- Add-on models (Fat Channel Collection Vol. 1) are only available on mixers with authorization
+- All raw model values are marked `confidence: "unverified"` until confirmed by `presonus-probe probe-fat-channel`
+**Code Mapping**: `FatChannelStateSchema`, `FatModelRefSchema`
+**Traceability**: #11 (ARC-C-001)
 
 ---
 
-### Entity
+### FOH (Front of House)
 
-**Context**: Software Design (DDD)  
-**Definition**: An object defined by its identity rather than attributes, with continuity through time and different states.  
-**Type**: Pattern  
-**Distinguishing Feature**: Has unique identifier (ID)  
-**Contrast With**: Value Object (defined by attributes, no identity)  
-**Relationships**:
-- Part of: Aggregate
-- Contains: Value Objects
+**Context**: Live event production
+**Definition**: The main mixing position at the back of the audience area. The "FOH mixer" is the primary mixing console controlled by the FOH engineer. In this system, the StudioLive 32SC is designated as the FOH mixer.
+**Type**: Role (of a MixerIdentity)
+**Synonyms**: Main mix, House mix
+**Code Mapping**: `MixerRole.FOH`, `MixerIdentity.role`
+**Traceability**: #1 (StR), #10 (ADR-005)
+
+---
+
+### GainHint
+
+**Context**: Meter summaries, soundcheck diagnostics
+**Definition**: A semantic classification of a channel's signal level, derived from time-windowed meter data. Replaces raw numeric meter values with human-meaningful categories.
+**Type**: Value Object (enum)
+**Values**:
+- `no-signal` — Below noise floor; effectively silent
+- `low` — Very low signal; likely not passing intended program audio
+- `ok` — Nominal signal level; healthy
+- `hot` — Above normal operating level; approaching clip
+- `clipping` — At or above digital full scale (0 dBFS); distorting
+**Business Rules**: Thresholds are approximate until calibrated empirically against physical hardware meter readings.
+**Code Mapping**: `GainHintSchema`
+**Traceability**: #18 (REQ-F-004)
+
+---
+
+### InputList
+
+**Context**: Show preparation
+**Definition**: An ordered list of all audio inputs for a show or set, with each entry specifying source name, performer, instrument, and technical requirements. Derived from one or more Riders.
+**Type**: Value Object (list of ShowInput)
 **Business Rules**:
-- Equality based on ID only
-- Must have immutable identity
-- Can be mutable (state changes)
-**Traceability**: Design pattern (see `04-design/patterns/ddd-tactical-patterns.md`)  
-**Examples**:
-- User (ID: user-123, email changes but ID stays same)
-- Order (ID: order-456, status changes over time)
+- Input numbers are 1-based, corresponding to physical mixer channels
+- Multiple bands on the same show may share or have separate input lists
+**Code Mapping**: `ShowInputSchema`, `RiderPlanSchema.mergedInputList`
+**Traceability**: #2 (StR: Show preparation)
 
 ---
 
-### Invoice
+### MeterSummary
 
-**Context**: Billing, Accounting  
-**Definition**: A document requesting payment for goods or services provided, including line items, amounts, and due date.  
-**Type**: Entity (has identity)  
-**Synonyms**: Bill  
-**Relationships**:
-- Belongs to: Customer
-- References: Order
-- Contains: InvoiceLines (internal entities)
+**Context**: Soundcheck diagnostics, MCP resources
+**Definition**: A time-windowed statistical summary of raw meter data for all channels on a mixer. Classifies channels by signal activity (silent, active, hot, clipping). This is the primary meter representation exposed to AI agents — raw meter streams are never exposed.
+**Type**: Value Object
 **Business Rules**:
-- Must have unique invoice number
-- Total equals sum of line items
-- Status: Draft, Issued, Paid, Overdue, Cancelled
-- Cannot modify issued invoice (only cancel and reissue)
-**Traceability**: #REQ-F-BILLING-001, #REQ-F-BILLING-002  
-**Examples**:
-- Invoice #2024-001: $1,250.00, Due: 2024-12-15, Status: Issued
+- Window sizes: 1s (instantaneous), 10s (short-term), 60s (long-term)
+- `computedAt` timestamp allows agents to assess freshness
+- `noSignalButExpected` requires an input list to be loaded; empty otherwise
+**Code Mapping**: `MeterSummarySchema`
+**Traceability**: #18 (REQ-F-004), #22 (REQ-NF-002), #23 (REQ-NF-003)
 
 ---
 
-### Order
+### MixerIdentity
 
-**Context**: Sales, Fulfillment  
-**Definition**: A customer's request to purchase products or services, including items, quantities, and total amount.  
-**Type**: Aggregate Root (Entity)  
-**Synonyms**: Purchase Order  
-**Relationships**:
-- Placed by: Customer
-- Contains: OrderLines (internal entities)
-- Generates: Invoice
+**Context**: Adapter layer, MCP resources
+**Definition**: The normalized representation of a discovered or configured mixer device. Contains all information needed to identify, connect to, and role-assign a mixer.
+**Type**: Entity (identified by DeviceId)
 **Business Rules**:
-- Must have at least one order line
-- Status: Draft, Submitted, Confirmed, Shipped, Delivered, Cancelled
-- Cannot modify submitted order (only cancel)
-- Total equals sum of order lines
-**Invariants**:
-- Order total = sum of (quantity × price) for all lines
-- All line quantities must be positive
-**Traceability**: #REQ-F-ORDER-001, #ADR-SALES-001  
-**Examples**:
-- Order #5678: Customer C-123, 3 items, $350.00, Status: Submitted
+- `serial` field is the preferred stable identity; see DeviceId
+- `controllable` is always `false` in MVP; only `true` when explicitly configured AND write tools are implemented
+- `confidence` field tracks how certain we are about the identity claim
+**Code Mapping**: `MixerIdentitySchema`, `MixerIdentity`
+**Traceability**: #15 (REQ-F-001), #16 (REQ-F-002)
 
 ---
 
-### Repository
+### OperationMode
 
-**Context**: Software Design (DDD)  
-**Definition**: An interface providing collection-like access to Aggregate Roots, abstracting persistence mechanism.  
-**Type**: Pattern  
-**Synonyms**: Data Repository (avoid - implies data-centric)  
-**Relationships**:
-- Works with: Aggregate Root
-- Implemented in: Infrastructure Layer
-- Defined in: Domain Layer
+**Context**: MCP server configuration, safety boundary
+**Definition**: A named operating mode that determines which tools and resources are available. The mode is set in `presonus-mcp.config.yaml` and enforced at server startup.
+**Type**: Value Object (enum)
+**Values**:
+- `prepare` — Pre-show or offline. All read/analysis tools available; no write tools.
+- `soundcheck_assist` — During soundcheck setup. Same as prepare; meter summaries actively computed.
+- `control_locked` — During live show. Read-only. All write tools disabled regardless of other config.
+**Business Rules**: Write tools require BOTH `operationMode ≠ control_locked` AND `controlEnabled: true` in config. Default mode if unspecified: `soundcheck_assist`.
+**Code Mapping**: Config schema `operationMode` field
+**Traceability**: #5 (StR: Safety), #10 (ADR-005), #22 (REQ-NF-002)
+
+---
+
+### PatchPlan
+
+**Context**: Show preparation
+**Definition**: The mapping that assigns each InputList entry to a specific physical mixer channel. Produced by comparing the Rider's InputList against the mixer's available channels.
+**Type**: Value Object
+**Business Rules**: A PatchPlan is advisory; it must be reviewed and applied by a human engineer.
+**Traceability**: #2 (StR: Show preparation)
+
+---
+
+### ProposedChangeSet
+
+**Context**: Change-set gate (future, not MVP)
+**Definition**: A structured proposal for a set of mixer changes that has been generated by an AI agent but NOT yet applied. Contains risk classification and reason per change. Requires human review and an explicit `apply_change_set` call to execute.
+**Type**: Entity (has id; lifecycle: proposed → reviewed → applied/rejected)
 **Business Rules**:
-- One Repository per Aggregate Root
-- Interface in Domain Layer, implementation in Infrastructure
-- Returns fully reconstituted domain objects
-**Traceability**: Design pattern (see `04-design/patterns/ddd-tactical-patterns.md`)  
-**Examples**:
-- `IOrderRepository.findById(orderId)` → Order aggregate
-- `IUserRepository.save(user)` → Persist User aggregate
+- `requiresConfirmation: true` always
+- Cannot be applied autonomously by the AI agent — requires the `apply_change_set` tool which is NOT registered in MVP
+- All changes include `currentValue` and `proposedValue` for diffing
+**Code Mapping**: `ProposedChangeSet` (design only in MVP; not implemented)
+**Traceability**: #5 (StR: Safety), #10 (ADR-005)
 
 ---
 
-### User
+### Project
 
-**Context**: Authentication, Authorization  
-**Definition**: An authenticated person who can access the system with specific permissions.  
-**Type**: Entity (has identity)  
-**Synonyms**: Account Holder (avoid context confusion)  
-**Contrast With**: Customer (purchases products, may not have login)  
-**Relationships**:
-- May be: Customer (if registered customer has login)
-- Has: Roles, Permissions
+**Context**: Mixer scene management
+**Definition**: A named saved state container on the StudioLive console that holds one or more Scenes. Projects are listed via `client.getProjects()` in the featherbear API.
+**Type**: Entity (has name as identity)
+**Relationships**: Contains one or more Scenes
+**Business Rules**: Project recall is disabled in MVP (read-only)
+**Code Mapping**: `MixerSnapshot.currentProject`, `MixerSnapshot.availableProjects`
+**Traceability**: #19 (REQ-F-005)
+
+---
+
+### Rider
+
+**Context**: Show preparation, event production
+**Definition**: A technical advance document provided by a performer listing all audio inputs, equipment requirements, monitor preferences, and special needs. The AI agent analyzes Riders to produce an InputList and PatchPlan.
+**Type**: External Input Document
+**Synonyms**: Tech rider, technical rider, stage plot (partial synonym)
+**Business Rules**: Multiple Riders from different bands on the same show must be merged into a single InputList; conflicts must be flagged.
+**Traceability**: #2 (StR: Show preparation)
+
+---
+
+### Scene
+
+**Context**: Mixer scene management
+**Definition**: A named snapshot of the complete mixer state (all channels, fader levels, FatChannel settings) stored within a Project on the console.
+**Type**: Entity (has name; belongs to Project)
+**Business Rules**: Scene recall is disabled in MVP (read-only). Current scene is exposed as a read resource.
+**Code Mapping**: `MixerSnapshot.currentScene`
+**Traceability**: #19 (REQ-F-005)
+
+---
+
+### Soundcheck
+
+**Context**: Live event production
+**Definition**: The period before a live show when the sound engineer sets microphone placements, gain levels, monitor mixes, and effect settings for each performer's inputs. This system provides diagnostic assistance during soundcheck.
+**Type**: Lifecycle Phase (of a show)
+**Business Rules**: The agent assists during soundcheck but does not perform soundcheck autonomously. All suggestions require human execution.
+**Traceability**: #3 (StR: Soundcheck assistance)
+
+---
+
+### Stagebox
+
+**Context**: Live event production, mixer topology
+**Definition**: A remote stage input/output unit that connects to the FOH console via AVB. In this system, the StudioLive 32R acts as the stagebox, providing 32 additional inputs at the stage while being controlled from the 32SC at FOH.
+**Type**: Role (of a MixerIdentity)
+**Code Mapping**: `MixerRole.STAGEBOX`
+**Traceability**: #4 (StR: Routing validation)
+
+---
+
+### StateCache
+
+**Context**: Adapter layer
+**Definition**: An in-memory representation of the last-known normalized mixer state, updated from featherbear data events as they arrive. The state cache is the source for all MCP resource responses; the MCP server never queries the mixer synchronously per request.
+**Type**: Domain Service (internal to adapter)
 **Business Rules**:
-- Must have unique email address
-- Must have hashed password
-- Status: Active, Suspended, Locked, Inactive
-- Cannot have duplicate email addresses
-**Traceability**: #REQ-F-AUTH-001, #REQ-NF-SECURITY-001  
-**Examples**:
-- User: alice@example.com, Role: Admin, Status: Active
-
----
-
-### Value Object
-
-**Context**: Software Design (DDD)  
-**Definition**: An immutable object defined by its attributes with no conceptual identity, used to describe characteristics of things.  
-**Type**: Pattern  
-**Distinguishing Feature**: No identity (ID), equality based on all attributes  
-**Contrast With**: Entity (has identity)  
-**Relationships**:
-- Contained by: Entity, Aggregate
-- Examples: Email, Money, Address
-**Business Rules**:
-- Immutable (no setters)
-- Equality = attribute equality
-- Side-effect-free functions
-- Create new instance for changes
-**Traceability**: Design pattern (see `04-design/patterns/ddd-tactical-patterns.md`)  
-**Examples**:
-- Email: "user@example.com" (string value, no ID)
-- Money: {amount: 100.00, currency: "USD"}
-- Address: {street, city, postalCode, country}
-
----
-
-## 🔄 Context-Specific Terms
-
-Some terms have different meanings in different Bounded Contexts. Document these clearly:
-
-### "Account" - Context Variations
-
-| Context | Meaning | Example |
-|---------|---------|---------|
-| **Banking** | Financial account with balance | Checking Account #1234 |
-| **Authentication** | User login credentials | User account: alice@example.com |
-| **Accounting** | General ledger account | Revenue Account #4000 |
-
-**Resolution**: Use qualified names when crossing contexts:
-- BankAccount (Banking)
-- UserAccount (Authentication)
-- LedgerAccount (Accounting)
-
----
-
-### "User" - Context Variations
-
-| Context | Meaning | Example |
-|---------|---------|---------|
-| **Authentication** | Person with login credentials | Authenticated user |
-| **Customer Management** | Person who purchases | Customer (prefer this term) |
-| **Support** | Person receiving support | Support case assignee |
-
-**Resolution**: Prefer specific terms:
-- Use "User" only in Authentication context
-- Use "Customer" in Sales/Support contexts
-- Use "Operator" for admin/system users
+- Updated within 500 ms of receiving a featherbear data event (REQ-NF-003 #23)
+- Marked as potentially stale if no event received for > 2000 ms
+- Always returns cached data (never errors on stale state — returns with `stale: true` flag)
+**Code Mapping**: `MixerSnapshot`, `PresonusClientManager.getSnapshot()`
+**Traceability**: #17 (REQ-F-003), #23 (REQ-NF-003)
 
 ---
 

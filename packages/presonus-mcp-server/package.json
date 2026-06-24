@@ -1,0 +1,27 @@
+{
+  "name": "@presonus-mcp/server",
+  "version": "0.1.0",
+  "description": "MCP server for PreSonus StudioLive mixers — exposes mixer context to AI agents — implements ARC-C-004 (#14)",
+  "type": "module",
+  "bin": {
+    "presonus-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --build --dry"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@presonus-mcp/adapter": "workspace:*",
+    "@presonus-mcp/domain": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

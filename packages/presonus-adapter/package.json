@@ -1,0 +1,30 @@
+{
+  "name": "@presonus-mcp/adapter",
+  "version": "0.1.0",
+  "description": "PreSonus StudioLive hardware adapter — featherbear API wrapper and state cache — implements ARC-C-002 (#12)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "test:hil": "cross-env HIL_PRESONUS=1 vitest run --reporter verbose",
+    "typecheck": "tsc --build --dry"
+  },
+  "dependencies": {
+    "@featherbear/presonus-studiolive-api": "1.8.0",
+    "@presonus-mcp/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "cross-env": "^7.0.3",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

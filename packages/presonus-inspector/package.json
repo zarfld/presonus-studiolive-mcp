@@ -1,0 +1,26 @@
+{
+  "name": "@presonus-mcp/inspector",
+  "version": "0.1.0",
+  "description": "PreSonus StudioLive probe CLI for hardware reconnaissance — implements ARC-C-003 (#13)",
+  "type": "module",
+  "bin": {
+    "presonus-probe": "./dist/cli/probe.js"
+  },
+  "main": "./dist/cli/probe.js",
+  "scripts": {
+    "build": "tsc --build",
+    "probe": "node dist/cli/probe.js",
+    "typecheck": "tsc --build --dry"
+  },
+  "dependencies": {
+    "@featherbear/presonus-studiolive-api": "1.8.0",
+    "@presonus-mcp/adapter": "workspace:*",
+    "@presonus-mcp/domain": "workspace:*",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

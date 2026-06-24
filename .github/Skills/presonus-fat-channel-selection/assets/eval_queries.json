@@ -1,0 +1,66 @@
+[
+  {
+    "query": "Which Fat Channel compressor and EQ should I use for kick drum on my StudioLive 32SC?",
+    "should_trigger": true
+  },
+  {
+    "query": "I need a 32SC Fat Channel setup for crustpunk vocals, guitars and bass; SM58 on vocals.",
+    "should_trigger": true
+  },
+  {
+    "query": "Map COMP_160 and ALPINE_EQ_550 to StudioLive scene file __classid GUIDs.",
+    "should_trigger": true
+  },
+  {
+    "query": "Read the current compModelName and eqModelName from my PreSonus MCP server channels resource.",
+    "should_trigger": true
+  },
+  {
+    "query": "Can the MCP server set opt.compmodel on line.ch4 or is it read-only?",
+    "should_trigger": true
+  },
+  {
+    "query": "What EQ model should I use for wedge monitor comfort on StudioLive aux 3?",
+    "should_trigger": true
+  },
+  {
+    "query": "Why does line.ch1.opt.compmodel.value need multiplying by 10?",
+    "should_trigger": true
+  },
+  {
+    "query": "Create a generic VST compressor in JUCE.",
+    "should_trigger": false
+  },
+  {
+    "query": "What is the best FabFilter Pro-Q setting for mastering?",
+    "should_trigger": false
+  },
+  {
+    "query": "Explain what an optical compressor is in general.",
+    "should_trigger": false
+  },
+  {
+    "query": "Build an MCP server for a weather API.",
+    "should_trigger": false
+  },
+  {
+    "query": "Which microphone should I use on snare, SM57 or i5?",
+    "should_trigger": false
+  },
+  {
+    "query": "Write a Python script to parse arbitrary JSON files.",
+    "should_trigger": false
+  },
+  {
+    "query": "How do I sidechain duck guitars under main vocals on StudioLive Fat Channel?",
+    "should_trigger": true
+  },
+  {
+    "query": "I have a StudioLive scene file and need to decode Fat Channel GUIDs.",
+    "should_trigger": true
+  },
+  {
+    "query": "What is the difference between API 550 and Pultec EQs?",
+    "should_trigger": false
+  }
+]

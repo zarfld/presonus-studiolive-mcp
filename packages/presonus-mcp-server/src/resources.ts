@@ -1,0 +1,120 @@
+/**
+ * MCP resource registrations — all read-only mixer context resources.
+ *
+ * @module resources
+ * @implements #17 REQ-F-003: Expose channel list as MCP resource
+ * @implements #18 REQ-F-004: Expose meter summary as MCP resource
+ * @implements #19 REQ-F-005: Expose scene/project as MCP resource
+ * @architecture #14 ARC-C-004: presonus-mcp-server package
+ * @architecture #7 ADR-002: Three-layer architecture
+ */
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { PresonusClientManager } from '@presonus-mcp/adapter'
+
+export function registerResources(
+  server: McpServer,
+  clientManager: PresonusClientManager,
+): void {
+  // ─── presonus://mixers ─────────────────────────────────────────────────────
+  server.resource(
+    'mixers',
+    'presonus://mixers',
+    { description: 'All discovered StudioLive III mixers with identity and role information' },
+    async () => {
+      const ids = clientManager.getConnectedDeviceIds()
+      const identities = ids.map((id) => clientManager.getIdentity(id)).filter(Boolean)
+      return {
+        contents: [{
+          uri: 'presonus://mixers',
+          text: JSON.stringify(identities, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/channels ───────────────────────────────────────
+  server.resource(
+    'mixer-channels',
+    new ResourceTemplate('presonus://mixer/{deviceId}/channels', { list: undefined }),
+    { description: 'Normalized channel list for a connected mixer (mute, name, fader, pan, color)' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      const channels = snapshot?.channels ?? []
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/channels`,
+          text: JSON.stringify(channels, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/meters/summary ─────────────────────────────────
+  server.resource(
+    'mixer-meters-summary',
+    new ResourceTemplate('presonus://mixer/{deviceId}/meters/summary', { list: undefined }),
+    { description: 'Time-windowed meter summary: silent/active/hot/clipping channel classification' },
+    async (_uri, { deviceId }) => {
+      const summarizer = clientManager.getSummarizer(String(deviceId))
+      const summary = summarizer?.getSummary(10) ?? {
+        windowSec: 0,
+        computedAt: new Date().toISOString(),
+        silentChannels: [],
+        activeChannels: [],
+        clippingChannels: [],
+        hotChannels: [],
+        noSignalButExpected: [],
+        signalButUnexpected: [],
+      }
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/meters/summary`,
+          text: JSON.stringify(summary, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/scene/current ──────────────────────────────────
+  server.resource(
+    'mixer-scene-current',
+    new ResourceTemplate('presonus://mixer/{deviceId}/scene/current', { list: undefined }),
+    { description: 'Current project and scene names for a connected mixer' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      const sceneInfo = {
+        currentProject: snapshot?.currentProject ?? null,
+        currentScene: snapshot?.currentScene ?? null,
+        availableProjects: snapshot?.availableProjects ?? [],
+      }
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/scene/current`,
+          text: JSON.stringify(sceneInfo, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/raw/state (diagnostic only) ────────────────────
+  server.resource(
+    'mixer-raw-state',
+    new ResourceTemplate('presonus://mixer/{deviceId}/raw/state', { list: undefined }),
+    { description: 'Raw state dump for diagnostics (do not use for agent reasoning)' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/raw/state`,
+          text: JSON.stringify(snapshot?.rawState ?? {}, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+}

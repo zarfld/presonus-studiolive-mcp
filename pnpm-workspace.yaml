@@ -1,0 +1,7 @@
+packages:
+  - 'packages/*'
+allowBuilds:
+  dtrace-provider: false
+  esbuild: false
+patchedDependencies:
+  '@featherbear/presonus-studiolive-api@1.8.0': patches/@featherbear__presonus-studiolive-api@1.8.0.patch

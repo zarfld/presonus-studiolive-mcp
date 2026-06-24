@@ -48,6 +48,22 @@ temp/
 
 # Python
 __pycache__/
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# pnpm
+.pnpm-store/
+
+# Captures (runtime mixer state dumps — not committed; only test/fixtures/ is committed)
+captures/**/*.json
+captures/**/*.jsonl
+!captures/.gitkeep
+
+# MCP config (may contain network info)
+presonus-mcp.config.yaml
+
 *.py[cod]
 *$py.class
 .Python

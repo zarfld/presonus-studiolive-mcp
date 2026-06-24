@@ -1,0 +1,30 @@
+diff --git a/dist/_internal.mjs b/dist/_internal.mjs
+index eae982850cf01482f4c02959d4b767723083b447..681db33e1ebffe91757d836380b3e5064f88842b 100644
+--- a/dist/_internal.mjs
++++ b/dist/_internal.mjs
+@@ -196,6 +196,12 @@ function deserialiseUBJSON(buf) {
+ 			case 108:
+ 				length = 4;
+ 				break;
++			case 73: // 'I' = int16 (2 bytes, big-endian signed) — patch: missing in original
++				length = 2;
++				break;
++			case 68: // 'D' = float64 (8 bytes, big-endian) — patch: missing in original
++				length = 8;
++				break;
+ 			case 76:
+ 				length = 8;
+ 				break;
+@@ -219,6 +225,12 @@ function deserialiseUBJSON(buf) {
+ 			case 108:
+ 				value = valueData.readInt32BE();
+ 				break;
++			case 73: // 'I' = int16 — patch
++				value = valueData.readInt16BE();
++				break;
++			case 68: // 'D' = float64 — patch
++				value = valueData.readDoubleBE();
++				break;
+ 			case 76:
+ 				value = valueData.readBigInt64BE();
+ 				break;
