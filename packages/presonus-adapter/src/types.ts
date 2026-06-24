@@ -50,6 +50,17 @@ export const KNOWN_GLOBAL_KEYS = {
   FIRMWARE: 'global.mixer_version',
   /** Serial number, e.g. "SD7E21010066" */
   MIXER_SERIAL: 'global.mixer_serial',
+  /**
+   * Loaded project title (short name), e.g. "32SCKellersessions".
+   * OBSERVED: StudioLive 32SC firmware 3.3.0.109659 (2026-06-24).
+   * Prefer this over PRESETS_PROJECT_NAME for display.
+   */
+  PRESETS_PROJECT_TITLE: 'presets.loaded_project_title',
+  /**
+   * Loaded project path string, e.g. "proj/01.32SCKellersessions.proj".
+   * Use as fallback when PRESETS_PROJECT_TITLE is absent.
+   */
+  PRESETS_PROJECT_NAME: 'presets.loaded_project_name',
 } as const
 
 /**
@@ -88,4 +99,44 @@ export const KNOWN_CHANNEL_KEY_SUFFIXES = {
   OPT_EQMODEL_VALUE: '.opt.eqmodel.value',
   /** Whether EQ comes before compressor in signal chain (0=comp first, 1=eq first) */
   OPT_SWAPCOMPEQ: '.opt.swapcompeq',
+} as const
+
+/**
+ * Known Fat Channel (DSP) state key suffixes (relative to `line.chN` prefix).
+ * OBSERVED on StudioLive 32SC firmware 3.3.0.109659 (2026-06-24).
+ *
+ * All values are normalized floats (0.0–1.0) or booleans unless noted.
+ * De-normalization formulas: see extractFatChannelState() in state-mapper.ts.
+ */
+export const KNOWN_FAT_KEY_SUFFIXES = {
+  // ── EQ section (4-band parametric) ─────────────────────────────────────
+  /** Master EQ on/off (0=off, 1=on) */
+  EQ_ON: '.eq.eqallon',
+  EQ_TYPE1: '.eq.eqtype1',   EQ_GAIN1: '.eq.eqgain1',   EQ_Q1: '.eq.eqq1',   EQ_FREQ1: '.eq.eqfreq1',   EQ_BAND_ON1: '.eq.eqbandon1',
+  EQ_TYPE2: '.eq.eqtype2',   EQ_GAIN2: '.eq.eqgain2',   EQ_Q2: '.eq.eqq2',   EQ_FREQ2: '.eq.eqfreq2',   EQ_BAND_ON2: '.eq.eqbandon2',
+  EQ_TYPE3: '.eq.eqtype3',   EQ_GAIN3: '.eq.eqgain3',   EQ_Q3: '.eq.eqq3',   EQ_FREQ3: '.eq.eqfreq3',   EQ_BAND_ON3: '.eq.eqbandon3',
+  EQ_TYPE4: '.eq.eqtype4',   EQ_GAIN4: '.eq.eqgain4',   EQ_Q4: '.eq.eqq4',   EQ_FREQ4: '.eq.eqfreq4',   EQ_BAND_ON4: '.eq.eqbandon4',
+  // ── Compressor section ──────────────────────────────────────────────────
+  COMP_ON: '.comp.on',
+  /** Input level / threshold (normalized 0–1) */
+  COMP_INPUT: '.comp.input',
+  /** Output makeup gain (normalized 0–1) */
+  COMP_OUTPUT: '.comp.output',
+  COMP_ATTACK: '.comp.attack',
+  COMP_RELEASE: '.comp.release',
+  COMP_RATIO: '.comp.ratio',
+  // ── Gate/expander section ───────────────────────────────────────────────
+  GATE_ON: '.gate.on',
+  GATE_THRESHOLD: '.gate.threshold',
+  GATE_ATTACK: '.gate.attack',
+  GATE_RELEASE: '.gate.release',
+  GATE_RANGE: '.gate.range',
+  /** true = expander mode, false = gate mode */
+  GATE_EXPANDER: '.gate.expander',
+  // ── Limiter section ─────────────────────────────────────────────────────
+  LIMIT_ON: '.limit.limiteron',
+  LIMIT_THRESHOLD: '.limit.threshold',
+  LIMIT_RELEASE: '.limit.release',
+  // ── High-pass filter ────────────────────────────────────────────────────
+  FILTER_HPF: '.filter.hpf',
 } as const

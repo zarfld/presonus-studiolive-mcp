@@ -10,6 +10,7 @@
  * Key mapping is empirically determined via presonus-probe CLI (ARC-C-003 #13).
  */
 import { z } from 'zod'
+import { ChannelFatStateSchema } from './fat-channel.js'
 
 /**
  * Channel type enum — matches featherbear `ChannelTypes`.
@@ -88,6 +89,13 @@ export const MixerChannelSchema = z.object({
    * Examples: "STANDARD", "PASSIVE", "VINTAGE"
    */
   eqModelName: z.string().optional(),
+  /**
+   * Normalized Fat Channel DSP state: EQ bands, compressor, gate, limiter.
+   * Values in real units (dB, Hz, ms). parameterConfidence='guessed' until
+   * probe-fat-channel calibration confirms de-normalization formulas.
+   * Absent when no DSP state is available in the current snapshot.
+   */
+  fatChannel: ChannelFatStateSchema.optional(),
   /** Raw fields from mixer state not yet mapped to normalized fields */
   rawExtra: z.record(z.string(), z.unknown()).optional(),
 })

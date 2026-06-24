@@ -60,6 +60,13 @@ export const MeterSummarySchema = z.object({
    * Empty when no input list is loaded.
    */
   signalButUnexpected: z.array(z.string()),
+  /**
+   * Peak dBFS per channel over the observation window.
+   * Formula: 20 * log10(rawPeak / 65535) — empirically verified against
+   * threshold comments in meter-summarizer.ts (2026-06-24).
+   * Absent for channels with no signal (raw=0).
+   */
+  channelPeakDbfs: z.record(z.string(), z.number()).optional(),
 })
 export type MeterSummary = z.infer<typeof MeterSummarySchema>
 

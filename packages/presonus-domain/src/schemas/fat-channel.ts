@@ -384,3 +384,223 @@ export function decodeEqModelFromClassid(classid: string): ModelDecodeResult {
   return { normalized: 'UNKNOWN', index: -1, confidence: 'unknown' }
 }
 
+// ---------------------------------------------------------------------------
+// Agent-facing normalized Fat Channel state (channels MCP resource)
+// ---------------------------------------------------------------------------
+
+/**
+ * EQ band filter shape types.
+ *
+ * CONFIDENCE: guessed — requires probe-fat-channel calibration to confirm
+ * the exact enum mapping from raw eqtype float to filter shape.
+ *
+ * Mapping (best-estimate): index = Math.round(raw * 4)
+ *   0 → BELL, 1 → LOW_SHELF, 2 → HIGH_SHELF, 3 → HIGH_PASS, 4 → LOW_PASS
+ *
+ * Observed values on 32SC fw 3.3.0.109659:
+ *   band 1 eqtype = 0.333 → LOW_SHELF (index 1, reasonable for low-band)
+ *   band 2,3,4 eqtype = 1.0 → LOW_PASS by index (but all mid/high bands
+ *   appeared as Bell in UC Surface — mapping is unverified; needs calibration).
+ */
+export const EqBandTypeSchema = z.enum([
+  'BELL',
+  'LOW_SHELF',
+  'HIGH_SHELF',
+  'HIGH_PASS',
+  'LOW_PASS',
+  'UNKNOWN',
+])
+export type EqBandType = z.infer<typeof EqBandTypeSchema>
+
+/**
+ * Normalized EQ band — values in real units with best-effort de-normalization.
+ *
+ * De-normalization formulas (CONFIDENCE: guessed — verify with probe-fat-channel):
+ *   gainDb      = (raw - 0.5) × 36                   (linear ±18 dB)
+ *   frequencyHz = 20 × 1000^raw                       (log scale 20 Hz – 20 kHz)
+ *   q           = 0.1 × 160^raw                       (log scale 0.1 – 16.0)
+ *   type        = EqBandTypeSchema[Math.round(raw×4)] (5 types, unverified mapping)
+ *
+ * TODO: confirm with `pnpm probe probe-fat-channel -d <ip> -c LINE:1` after
+ * setting known values in UC Surface.
+ */
+export const NormalizedEqBandSchema = z.object({
+  band: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  enabled: z.boolean().optional(),
+  gainDb: z.number().optional(),
+  frequencyHz: z.number().optional(),
+  q: z.number().optional(),
+  type: EqBandTypeSchema.optional(),
+})
+export type NormalizedEqBand = z.infer<typeof NormalizedEqBandSchema>
+
+/**
+ * Normalized Fat Channel state exposed in the channels MCP resource.
+ *
+ * Combines EQ, compressor, gate, and limiter in real units.
+ * All continuous parameter values use best-estimate de-normalization formulas.
+ * `parameterConfidence: 'guessed'` until probe-fat-channel calibration confirms.
+ *
+ * @see packages/presonus-inspector/src/cli/commands/probe-fat-channel.ts
+ */
+export const ChannelFatStateSchema = z.object({
+  /** Active EQ model name — confidence: observed (same decoder as channels resource) */
+  eqModel: z.string().optional(),
+  /** Active compressor model name — confidence: observed */
+  compModel: z.string().optional(),
+  /** Master EQ on/off switch */
+  eqEnabled: z.boolean().optional(),
+  /**
+   * EQ band parameters (up to 4 bands for STANDARD model).
+   * Absent if no EQ data in state.
+   */
+  eqBands: z.array(NormalizedEqBandSchema).optional(),
+  /** High-pass filter cutoff frequency in Hz (guessed: same log formula as EQ freq) */
+  hpfFrequencyHz: z.number().optional(),
+  /** Compressor/dynamics state */
+  comp: z.object({
+    enabled: z.boolean().optional(),
+    /** Threshold in dBFS. Guessed: (raw_input - 1) × 60, giving -60 to 0 dBFS. */
+    thresholdDb: z.number().optional(),
+    /** Makeup gain in dB. Guessed: raw_output × 24, giving 0 to +24 dB. */
+    makeupDb: z.number().optional(),
+    /** Ratio (linear). Guessed: 1 + raw_ratio × 15, giving 1.0× to 16.0×. */
+    ratioX: z.number().optional(),
+    /** Attack in ms. Guessed: raw × 150 ms. */
+    attackMs: z.number().optional(),
+    /** Release in ms. Guessed: raw × 2000 ms. */
+    releaseMs: z.number().optional(),
+  }).optional(),
+  /** Gate/expander state */
+  gate: z.object({
+    enabled: z.boolean().optional(),
+    /** Threshold in dBFS. Guessed: (raw - 1) × 80, giving -80 to 0 dBFS. */
+    thresholdDb: z.number().optional(),
+    /** Attack in ms. Guessed: raw × 150 ms. */
+    attackMs: z.number().optional(),
+    /** Release in ms. Guessed: raw × 2000 ms. */
+    releaseMs: z.number().optional(),
+    /** Range in dB. Guessed: raw × -80 dB. */
+    rangeDb: z.number().optional(),
+    /** true = expander mode, false = gate mode */
+    expander: z.boolean().optional(),
+  }).optional(),
+  /** Limiter state */
+  limiter: z.object({
+    enabled: z.boolean().optional(),
+    /** Threshold in dBFS. Guessed: (raw - 1) × 20, giving -20 to 0 dBFS. */
+    thresholdDb: z.number().optional(),
+    /** Release in ms. Guessed: raw × 2000 ms. */
+    releaseMs: z.number().optional(),
+  }).optional(),
+  /**
+   * Calibration confidence of all continuous parameter values.
+   * 'guessed'  = best-estimate formulas; verify with probe-fat-channel.
+   * 'observed' = confirmed via probe-fat-channel on physical 32SC hardware.
+   */
+  parameterConfidence: z.enum(['observed', 'guessed']),
+})
+export type ChannelFatState = z.infer<typeof ChannelFatStateSchema>
+
+// ---------------------------------------------------------------------------
+// De-normalization helpers (raw 0–1 → real units)
+// CONFIDENCE: guessed — update after probe-fat-channel calibration
+// ---------------------------------------------------------------------------
+
+/** EQ gain: linear ±18 dB. raw=0→-18 dB, raw=0.5→0 dB, raw=1→+18 dB */
+export function normalizedToEqGainDb(raw: number): number {
+  return (raw - 0.5) * 36
+}
+
+/** EQ frequency: log scale 20 Hz – 20 kHz. raw=0→20 Hz, raw=0.5→632 Hz, raw=1→20000 Hz */
+export function normalizedToEqFreqHz(raw: number): number {
+  return 20 * Math.pow(1000, raw)
+}
+
+/** EQ Q factor: log scale 0.1 – 16. raw=0→0.1, raw=0.5→1.26, raw=1→16 */
+export function normalizedToEqQ(raw: number): number {
+  return 0.1 * Math.pow(160, raw)
+}
+
+/** EQ filter type from raw float. Mapping is guessed — needs probe calibration. */
+export function normalizedToEqBandType(raw: number): EqBandType {
+  const types: EqBandType[] = ['BELL', 'LOW_SHELF', 'HIGH_SHELF', 'HIGH_PASS', 'LOW_PASS']
+  return types[Math.round(raw * 4)] ?? 'UNKNOWN'
+}
+
+/** Comp threshold: linear -60 to 0 dBFS */
+export function normalizedToCompThresholdDb(raw: number): number {
+  return (raw - 1) * 60
+}
+
+/** Comp makeup gain: linear 0 to +24 dB */
+export function normalizedToCompMakeupDb(raw: number): number {
+  return raw * 24
+}
+
+/** Comp ratio: linear 1× to 16×. raw=0→1:1, raw=1→16:1 */
+export function normalizedToCompRatioX(raw: number): number {
+  return 1 + raw * 15
+}
+
+/** Comp/gate attack: linear 0 to 150 ms */
+export function normalizedToAttackMs(raw: number): number {
+  return raw * 150
+}
+
+/** Comp/gate/limiter release: linear 0 to 2000 ms */
+export function normalizedToReleaseMs(raw: number): number {
+  return raw * 2000
+}
+
+/** Gate threshold: linear -80 to 0 dBFS */
+export function normalizedToGateThresholdDb(raw: number): number {
+  return (raw - 1) * 80
+}
+
+/** Gate range: linear 0 to -80 dB */
+export function normalizedToGateRangeDb(raw: number): number {
+  return raw * -80
+}
+
+/** Limiter threshold: linear -20 to 0 dBFS */
+export function normalizedToLimiterThresholdDb(raw: number): number {
+  return (raw - 1) * 20
+}
+
+// ---------------------------------------------------------------------------
+// Inverse de-normalization helpers (real units → raw 0–1 for write tools)
+// CONFIDENCE: guessed — same calibration caveat applies
+// ---------------------------------------------------------------------------
+
+/** EQ gain dB → raw 0–1. Clamps to ±18 dB range. */
+export function eqGainDbToNormalized(db: number): number {
+  return Math.max(0, Math.min(1, db / 36 + 0.5))
+}
+
+/** EQ frequency Hz → raw 0–1. Clamps to 20–20000 Hz range. */
+export function eqFreqHzToNormalized(hz: number): number {
+  const clamped = Math.max(20, Math.min(20000, hz))
+  return Math.log(clamped / 20) / Math.log(1000)
+}
+
+/** EQ Q factor → raw 0–1. Clamps to 0.1–16 range. */
+export function eqQToNormalized(q: number): number {
+  const clamped = Math.max(0.1, Math.min(16, q))
+  return Math.log(clamped / 0.1) / Math.log(160)
+}
+
+/** Comp threshold dBFS → raw 0–1. Clamps to -60–0 dBFS range. */
+export function compThresholdDbToNormalized(db: number): number {
+  return Math.max(0, Math.min(1, db / 60 + 1))
+}
+
+/** Comp makeup dB → raw 0–1. Clamps to 0–24 dB range. */
+export function compMakeupDbToNormalized(db: number): number {
+  return Math.max(0, Math.min(1, db / 24))
+}
+
+/** Comp ratio X → raw 0–1. Clamps to 1–16× range. */
+export function compRatioXToNormalized(ratioX: number): number {
+  return Math.max(0, Math.min(1, (ratioX - 1) / 15))
+}

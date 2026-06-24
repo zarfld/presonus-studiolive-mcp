@@ -88,3 +88,69 @@ describe('PresonusMeterSummarizer', () => {
     expect(new Date(summary.computedAt).getTime()).toBeGreaterThan(0)
   })
 })
+
+import { rawToDbfs } from '../meter-summarizer.js'
+
+describe('rawToDbfs', () => {
+  it('returns ~0 dBFS for full-scale (65535)', () => {
+    const db = rawToDbfs(65535)
+    expect(db).not.toBeNull()
+    expect(db!).toBeCloseTo(0, 1)
+  })
+
+  it('returns null for raw=0 (no signal)', () => {
+    expect(rawToDbfs(0)).toBeNull()
+  })
+
+  it('returns null for negative raw values', () => {
+    expect(rawToDbfs(-1)).toBeNull()
+  })
+
+  it('matches empirical clip threshold comment (~-0.77 dBFS at raw=60000)', () => {
+    const db = rawToDbfs(60_000)
+    expect(db).not.toBeNull()
+    expect(db!).toBeCloseTo(-0.77, 1)
+  })
+
+  it('matches empirical hot threshold comment (~-3.07 dBFS at raw=46000)', () => {
+    const db = rawToDbfs(46_000)
+    expect(db).not.toBeNull()
+    expect(db!).toBeCloseTo(-3.07, 1)
+  })
+
+  it('matches empirical ok threshold comment (~-20 dBFS at raw=6554)', () => {
+    const db = rawToDbfs(6_554)
+    expect(db).not.toBeNull()
+    expect(db!).toBeCloseTo(-20.0, 1)
+  })
+
+  it('matches empirical low threshold comment (~-40 dBFS at raw=655)', () => {
+    const db = rawToDbfs(655)
+    expect(db).not.toBeNull()
+    expect(db!).toBeCloseTo(-40.0, 1)
+  })
+})
+
+describe('PresonusMeterSummarizer — dBFS integration', () => {
+  it('populates db field on meter readings', () => {
+    const s = new PresonusMeterSummarizer({
+      thresholds: { clipThreshold: 250, hotThreshold: 220, okThreshold: 100, lowThreshold: 10 },
+    })
+    s.ingest({ channels: [200, 0], timestamp: Date.now() })
+    const summary = s.getSummary(10)
+    // channelPeakDbfs should be present for active channels only
+    expect(summary.channelPeakDbfs).toBeDefined()
+    expect(summary.channelPeakDbfs!['line.ch1']).toBeDefined()
+    expect(summary.channelPeakDbfs!['line.ch1']).toBeLessThan(0)  // sub-0 dBFS
+    // Silent channel (ch2 raw=0) should NOT appear in channelPeakDbfs
+    expect(summary.channelPeakDbfs!['line.ch2']).toBeUndefined()
+  })
+
+  it('channelPeakDbfs is absent when all channels are silent', () => {
+    const s = new PresonusMeterSummarizer()
+    s.ingest({ channels: [0, 0], timestamp: Date.now() })
+    const summary = s.getSummary(10)
+    // All raw=0 → db=null → no entries → undefined
+    expect(summary.channelPeakDbfs).toBeUndefined()
+  })
+})

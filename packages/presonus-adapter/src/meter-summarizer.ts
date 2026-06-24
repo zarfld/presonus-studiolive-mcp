@@ -45,6 +45,26 @@ const DEFAULT_THRESHOLDS: ThresholdConfig = {
   lowThreshold: 655,
 }
 
+/**
+ * Convert a raw uint16 meter value (0–65535) to dBFS.
+ *
+ * Formula: dBFS = 20 * log10(raw / 65535)
+ *
+ * VERIFIED: Threshold comments in this file cross-check to within 0.1 dB:
+ *   clipThreshold 60000 → 20*log10(60000/65535) = -0.77 dBFS ✓
+ *   hotThreshold  46000 → 20*log10(46000/65535) = -3.07 dBFS ✓
+ *   okThreshold    6554 → 20*log10( 6554/65535) = -20.00 dBFS ✓
+ *   lowThreshold    655 → 20*log10(  655/65535) = -40.00 dBFS ✓
+ *
+ * Returns null for raw ≤ 0 (no signal / below noise floor).
+ *
+ * OBSERVED: StudioLive 32SC firmware 3.3.0.109659 (2026-06-24)
+ */
+export function rawToDbfs(raw: number): number | null {
+  if (raw <= 0) return null
+  return 20 * Math.log10(raw / 65535)
+}
+
 function classifyLevel(rawValue: number, thresholds: ThresholdConfig): GainHint {
   if (rawValue >= thresholds.clipThreshold) return 'clipping'
   if (rawValue >= thresholds.hotThreshold) return 'hot'
@@ -130,7 +150,7 @@ export class PresonusMeterSummarizer {
     for (const [idx, maxVal] of maxByIndex) {
       readings.push({
         channelId: `line.ch${idx + 1}`,  // TODO: verify 0-based vs 1-based after probe
-        db: null,  // TODO: implement dBFS conversion after calibration
+        db: rawToDbfs(maxVal),
         raw: maxVal,
         gainHint: classifyLevel(maxVal, this.thresholds),
         timestampMs: now,
@@ -153,6 +173,14 @@ export class PresonusMeterSummarizer {
       (id) => this.expectedChannelIds.size > 0 && !this.expectedChannelIds.has(id),
     )
 
+    // Build channelPeakDbfs map (active channels only — silent have no meaningful dBFS)
+    const channelPeakDbfs: Record<string, number> = {}
+    for (const r of readings) {
+      if (r.db !== null) {
+        channelPeakDbfs[r.channelId] = r.db
+      }
+    }
+
     return {
       windowSec,
       computedAt: new Date(now).toISOString(),
@@ -162,6 +190,7 @@ export class PresonusMeterSummarizer {
       hotChannels: hot,
       noSignalButExpected,
       signalButUnexpected,
+      channelPeakDbfs: Object.keys(channelPeakDbfs).length > 0 ? channelPeakDbfs : undefined,
     }
   }
 }

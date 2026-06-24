@@ -46,6 +46,11 @@ export async function createServer(config: ServerConfig = {}): Promise<McpServer
   // Register tools (write tools only when explicitly enabled — ADR-005 #10)
   registerTools(server, clientManager, { writeEnabled })
 
+  // Propagate write mode to adapter (gates applyChange() per device)
+  if (writeEnabled) {
+    clientManager.setAllWriteEnabled(true)
+  }
+
   // Start background discovery if enabled
   if (config.discovery?.enabled !== false) {
     const timeoutMs = config.discovery?.timeoutMs ?? 5000

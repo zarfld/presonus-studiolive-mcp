@@ -11,6 +11,13 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { PresonusClientManager } from '@presonus-mcp/adapter'
+import type { MixerSnapshot } from '@presonus-mcp/adapter'
+
+/** Build stale metadata to inject into resource responses when the connection is lost. */
+function staleMetadata(snapshot: MixerSnapshot | undefined): Record<string, unknown> {
+  if (!snapshot?.isStale) return {}
+  return { _stale: true, _disconnectedAt: snapshot.disconnectedAt }
+}
 
 export function registerResources(
   server: McpServer,
@@ -45,7 +52,7 @@ export function registerResources(
       return {
         contents: [{
           uri: `presonus://mixer/${String(deviceId)}/channels`,
-          text: JSON.stringify(channels, null, 2),
+          text: JSON.stringify({ channels, ...staleMetadata(snapshot) }, null, 2),
           mimeType: 'application/json',
         }],
       }
@@ -58,6 +65,7 @@ export function registerResources(
     new ResourceTemplate('presonus://mixer/{deviceId}/meters/summary', { list: undefined }),
     { description: 'Time-windowed meter summary: silent/active/hot/clipping channel classification' },
     async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
       const summarizer = clientManager.getSummarizer(String(deviceId))
       const summary = summarizer?.getSummary(10) ?? {
         windowSec: 0,
@@ -72,7 +80,7 @@ export function registerResources(
       return {
         contents: [{
           uri: `presonus://mixer/${String(deviceId)}/meters/summary`,
-          text: JSON.stringify(summary, null, 2),
+          text: JSON.stringify({ ...summary, ...staleMetadata(snapshot) }, null, 2),
           mimeType: 'application/json',
         }],
       }
@@ -90,6 +98,7 @@ export function registerResources(
         currentProject: snapshot?.currentProject ?? null,
         currentScene: snapshot?.currentScene ?? null,
         availableProjects: snapshot?.availableProjects ?? [],
+        ...staleMetadata(snapshot),
       }
       return {
         contents: [{
@@ -111,7 +120,7 @@ export function registerResources(
       return {
         contents: [{
           uri: `presonus://mixer/${String(deviceId)}/raw/state`,
-          text: JSON.stringify(snapshot?.rawState ?? {}, null, 2),
+          text: JSON.stringify({ ...snapshot?.rawState ?? {}, ...staleMetadata(snapshot) }, null, 2),
           mimeType: 'application/json',
         }],
       }
