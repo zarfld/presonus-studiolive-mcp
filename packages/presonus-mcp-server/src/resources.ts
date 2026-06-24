@@ -126,4 +126,50 @@ export function registerResources(
       }
     },
   )
+
+  // ─── presonus://mixer/{id}/routing ─────────────────────────────────────────
+  // @implements #31 REQ-F-ROUT-001: per-channel AUX/FX/SUB send routing
+  // @architecture #29 ADR-007
+  server.resource(
+    'mixer-routing',
+    new ResourceTemplate('presonus://mixer/{deviceId}/routing', { list: undefined }),
+    { description: 'Per-channel send routing: AUX sends (1–32), FX sends (FXA–FXH), subgroup assigns (1–4), main LR. parameterConfidence=guessed until AUX probe calibration.' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      const channelRouting = (snapshot?.channels ?? []).map((ch) => ({
+        channelId: ch.id,
+        channelName: ch.name,
+        sendRouting: ch.sendRouting,
+      }))
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/routing`,
+          text: JSON.stringify({ channels: channelRouting, ...staleMetadata(snapshot) }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/routing/outputs ─────────────────────────────────
+  // @implements #37 REQ-F-ROUT-007: output patch router
+  // @implements #30 REQ-NF-ROUT-001: confidence field on routing data
+  server.resource(
+    'mixer-routing-outputs',
+    new ResourceTemplate('presonus://mixer/{deviceId}/routing/outputs', { list: undefined }),
+    { description: 'Output patch router: analog output source assignments. sourceName=null and confidence=not_verifiable_with_current_adapter until probe diff-state confirms index→source mapping.' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/routing/outputs`,
+          text: JSON.stringify({
+            outputPatch: snapshot?.outputPatch ?? null,
+            ...staleMetadata(snapshot),
+          }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
 }

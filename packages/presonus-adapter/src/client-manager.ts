@@ -19,7 +19,7 @@
 import type { MixerIdentity } from '@presonus-mcp/domain'
 import type { MixerSnapshot } from './state-mapper.js'
 import type { RawStateTree, RawMeterPacket } from './types.js'
-import { mapRawStateToSnapshot, buildSnapshotFromFlatState } from './state-mapper.js'
+import { mapRawStateToSnapshot, buildSnapshotFromFlatState, deriveCapabilities } from './state-mapper.js'
 import { PresonusMeterSummarizer } from './meter-summarizer.js'
 
 /**
@@ -392,6 +392,17 @@ export class PresonusClientManager {
   /** Get identity for a connected device */
   getIdentity(deviceId: string): MixerIdentity | undefined {
     return this.connections.get(deviceId)?.identity
+  }
+
+  /**
+   * Get mixer capabilities for a device.
+   * Derives from known model table + current flatState (if available).
+   */
+  getCapabilities(deviceId: string) {
+    const conn = this.connections.get(deviceId)
+    const model = conn?.identity?.model ?? ''
+    const flatState = conn?.snapshot?.flatState ?? {}
+    return deriveCapabilities(model, flatState)
   }
 
   /**

@@ -51,6 +51,12 @@ export const KNOWN_GLOBAL_KEYS = {
   /** Serial number, e.g. "SD7E21010066" */
   MIXER_SERIAL: 'global.mixer_serial',
   /**
+   * Stagebox slave mode (0 = standalone FOH, 1 = stagebox/slave to another mixer).
+   * OBSERVED: StudioLive 32SC firmware 3.3.0.109659 (2026-06-24).
+   * Used by validate_stagebox_routing (#34).
+   */
+  STAGEBOX_MODE: 'global.stagebox_mode',
+  /**
    * Loaded project title (short name), e.g. "32SCKellersessions".
    * OBSERVED: StudioLive 32SC firmware 3.3.0.109659 (2026-06-24).
    * Prefer this over PRESETS_PROJECT_NAME for display.
@@ -139,4 +145,48 @@ export const KNOWN_FAT_KEY_SUFFIXES = {
   LIMIT_RELEASE: '.limit.release',
   // ── High-pass filter ────────────────────────────────────────────────────
   FILTER_HPF: '.filter.hpf',
+} as const
+
+/**
+ * Known per-channel send routing key suffixes (relative to `line.chN` prefix).
+ * OBSERVED on StudioLive 32SC firmware 3.3.0.109659 (2026-06-24).
+ *
+ * All send levels are normalized floats (0.0–1.0).
+ * assign_auxN and subN are booleans / integers (0 or 1).
+ * lr is integer (0 = not assigned to main LR, 1 = assigned).
+ */
+export const KNOWN_SEND_ROUTING_KEY_SUFFIXES = {
+  // ── AUX sends (1–32) ────────────────────────────────────────────────────
+  // aux1–aux32: send level (normalized float 0–1)
+  // assign_aux1–assign_aux32: boolean, channel assigned to this AUX bus
+  AUX_SEND_PREFIX: '.aux',          // e.g. ".aux1" → ".aux32"
+  AUX_ASSIGN_PREFIX: '.assign_aux', // e.g. ".assign_aux1" → ".assign_aux32"
+  AUX_BUS_COUNT: 32,
+  // ── FX sends (FXA–FXH) ──────────────────────────────────────────────────
+  FX_SEND_A: '.FXA', FX_SEND_B: '.FXB', FX_SEND_C: '.FXC', FX_SEND_D: '.FXD',
+  FX_SEND_E: '.FXE', FX_SEND_F: '.FXF', FX_SEND_G: '.FXG', FX_SEND_H: '.FXH',
+  // ── Subgroup assigns (sub1–sub4) ─────────────────────────────────────────
+  SUB_PREFIX: '.sub',  // e.g. ".sub1" → ".sub4"
+  SUB_BUS_COUNT: 4,
+  // ── Main LR assign ───────────────────────────────────────────────────────
+  /** line.chN.lr: 0 = not assigned to main LR, 1 = assigned */
+  MAIN_LR: '.lr',
+} as const
+
+/**
+ * Output patch router state key patterns.
+ * OBSERVED on StudioLive 32SC firmware 3.3.0.109659 (2026-06-24).
+ *
+ * mix1_src through mix16_src: analog output assignments.
+ * avb1_src through avb8_src: AVB stream output assignments.
+ * Each key has .value (normalized 0–1), .range.max (max index), .range.units.
+ *
+ * sourceIndex = Math.round(value * range.max)
+ * For 32SC analog outs: range.max = 27 (= 28 sources 0–27). Source name mapping: UNVERIFIED.
+ */
+export const OUTPUT_PATCH_KEY_PATTERNS = {
+  ANALOG_PREFIX: 'outputpatchrouter.mix',   // e.g. 'outputpatchrouter.mix1_src.value'
+  AVB_PREFIX: 'outputpatchrouter.avb',      // e.g. 'outputpatchrouter.avb1_src.value'
+  ANALOG_COUNT: 16,
+  AVB_COUNT: 8,
 } as const

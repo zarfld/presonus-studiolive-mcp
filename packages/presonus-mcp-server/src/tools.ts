@@ -21,6 +21,9 @@ import {
   normalizedToEqFreqHz,
   normalizedToEqQ,
   type ProposedChangeSet,
+  type NoSignalDiagnosis,
+  type PatchSwapDetection,
+  type RoutingValidationReport,
 } from '@presonus-mcp/domain'
 
 export interface ToolsConfig {
@@ -131,6 +134,342 @@ export function registerTools(
         content: [{
           type: 'text' as const,
           text: JSON.stringify({ valid: reasons.length === 0, reasons }),
+        }],
+      }
+    },
+  )
+
+  // ─── get_routing_graph ───────────────────────────────────────────────────
+  // @implements #32 REQ-F-ROUT-002
+  server.tool(
+    'get_routing_graph',
+    'Return the consolidated routing state for a mixer: per-channel AUX/FX/SUB sends and output patch routing. Includes confidence fields (not_verifiable_with_current_adapter for unprobed items). Read-only — no mixer changes.',
+    { deviceId: z.string() },
+    async ({ deviceId }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const routing = {
+        deviceId,
+        capturedAt: snapshot.capturedAt,
+        isStale: snapshot.isStale,
+        channelCount: snapshot.channels.length,
+        channels: snapshot.channels.map((ch) => ({
+          channelId: ch.id,
+          channelName: ch.name,
+          sendRouting: ch.sendRouting,
+        })),
+        outputPatch: snapshot.outputPatch ?? null,
+        globalConfidence: snapshot.outputPatch?.globalConfidence ?? 'not_verifiable_with_current_adapter',
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(routing, null, 2) }] }
+    },
+  )
+
+  // ─── validate_input_routing ───────────────────────────────────────────────
+  // @implements #33 REQ-F-ROUT-003
+  server.tool(
+    'validate_input_routing',
+    'Validate expected input routes against actual mixer state. Checks meter signal, mute, and channel name per expected route. Physical source routing is always not_verifiable_with_current_adapter (software cannot see cable connections).',
+    {
+      deviceId: z.string(),
+      expectedRoutes: z.array(z.object({
+        channelId: z.string().describe('Channel ID, e.g. "line.ch7"'),
+        signalName: z.string().describe('Expected signal on this channel, e.g. "Lead Vox"'),
+      })).describe('List of expected channel→signal assignments'),
+    },
+    async ({ deviceId, expectedRoutes }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      const summarizer = clientManager.getSummarizer(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected' }) }], isError: true }
+      }
+      const meterSummary = summarizer?.getSummary(10)
+      const silentSet  = new Set(meterSummary?.silentChannels ?? [])
+      const activeSet  = new Set(meterSummary?.activeChannels ?? [])
+      const clippingSet = new Set(meterSummary?.clippingChannels ?? [])
+
+      const routes: RoutingValidationReport['routes'] = expectedRoutes.map(({ channelId, signalName }) => {
+        const ch = snapshot.channels.find((c) => c.id === channelId)
+        const meterResult = !meterSummary ? 'unknown'
+          : clippingSet.has(channelId) ? 'clipping'
+          : activeSet.has(channelId) ? 'active'
+          : silentSet.has(channelId) ? 'silent'
+          : 'unknown'
+
+        let status: RoutingValidationReport['routes'][0]['status']
+        if (meterResult === 'silent') status = 'missing'
+        else if (meterResult === 'active' || meterResult === 'clipping') {
+          // Check if muted
+          if (ch?.mute) status = 'ambiguous'
+          else status = 'ok'
+        } else status = 'unknown'
+
+        const nameMatch = ch?.name === signalName || ch?.name?.toLowerCase().includes(signalName.toLowerCase())
+
+        return {
+          sourceDeviceId: 'not_verifiable_with_current_adapter',
+          sourcePort: 'not_verifiable_with_current_adapter',
+          destinationDeviceId: deviceId,
+          destinationPort: channelId,
+          signalName,
+          expected: true,
+          actual: meterResult !== 'silent',
+          status,
+          confidence: 'not_verifiable_with_current_adapter' as const,
+          detail: [
+            `meter: ${meterResult}`,
+            ch?.mute ? 'channel is MUTED' : undefined,
+            nameMatch === false ? `channel labeled "${ch?.name ?? '(unknown)'}" — expected "${signalName}"` : undefined,
+          ].filter(Boolean).join('; ') || undefined,
+        }
+      })
+
+      const ok = routes.filter((r) => r.status === 'ok').length
+      const missing = routes.filter((r) => r.status === 'missing').length
+      const unknown = routes.filter((r) => r.status === 'unknown').length
+
+      const report: RoutingValidationReport = {
+        sourceDeviceId: 'not_verifiable_with_current_adapter',
+        targetDeviceId: deviceId,
+        validatedAt: new Date().toISOString(),
+        routes,
+        summary: { ok, missing, unexpected: 0, unknown, not_verifiable: routes.length },
+        issues: routes.filter((r) => r.status !== 'ok').map((r) => `${r.destinationPort} (${r.signalName ?? '?'}): ${r.status}`),
+        globalConfidence: 'not_verifiable_with_current_adapter',
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }] }
+    },
+  )
+
+  // ─── validate_stagebox_routing ────────────────────────────────────────────
+  // @implements #34 REQ-F-ROUT-004
+  server.tool(
+    'validate_stagebox_routing',
+    'Check whether a stagebox (32R) is detected and configured as slave to this mixer. Reads global.stagebox_mode state key and connected device roles. AVB routing is not_verifiable_with_current_adapter (requires 32R probe session).',
+    {
+      deviceId: z.string(),
+      expectedStageboxSerial: z.string().optional().describe('Expected serial of the stagebox device, if known'),
+    },
+    async ({ deviceId, expectedStageboxSerial }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected' }) }], isError: true }
+      }
+      const stageboxMode = snapshot.flatState['global.stagebox_mode']
+      const stageboxModeValue = typeof stageboxMode === 'number' ? stageboxMode : null
+
+      // Check if any connected device has STAGEBOX role
+      const connectedIds = clientManager.getConnectedDeviceIds()
+      const stageboxDevice = connectedIds
+        .map((id) => clientManager.getIdentity(id))
+        .find((identity) => identity?.role === 'STAGEBOX')
+
+      const result = {
+        deviceId,
+        stageboxMode: stageboxModeValue,
+        stageboxPresent: stageboxModeValue === 1 || stageboxDevice !== undefined,
+        stageboxDevice: stageboxDevice ? {
+          deviceId: stageboxDevice.deviceId,
+          serial: stageboxDevice.serial,
+          name: stageboxDevice.name,
+        } : null,
+        serialMatch: expectedStageboxSerial
+          ? stageboxDevice?.serial === expectedStageboxSerial
+          : null,
+        avbStreamRouting: 'not_verifiable_with_current_adapter',
+        confidence: stageboxModeValue !== null ? 'guessed' : 'not_verifiable_with_current_adapter',
+        note: 'AVB routing details require a probe session with 32R hardware connected.',
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    },
+  )
+
+  // ─── diagnose_no_signal_routing ───────────────────────────────────────────
+  // @implements #35 REQ-F-ROUT-005
+  server.tool(
+    'diagnose_no_signal_routing',
+    'Structured diagnosis for a channel that should have signal but appears silent. Checks meter, mute, fader, gate, and stagebox presence. Returns likelyCauses[] and safeNextSteps[]. Physical routing is not_verifiable — the tool does NOT guess about cable connections.',
+    {
+      deviceId: z.string(),
+      channelId: z.string().describe('Channel ID to diagnose, e.g. "line.ch7"'),
+      expectedSource: z.string().optional().describe('Human label for expected source, e.g. "Lead Vox"'),
+    },
+    async ({ deviceId, channelId, expectedSource }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      const summarizer = clientManager.getSummarizer(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected' }) }], isError: true }
+      }
+
+      const ch = snapshot.channels.find((c) => c.id === channelId)
+      const meterSummary = summarizer?.getSummary(10)
+      const isSilent   = meterSummary?.silentChannels.includes(channelId) ?? null
+      const isActive   = meterSummary?.activeChannels.includes(channelId) ?? null
+      const isClipping = meterSummary?.clippingChannels.includes(channelId) ?? null
+
+      const checks: NoSignalDiagnosis['checks'] = []
+      const likelyCauses: string[] = []
+      const safeNextSteps: string[] = []
+
+      // Check 1: Meter
+      const meterResult = !meterSummary ? 'no_data'
+        : isClipping ? 'clipping'
+        : isActive ? 'active'
+        : isSilent ? 'silent'
+        : 'no_data'
+      checks.push({ check: 'meter', result: meterResult, detail: meterSummary ? `Window: ${meterSummary.windowSec}s` : 'No meter data yet' })
+
+      // Check 2: Mute
+      const muteResult = ch === undefined ? 'unknown' : ch.mute ? 'muted' : 'unmuted'
+      checks.push({ check: 'mute', result: muteResult })
+      if (muteResult === 'muted') {
+        likelyCauses.push('Channel is muted')
+        safeNextSteps.push(`Unmute channel ${channelId}`)
+      }
+
+      // Check 3: Fader
+      const faderLevel = ch?.fader?.linear ?? null
+      const faderResult = faderLevel === null ? 'unknown'
+        : faderLevel < 0.01 ? 'zero'
+        : faderLevel < 0.2  ? 'low'
+        : 'active'
+      checks.push({ check: 'fader', result: faderResult, detail: faderLevel !== null ? `linear=${faderLevel.toFixed(3)}` : undefined })
+      if (faderResult === 'zero') {
+        likelyCauses.push('Channel fader is at minimum (zero)')
+        safeNextSteps.push(`Raise the channel fader on ${channelId}`)
+      } else if (faderResult === 'low') {
+        likelyCauses.push('Channel fader is very low')
+        safeNextSteps.push(`Check channel fader level on ${channelId}`)
+      }
+
+      // Check 4: Gate/expander
+      const gateEnabled = ch?.fatChannel?.gate?.enabled ?? null
+      const gateResult = gateEnabled === null ? 'unknown'
+        : gateEnabled ? 'enabled_check_threshold' : 'disabled'
+      checks.push({ check: 'gate', result: gateResult, detail: ch?.fatChannel?.gate ? `threshold=${ch.fatChannel.gate.thresholdDb?.toFixed(1) ?? '?'} dBFS` : undefined })
+      if (gateResult === 'enabled_check_threshold') {
+        likelyCauses.push('Noise gate may be choking signal (threshold may be too high)')
+        safeNextSteps.push('Check gate threshold — lower it or disable the gate temporarily to isolate the issue')
+      }
+
+      // Check 5: Stagebox
+      const stageboxMode = snapshot.flatState['global.stagebox_mode']
+      const stageboxResult = stageboxMode === 1 ? 'present' : stageboxMode === 0 ? 'absent' : 'unknown'
+      checks.push({ check: 'stagebox', result: stageboxResult })
+      if (stageboxResult === 'absent') {
+        likelyCauses.push('Stagebox not connected (no external signal source via AVB)')
+      }
+
+      // Inconclusive adds — physical routing always not_verifiable
+      if (meterResult === 'silent' || meterResult === 'no_data') {
+        likelyCauses.push('Wrong input routing (software-unverifiable — not_verifiable_with_current_adapter)')
+        likelyCauses.push('Wrong physical XLR patch (software-unverifiable — not_verifiable_with_current_adapter)')
+        safeNextSteps.push(`Ask ${expectedSource ?? 'performer'} to send signal again`)
+        safeNextSteps.push('Check physical XLR cable and connector at stagebox/console')
+      }
+
+      const diagnosedIssues = checks.filter((c) => !['unmuted', 'active', 'clipping', 'disabled', 'present'].includes(c.result)).length
+      const status: NoSignalDiagnosis['status'] = meterResult === 'active' || meterResult === 'clipping' ? 'ok'
+        : muteResult === 'muted' || faderResult === 'zero' ? 'problem'
+        : diagnosedIssues > 0 ? 'partial'
+        : 'inconclusive'
+
+      const diagnosis: NoSignalDiagnosis = {
+        deviceId, channelId, expectedSource, status,
+        checks, likelyCauses, safeNextSteps,
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(diagnosis, null, 2) }] }
+    },
+  )
+
+  // ─── detect_possible_patch_swap ───────────────────────────────────────────
+  // @implements #36 REQ-F-ROUT-006
+  server.tool(
+    'detect_possible_patch_swap',
+    'Cross-correlate expected channel signal assignments with actual meter activity and channel labels to identify possible physical cable swap errors. Returns possibleSwaps[] with evidence.',
+    {
+      deviceId: z.string(),
+      expectedChannels: z.array(z.object({
+        channelId: z.string(),
+        signalName: z.string(),
+      })).describe('Expected channel-to-signal assignments from rider/patch plan'),
+    },
+    async ({ deviceId, expectedChannels }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      const summarizer = clientManager.getSummarizer(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected' }) }], isError: true }
+      }
+      const meterSummary = summarizer?.getSummary(10)
+      const activeSet  = new Set(meterSummary?.activeChannels ?? [])
+      const silentSet  = new Set(meterSummary?.silentChannels ?? [])
+
+      const expectedIds = new Set(expectedChannels.map((e) => e.channelId))
+      const silentExpected = expectedChannels.filter((e) => silentSet.has(e.channelId))
+      const activeUnexpected = (meterSummary?.activeChannels ?? []).filter((id) => !expectedIds.has(id))
+
+      // Build channel name lookup from snapshot
+      const nameById = new Map(snapshot.channels.map((ch) => [ch.id, ch.name ?? '']))
+
+      // Detect label swaps: channel A labeled with signal B, channel B labeled with signal A
+      const possibleSwaps: PatchSwapDetection['possibleSwaps'] = []
+      for (const silent of silentExpected) {
+        for (const { channelId, signalName } of expectedChannels) {
+          if (channelId === silent.channelId) continue
+          // Check if the name of the silent channel appears where the active channel's name should be
+          const silentChName  = nameById.get(silent.channelId) ?? ''
+          const activeChName  = nameById.get(channelId) ?? ''
+          const silentMatches = silentChName.toLowerCase().includes(signalName.toLowerCase())
+          const activeMatches = activeChName.toLowerCase().includes(silent.signalName.toLowerCase())
+          if ((silentMatches || activeMatches) && activeSet.has(channelId)) {
+            possibleSwaps.push({
+              channelA: silent.channelId,
+              channelB: channelId,
+              channelALabel: silentChName || undefined,
+              channelBLabel: activeChName || undefined,
+              evidence: `${silent.channelId} silent (expected "${silent.signalName}", labeled "${silentChName}"); ${channelId} active (expected "${signalName}", labeled "${activeChName}")`,
+              confidence: 'guessed',
+            })
+          }
+        }
+      }
+
+      const result: PatchSwapDetection = {
+        deviceId,
+        analyzedAt: new Date().toISOString(),
+        possibleSwaps,
+        silentChannelsNotInExpectedList: silentExpected.map((e) => e.channelId),
+        unexpectedActiveChannels: activeUnexpected,
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    },
+  )
+
+  // ─── get_mixer_capabilities ──────────────────────────────────────────────
+  server.tool(
+    'get_mixer_capabilities',
+    'Return the hardware capabilities of a mixer (input count, aux mix count, FX buses, subgroups, Fat Channel availability, AVB stagebox support). Used by the sound engineer agent to validate capacity before planning channel/aux/FX assignments. Derived from known model table with live-state override.',
+    { deviceId: z.string() },
+    async ({ deviceId }) => {
+      const identity = clientManager.getIdentity(deviceId)
+      if (!identity) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }],
+          isError: true,
+        }
+      }
+      const caps = clientManager.getCapabilities(deviceId)
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            deviceId,
+            model: identity.model,
+            role: identity.role,
+            capabilities: caps,
+          }, null, 2),
         }],
       }
     },

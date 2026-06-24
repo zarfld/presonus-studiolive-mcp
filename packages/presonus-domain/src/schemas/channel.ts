@@ -11,6 +11,7 @@
  */
 import { z } from 'zod'
 import { ChannelFatStateSchema } from './fat-channel.js'
+import { ChannelSendRoutingSchema } from './routing.js'
 
 /**
  * Channel type enum — matches featherbear `ChannelTypes`.
@@ -96,6 +97,12 @@ export const MixerChannelSchema = z.object({
    * Absent when no DSP state is available in the current snapshot.
    */
   fatChannel: ChannelFatStateSchema.optional(),
+  /**
+   * Per-channel send routing: AUX sends (1–32), FX sends (FXA–FXH), subgroup assigns (1–4).
+   * Send levels are raw 0–1 linear values (parameterConfidence='guessed' until AUX probe).
+   * Absent when routing state not yet received from mixer.
+   */
+  sendRouting: ChannelSendRoutingSchema.optional(),
   /** Raw fields from mixer state not yet mapped to normalized fields */
   rawExtra: z.record(z.string(), z.unknown()).optional(),
 })
