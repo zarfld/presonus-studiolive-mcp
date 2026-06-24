@@ -1,0 +1,19 @@
+# Python Dependencies for Standards-Compliant Template
+
+# GitHub API Integration (for GitHub Issues traceability)
+PyGithub>=2.1.1
+
+# HTTP Requests (for REST API calls)
+requests>=2.31.0
+
+# YAML Processing (for configuration files)
+PyYAML>=6.0.1
+
+# Markdown Processing (for documentation generation)
+markdown>=3.5.0
+
+# Code Formatting (for Python scripts)
+black>=23.12.1
+
+# Linting (for Python scripts)
+pylint>=3.0.3
