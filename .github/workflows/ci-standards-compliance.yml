@@ -273,6 +273,9 @@ jobs:
           # the updated lockfile to restore --frozen-lockfile
           pnpm install --no-frozen-lockfile
           
+          echo "🏗️ Building workspace packages..."
+          pnpm run build
+          
           echo "🧪 Running vitest unit tests..."
           pnpm test
 
