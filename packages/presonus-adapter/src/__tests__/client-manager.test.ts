@@ -401,7 +401,11 @@ describe('PresonusClientManager — stale event-gap warning (REQ-NF-003 #23 Scen
 
     // Disconnect (sets conn.connected = false and clears interval)
     currentMockClient.emit('disconnect')
-    await vi.advanceTimersByTimeAsync(5000)
+    // Advance to just before the automatic reconnect fires (reconnect delay = 1000ms for attempt 1).
+    // Within this 999ms window, conn.connected is false so the guard suppresses any interval fires.
+    // Advancing further (> 1000ms) would trigger reconnect, which restarts the interval — that would
+    // be testing reconnect behaviour, not the disconnect guard.
+    await vi.advanceTimersByTimeAsync(999)
 
     const warnCalls = stderrSpy.mock.calls
       .map((c) => String(c[0]))
