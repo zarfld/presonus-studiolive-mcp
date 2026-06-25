@@ -169,31 +169,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install CMake and Build Tools (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential ninja-build
-
-      - name: Install CMake and Build Tools (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install cmake ninja
-
-      - name: Install CMake and Build Tools (Windows)
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
       - name: Detect and configure build system
         shell: bash
         run: |
@@ -220,6 +195,31 @@ jobs:
             echo "BUILD_SYSTEM=none" >> $GITHUB_ENV
             echo "⚠️ No standard build system detected"
           fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CMake and Build Tools (Ubuntu)
+        if: runner.os == 'Linux' && (env.BUILD_SYSTEM == 'cmake' || env.BUILD_SYSTEM == 'cmake-subdir')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential ninja-build
+
+      - name: Install CMake and Build Tools (macOS)
+        if: runner.os == 'macOS' && (env.BUILD_SYSTEM == 'cmake' || env.BUILD_SYSTEM == 'cmake-subdir')
+        run: |
+          brew install cmake ninja
+
+      - name: Install CMake and Build Tools (Windows)
+        if: runner.os == 'Windows' && (env.BUILD_SYSTEM == 'cmake' || env.BUILD_SYSTEM == 'cmake-subdir')
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Build and run tests (CMake)
         if: env.BUILD_SYSTEM == 'cmake' || env.BUILD_SYSTEM == 'cmake-subdir'
@@ -267,7 +267,7 @@ jobs:
         shell: bash
         run: |
           echo "📦 Installing dependencies..."
-          npm install -g pnpm
+          npm install -g pnpm@9
           pnpm install --frozen-lockfile
           
           echo "🧪 Running vitest unit tests..."
