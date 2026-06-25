@@ -12,7 +12,7 @@
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, type PresonusClientManager } from '@presonus-mcp/adapter'
+import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, extractAuxMixes, type PresonusClientManager } from '@presonus-mcp/adapter'
 import {
   eqGainDbToNormalized,
   eqFreqHzToNormalized,
@@ -24,6 +24,9 @@ import {
   type NoSignalDiagnosis,
   type PatchSwapDetection,
   type RoutingValidationReport,
+  type AuxMixAuditIssue,
+  type AuxMixAuditResult,
+  HOT_SEND_THRESHOLD_DB,
 } from '@presonus-mcp/domain'
 
 export interface ToolsConfig {

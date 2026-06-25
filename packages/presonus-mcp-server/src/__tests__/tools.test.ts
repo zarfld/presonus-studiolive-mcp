@@ -31,10 +31,10 @@ function makeMockManager(): PresonusClientManager {
 }
 
 describe('registerTools â€” REQ-NF-002: zero write tools in default config', () => {
-  it('registers exactly 11 read-only tools when writeEnabled=false (3 core + 5 routing + 1 capabilities + 2 diagnostics)', () => {
+  it('registers exactly 22 read-only tools when writeEnabled=false (3 core + 5 routing + 1 capabilities + 2 diagnostics)', () => {
     const { server, registeredTools } = makeMockServer()
     registerTools(server, makeMockManager(), { writeEnabled: false })
-    expect(registeredTools).toHaveLength(11)
+    expect(registeredTools).toHaveLength(22)
   })
 
   it('registers discover_mixers, refresh_mixer_state, validate_mixer_identity in default config', () => {
@@ -97,4 +97,5 @@ describe('registerTools â€” stderr warning suppressed when write tools regi
     stderrSpy.mockRestore()
   })
 })
+
 
