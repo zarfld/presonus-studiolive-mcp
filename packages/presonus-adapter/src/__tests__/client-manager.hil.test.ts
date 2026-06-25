@@ -23,25 +23,50 @@ import { diagnoseChannel } from '../diagnostics.js'
 import { MixerIdentitySchema, MixerChannelSchema } from '@presonus-mcp/domain'
 import type { MixerIdentity } from '@presonus-mcp/domain'
 
-const HIL = process.env.HIL_PRESONUS === '1'
+const HIL    = process.env.HIL_PRESONUS        === '1'
+const HIL_IP = process.env.HIL_PRESONUS_IP
+const HIL_SN = process.env.HIL_PRESONUS_SERIAL
+
+/** Build discoverMixers config with optional fallback device (for cross-subnet / VLAN). */
+function discoveryConfig(timeoutMs = 5000) {
+  return {
+    timeoutMs,
+    ...(HIL_IP ? {
+      fallbackDevices: [{
+        alias: 'hil-mixer',
+        fallbackIp: HIL_IP,
+        fallbackPort: 53000,
+        role: 'FOH' as const,
+        ...(HIL_SN ? { expectedSerial: HIL_SN } : {}),
+      }],
+    } : {}),
+  }
+}
 
 // ─── Shared connection (most test groups reuse this) ──────────────────────────
 
 let manager: PresonusClientManager
 let identity: MixerIdentity
 
-/** Discover and connect once; wait 2 s for initial state events to settle. */
+/** Discover and connect once; poll until channels arrive (featherbear delivers state via events). */
 async function connectOnce(): Promise<void> {
-  const result = await discoverMixers({ timeoutMs: 5000 })
+  const result = await discoverMixers(discoveryConfig())
   expect(
     result.devices.length,
-    'No mixer found — is the StudioLive III powered on and reachable?',
+    HIL_IP
+      ? `No mixer found — is ${HIL_IP} reachable on TCP 53000?`
+      : 'No mixer found via UDP — set HIL_PRESONUS_IP=<ip>',
   ).toBeGreaterThan(0)
   identity = result.devices[0]!
   manager = new PresonusClientManager()
   await manager.connect(identity)
-  // Allow featherbear to deliver initial dumpState + events
-  await new Promise((r) => setTimeout(r, 2_000))
+  // featherbear delivers state incrementally via 'data' events; poll until channels arrive
+  const deadline = Date.now() + 15_000
+  while (Date.now() < deadline) {
+    const snap = manager.getSnapshot(identity.deviceId)
+    if (snap && snap.channels.length > 0) break
+    await new Promise((r) => setTimeout(r, 500))
+  }
 }
 
 async function disconnectShared(): Promise<void> {
@@ -246,12 +271,21 @@ describe.skipIf(!HIL)('PresonusClientManager HIL — stale state on disconnect (
   let localIdentity: MixerIdentity
 
   beforeAll(async () => {
-    const result = await discoverMixers({ timeoutMs: 5000 })
-    expect(result.devices.length, 'no mixer found').toBeGreaterThan(0)
+    const result = await discoverMixers(discoveryConfig())
+    expect(
+      result.devices.length,
+      HIL_IP ? `No mixer found — is ${HIL_IP} reachable on TCP 53000?` : 'No mixer found via UDP',
+    ).toBeGreaterThan(0)
     localIdentity = result.devices[0]!
     localManager = new PresonusClientManager()
     await localManager.connect(localIdentity)
-    await new Promise((r) => setTimeout(r, 1_000))
+    // Poll until channels arrive
+    const deadline = Date.now() + 15_000
+    while (Date.now() < deadline) {
+      const snap = localManager.getSnapshot(localIdentity.deviceId)
+      if (snap && snap.channels.length > 0) break
+      await new Promise((r) => setTimeout(r, 500))
+    }
   }, 20_000)
 
   afterAll(async () => {
