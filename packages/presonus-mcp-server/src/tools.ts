@@ -415,7 +415,15 @@ export function registerTools(
         safeNextSteps.push('Check physical XLR cable and connector at stagebox/console')
       }
 
-      const diagnosedIssues = checks.filter((c) => !['unmuted', 'active', 'clipping', 'disabled', 'present'].includes(c.result)).length
+      // diagnosedIssues counts only the actionable cause checks (mute, fader, gate, stagebox).
+      // The meter check is the symptom we are diagnosing, not a finding in itself — so it is
+      // excluded from this count. 'unknown' results are also not diagnostic findings.
+      // Result: if ALL cause checks are clean → status 'inconclusive'; any flagged cause → 'partial'.
+      const CLEAR_RESULTS = new Set(['unmuted', 'active', 'clipping', 'disabled', 'present', 'unknown'])
+      const diagnosedIssues = checks
+        .filter((c) => c.check !== 'meter')
+        .filter((c) => !CLEAR_RESULTS.has(c.result))
+        .length
       const status: NoSignalDiagnosis['status'] = meterResult === 'active' || meterResult === 'clipping' ? 'ok'
         : muteResult === 'muted' || faderResult === 'zero' ? 'problem'
         : diagnosedIssues > 0 ? 'partial'

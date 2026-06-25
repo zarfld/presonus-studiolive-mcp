@@ -1018,3 +1018,668 @@ describe('validate_change_set (ADR-006)', () => {
     expect((data.ttlRemainingSeconds as number)).toBeGreaterThan(0)
   })
 })
+
+// ===========================================================================
+// Routing cluster — #32, #33, #34, #35, #36
+// ===========================================================================
+
+/** Minimal meter summarizer stub for tools that read meter data. */
+function makeMeterSummarizer(data: {
+  silentChannels?: string[]
+  activeChannels?: string[]
+  clippingChannels?: string[]
+}) {
+  return {
+    getSummary: (_w: 1 | 10 | 60) => ({
+      windowSec: 10 as const,
+      computedAt: new Date().toISOString(),
+      silentChannels:  data.silentChannels  ?? [],
+      activeChannels:  data.activeChannels  ?? [],
+      clippingChannels: data.clippingChannels ?? [],
+      hotChannels:              [],
+      noSignalButExpected:      [],
+      signalButUnexpected:      [],
+    }),
+  }
+}
+
+/** Manager that wraps makeMockManager but adds a controlled meter summarizer. */
+function makeManagerWithMeter(
+  snapshot?: MixerSnapshot,
+  meterData?: { silentChannels?: string[]; activeChannels?: string[]; clippingChannels?: string[] },
+): PresonusClientManager {
+  return {
+    getSnapshot:            (_id: string) => snapshot,
+    getCapabilities:        (_id: string) => mockCaps,
+    getIdentity:            (_id: string) => mockIdentity,
+    getConnectedDeviceIds:  ()             => (snapshot ? [DEVICE_ID] : []),
+    getSummarizer:          (_id: string) => meterData ? makeMeterSummarizer(meterData) : undefined,
+    connect:                async ()       => undefined,
+    disconnect:             async ()       => undefined,
+    applyChange:            async ()       => undefined,
+  } as unknown as PresonusClientManager
+}
+
+/**
+ * Build a snapshot with fine-grained channel control (extends makeSnapshot).
+ * Accepts faderLinear override; all other properties follow makeSnapshot defaults.
+ */
+function makeSnapshotWithChannels(
+  channels: Array<{
+    id: string
+    name?: string
+    mute?: boolean
+    faderLinear?: number
+    fatChannel?: import('@presonus-mcp/domain').ChannelFatState
+    sendRouting?: import('@presonus-mcp/domain').ChannelSendRouting
+  }>,
+  flatState: Record<string, unknown> = {},
+): MixerSnapshot {
+  return {
+    identity:          mockIdentity,
+    channels:          channels.map((c) => ({
+      id:          c.id,
+      name:        c.name  ?? c.id,
+      type:        'LINE' as const,
+      mute:        c.mute  ?? false,
+      solo:        false,
+      pan:         0.5,
+      color:       undefined,
+      linked:      false,
+      fader:       { linear: c.faderLinear ?? 0.75, db: null, raw: c.faderLinear ?? 0.75 },
+      sendRouting: c.sendRouting,
+      fatChannel:  c.fatChannel,
+    })),
+    currentProject:    undefined,
+    currentScene:      undefined,
+    availableProjects: [],
+    capturedAt:        new Date().toISOString(),
+    rawState:          {},
+    flatState,
+    isStale:           false,
+    disconnectedAt:    undefined,
+    outputPatch:       undefined,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// #32 REQ-F-ROUT-002: get_routing_graph
+// ---------------------------------------------------------------------------
+
+describe('get_routing_graph (REQ-F-ROUT-002 #32)', () => {
+  /**
+   * Verifies: REQ-F-ROUT-002 (Issue #32)
+   * Scenario 1: Returns routing graph with channels and sendRouting
+   * Test Type: Unit
+   * Priority: P1
+   */
+  it('returns routing graph with channels and sendRouting — Scenario 1', async () => {
+    const sendRouting: import('@presonus-mcp/domain').ChannelSendRouting = {
+      auxSends: [{ auxBus: 1, sendLevelLinear: 0.5, assigned: true }],
+      fxSends:  [],
+      subgroupAssigns: [],
+      mainLrAssigned:  true,
+      parameterConfidence: 'inferred',
+    }
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch1', name: 'Kick',     sendRouting },
+      { id: 'line.ch7', name: 'Lead Vox', sendRouting: undefined },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot), { writeEnabled: false })
+
+    const result = await callTool(tools, 'get_routing_graph', { deviceId: DEVICE_ID })
+    const data = body(result)
+
+    expect(result.isError).toBeFalsy()
+    expect(data.deviceId).toBe(DEVICE_ID)
+    expect(data.channelCount).toBe(2)
+    const channels = data.channels as Array<{ channelId: string; sendRouting: unknown }>
+    expect(channels).toHaveLength(2)
+    expect(channels[0]!.channelId).toBe('line.ch1')
+    // ch1 has sendRouting with aux send
+    const ch1Routing = channels[0]!.sendRouting as { auxSends: unknown[] }
+    expect(ch1Routing?.auxSends).toHaveLength(1)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-002 (Issue #32)
+   * Scenario 2: globalConfidence = not_verifiable_with_current_adapter when outputPatch absent
+   * Test Type: Unit
+   * Priority: P1
+   */
+  it('reports not_verifiable_with_current_adapter when outputPatch is null — Scenario 2', async () => {
+    const snapshot = makeSnapshotWithChannels([{ id: 'line.ch1', name: 'Kick' }])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot), { writeEnabled: false })
+
+    const result = await callTool(tools, 'get_routing_graph', { deviceId: DEVICE_ID })
+    const data = body(result)
+
+    expect(data.outputPatch).toBeNull()
+    expect(data.globalConfidence).toBe('not_verifiable_with_current_adapter')
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-002 (Issue #32)
+   * Scenario 3: Device not connected → error
+   * Test Type: Unit
+   * Priority: P1
+   */
+  it('returns error when device is not connected — Scenario 3', async () => {
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(undefined), { writeEnabled: false })
+
+    const result = await callTool(tools, 'get_routing_graph', { deviceId: DEVICE_ID })
+
+    expect(result.isError).toBe(true)
+    expect(body(result).error).toContain('not connected')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #33 REQ-F-ROUT-003: validate_input_routing (P0)
+// ---------------------------------------------------------------------------
+
+describe('validate_input_routing (REQ-F-ROUT-003 #33 — P0)', () => {
+  /**
+   * Verifies: REQ-F-ROUT-003 (Issue #33)
+   * Scenario 1: All expected channels have signal → status ok per route
+   * Test Type: Unit
+   * Priority: P0 (Critical)
+   *
+   * Acceptance Criteria (from #33):
+   *   Given: expectedRoutes = [{ch1: 'Kick'}, {ch7: 'Lead Vox'}]
+   *   And: ch1 and ch7 both have active meter signal
+   *   When: validate_input_routing called
+   *   Then: both routes have status 'ok'
+   *   And: physical source has confidence 'not_verifiable_with_current_adapter'
+   */
+  it('marks routes ok when meter shows active signal on both channels — Scenario 1', async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch1', name: 'Kick',     mute: false },
+      { id: 'line.ch7', name: 'Lead Vox', mute: false },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      activeChannels: ['line.ch1', 'line.ch7'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'validate_input_routing', {
+      deviceId: DEVICE_ID,
+      expectedRoutes: [
+        { channelId: 'line.ch1', signalName: 'Kick' },
+        { channelId: 'line.ch7', signalName: 'Lead Vox' },
+      ],
+    })
+    const data = body(result)
+
+    expect(result.isError).toBeFalsy()
+    const routes = data.routes as Array<{ destinationPort: string; status: string; confidence: string }>
+    expect(routes).toHaveLength(2)
+    expect(routes.every((r) => r.status === 'ok')).toBe(true)
+    expect(data.summary).toMatchObject({ ok: 2, missing: 0 })
+    // Physical source is always not verifiable
+    expect(routes.every((r) => r.confidence === 'not_verifiable_with_current_adapter')).toBe(true)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-003 (Issue #33)
+   * Scenario 2: Expected channel is silent → status 'missing'
+   * Test Type: Unit
+   * Priority: P0 (Critical)
+   *
+   * Acceptance Criteria (from #33):
+   *   Given: ch7 (Lead Vox) has no meter signal
+   *   Then: ch7 route has status 'missing'
+   */
+  it("marks route 'missing' when expected channel is silent — Scenario 2", async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch1', name: 'Kick',     mute: false },
+      { id: 'line.ch7', name: 'Lead Vox', mute: false },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      activeChannels: ['line.ch1'],
+      silentChannels: ['line.ch7'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'validate_input_routing', {
+      deviceId: DEVICE_ID,
+      expectedRoutes: [
+        { channelId: 'line.ch1', signalName: 'Kick' },
+        { channelId: 'line.ch7', signalName: 'Lead Vox' },
+      ],
+    })
+    const data = body(result)
+    const routes = data.routes as Array<{ destinationPort: string; status: string }>
+
+    expect(routes.find((r) => r.destinationPort === 'line.ch1')?.status).toBe('ok')
+    expect(routes.find((r) => r.destinationPort === 'line.ch7')?.status).toBe('missing')
+    expect(data.summary).toMatchObject({ ok: 1, missing: 1 })
+    expect((data.issues as string[]).some((i) => i.includes('line.ch7'))).toBe(true)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-003 (Issue #33)
+   * Scenario 3: Channel has active signal but is muted → status 'ambiguous'
+   * Test Type: Unit
+   * Priority: P0 (Critical)
+   *
+   * Acceptance Criteria (from #33):
+   *   Given: ch1 has signal but is muted
+   *   Then: ch1 route has status 'ambiguous'
+   */
+  it("marks route 'ambiguous' when channel has signal but is muted — Scenario 3", async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch1', name: 'Kick', mute: true },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      activeChannels: ['line.ch1'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'validate_input_routing', {
+      deviceId: DEVICE_ID,
+      expectedRoutes: [{ channelId: 'line.ch1', signalName: 'Kick' }],
+    })
+    const routes = (body(result).routes as Array<{ status: string }>)
+
+    expect(routes[0]!.status).toBe('ambiguous')
+  })
+
+  it('returns error when device is not connected', async () => {
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(undefined), { writeEnabled: false })
+
+    const result = await callTool(tools, 'validate_input_routing', {
+      deviceId: DEVICE_ID,
+      expectedRoutes: [{ channelId: 'line.ch1', signalName: 'Kick' }],
+    })
+
+    expect(result.isError).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #34 REQ-F-ROUT-004: validate_stagebox_routing
+// ---------------------------------------------------------------------------
+
+describe('validate_stagebox_routing (REQ-F-ROUT-004 #34)', () => {
+  /**
+   * Verifies: REQ-F-ROUT-004 (Issue #34)
+   * Scenario 1: stagebox_mode = 1 → stageboxPresent: true
+   * Test Type: Unit
+   * Priority: P1
+   *
+   * Acceptance Criteria (from #34):
+   *   Given: 32SC has global.stagebox_mode = 1
+   *   Then: stageboxPresent: true, stageboxMode: 1
+   */
+  it('detects stagebox when stagebox_mode is 1 — Scenario 1', async () => {
+    const snapshot = makeSnapshotWithChannels([], { 'global.stagebox_mode': 1 })
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot), { writeEnabled: false })
+
+    const result = await callTool(tools, 'validate_stagebox_routing', { deviceId: DEVICE_ID })
+    const data = body(result)
+
+    expect(result.isError).toBeFalsy()
+    expect(data.stageboxPresent).toBe(true)
+    expect(data.stageboxMode).toBe(1)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-004 (Issue #34)
+   * Scenario 2: stagebox_mode = 0 → stageboxPresent: false
+   * Test Type: Unit
+   * Priority: P1
+   *
+   * Acceptance Criteria (from #34):
+   *   Given: global.stagebox_mode = 0
+   *   Then: stageboxPresent: false, stageboxMode: 0
+   */
+  it('reports no stagebox when stagebox_mode is 0 — Scenario 2', async () => {
+    const snapshot = makeSnapshotWithChannels([], { 'global.stagebox_mode': 0 })
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot), { writeEnabled: false })
+
+    const result = await callTool(tools, 'validate_stagebox_routing', { deviceId: DEVICE_ID })
+    const data = body(result)
+
+    expect(data.stageboxPresent).toBe(false)
+    expect(data.stageboxMode).toBe(0)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-004 (Issue #34)
+   * Scenario 3: AVB stream routing is always not_verifiable_with_current_adapter
+   * Test Type: Unit
+   * Priority: P1
+   *
+   * Acceptance Criteria (from #34):
+   *   When: Tool is called with any configuration
+   *   Then: avbStreamRouting is always 'not_verifiable_with_current_adapter'
+   */
+  it('avbStreamRouting is always not_verifiable — Scenario 3', async () => {
+    for (const mode of [0, 1]) {
+      const snapshot = makeSnapshotWithChannels([], { 'global.stagebox_mode': mode })
+      const { server, tools } = makeMockServer()
+      registerTools(server, makeManagerWithMeter(snapshot), { writeEnabled: false })
+
+      const result = await callTool(tools, 'validate_stagebox_routing', { deviceId: DEVICE_ID })
+      expect((body(result).avbStreamRouting as string)).toBe('not_verifiable_with_current_adapter')
+    }
+  })
+
+  it('returns error when device is not connected', async () => {
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(undefined), { writeEnabled: false })
+
+    const result = await callTool(tools, 'validate_stagebox_routing', { deviceId: DEVICE_ID })
+
+    expect(result.isError).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #35 REQ-F-ROUT-005: diagnose_no_signal_routing (P0)
+// ---------------------------------------------------------------------------
+
+describe('diagnose_no_signal_routing (REQ-F-ROUT-005 #35 — P0)', () => {
+  /**
+   * Verifies: REQ-F-ROUT-005 (Issue #35)
+   * Scenario 1: Channel is muted → status 'problem', mute check, likelyCause includes 'muted'
+   * Test Type: Unit
+   * Priority: P0 (Critical)
+   *
+   * Acceptance Criteria (from #35):
+   *   Given: ch7 has mute: true, meter is silent
+   *   When: diagnose_no_signal_routing({ channelId: 'line.ch7' })
+   *   Then: checks includes { check: 'mute', result: 'muted' }
+   *   And: likelyCauses includes "Channel is muted"
+   *   And: safeNextSteps includes "Unmute channel line.ch7"
+   */
+  it('identifies muted channel as problem with actionable next step — Scenario 1', async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch7', name: 'Lead Vox', mute: true, faderLinear: 0.75 },
+    ], { 'global.stagebox_mode': 1 })
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      silentChannels: ['line.ch7'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_no_signal_routing', {
+      deviceId:   DEVICE_ID,
+      channelId:  'line.ch7',
+      expectedSource: 'Lead Vox',
+    })
+    const data = body(result)
+    const checks = data.checks as Array<{ check: string; result: string }>
+
+    expect(result.isError).toBeFalsy()
+    expect(data.status).toBe('problem')
+    expect(checks.find((c) => c.check === 'mute')?.result).toBe('muted')
+    expect((data.likelyCauses as string[]).some((c) => c.toLowerCase().includes('muted'))).toBe(true)
+    expect((data.safeNextSteps as string[]).some((s) => s.includes('line.ch7'))).toBe(true)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-005 (Issue #35)
+   * Scenario 2: Fader at zero → status 'problem', fader check 'zero'
+   * Test Type: Unit
+   * Priority: P0 (Critical)
+   *
+   * Acceptance Criteria (from #35):
+   *   Given: ch7 has fader.linear = 0, meter silent, mute false
+   *   Then: checks includes { check: 'fader', result: 'zero' }
+   *   And: likelyCauses includes "fader is at minimum"
+   */
+  it('identifies fader at zero as problem — Scenario 2', async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch7', name: 'Lead Vox', mute: false, faderLinear: 0 },
+    ], { 'global.stagebox_mode': 1 })
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      silentChannels: ['line.ch7'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_no_signal_routing', {
+      deviceId:  DEVICE_ID,
+      channelId: 'line.ch7',
+    })
+    const data = body(result)
+    const checks = data.checks as Array<{ check: string; result: string }>
+
+    expect(data.status).toBe('problem')
+    expect(checks.find((c) => c.check === 'fader')?.result).toBe('zero')
+    expect((data.likelyCauses as string[]).some((c) => c.toLowerCase().includes('fader'))).toBe(true)
+    expect((data.safeNextSteps as string[]).some((s) => s.toLowerCase().includes('fader'))).toBe(true)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-005 (Issue #35)
+   * Scenario 3: Gate enabled → gate check 'enabled_check_threshold', status 'partial'
+   * Test Type: Unit
+   * Priority: P0 (Critical)
+   *
+   * Acceptance Criteria (from #35):
+   *   Given: ch7 meter intermittently active (gate on, tight threshold)
+   *   Then: checks includes { check: 'gate', result: 'enabled_check_threshold' }
+   *   And: safeNextSteps includes guidance to check gate threshold
+   */
+  it('flags enabled gate as partial issue with threshold guidance — Scenario 3', async () => {
+    const fatChannel: import('@presonus-mcp/domain').ChannelFatState = {
+      gate: { enabled: true, thresholdDb: -40 },
+    }
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch7', name: 'Lead Vox', mute: false, faderLinear: 0.75, fatChannel },
+    ], { 'global.stagebox_mode': 1 })
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      silentChannels: ['line.ch7'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_no_signal_routing', {
+      deviceId:  DEVICE_ID,
+      channelId: 'line.ch7',
+    })
+    const data = body(result)
+    const checks = data.checks as Array<{ check: string; result: string }>
+
+    expect(checks.find((c) => c.check === 'gate')?.result).toBe('enabled_check_threshold')
+    expect((data.safeNextSteps as string[]).some((s) => s.toLowerCase().includes('gate'))).toBe(true)
+    // Status is partial because gate is flagged but not definitively the cause
+    expect(['partial', 'problem']).toContain(data.status)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-005 (Issue #35)
+   * Scenario 4: Unmuted, fader up, gate off, but meter silent → status 'inconclusive'
+   * Test Type: Unit
+   * Priority: P0 (Critical)
+   *
+   * Acceptance Criteria (from #35):
+   *   Given: ch7 unmuted, fader up, gate off, but meter silent
+   *   Then: status 'inconclusive'
+   *   And: likelyCauses includes physical routing (not_verifiable)
+   *   And: safeNextSteps includes "Ask performer to send signal"
+   */
+  it('returns inconclusive with physical routing causes when all checks pass but no signal — Scenario 4', async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch7', name: 'Lead Vox', mute: false, faderLinear: 0.75 },
+    ], { 'global.stagebox_mode': 1 })
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      silentChannels: ['line.ch7'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_no_signal_routing', {
+      deviceId:       DEVICE_ID,
+      channelId:      'line.ch7',
+      expectedSource: 'Lead Vox',
+    })
+    const data = body(result)
+
+    expect(data.status).toBe('inconclusive')
+    const causes = data.likelyCauses as string[]
+    expect(causes.some((c) => c.toLowerCase().includes('routing') || c.toLowerCase().includes('patch') || c.toLowerCase().includes('verifiable'))).toBe(true)
+    expect((data.safeNextSteps as string[]).some((s) => s.toLowerCase().includes('signal'))).toBe(true)
+  })
+
+  it('returns ok status when channel has active signal', async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch7', name: 'Lead Vox', mute: false, faderLinear: 0.75 },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      activeChannels: ['line.ch7'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_no_signal_routing', {
+      deviceId: DEVICE_ID, channelId: 'line.ch7',
+    })
+
+    expect(body(result).status).toBe('ok')
+  })
+
+  it('returns error when device is not connected', async () => {
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(undefined), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_no_signal_routing', {
+      deviceId: DEVICE_ID, channelId: 'line.ch7',
+    })
+
+    expect(result.isError).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #36 REQ-F-ROUT-006: detect_possible_patch_swap
+// ---------------------------------------------------------------------------
+
+describe('detect_possible_patch_swap (REQ-F-ROUT-006 #36)', () => {
+  /**
+   * Verifies: REQ-F-ROUT-006 (Issue #36)
+   * Scenario 1: Two channels swapped by label cross-match
+   * Test Type: Unit
+   * Priority: P1
+   *
+   * Acceptance Criteria (from #36):
+   *   Given: expectedChannels = [{ch1: 'Kick'}, {ch2: 'Snare'}]
+   *   And: Meter shows ch1 silent, ch2 active
+   *   And: Channel names: ch1='Snare', ch2='Kick' (label swap)
+   *   When: detect_possible_patch_swap called
+   *   Then: possibleSwaps contains entry for ch1↔ch2 with evidence string
+   */
+  it('detects label-cross swap when silent ch is labeled with active ch signal — Scenario 1', async () => {
+    // ch1 labeled 'Snare' but expected 'Kick' (silent)
+    // ch2 labeled 'Kick' but expected 'Snare' (active)
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch1', name: 'Snare', mute: false },
+      { id: 'line.ch2', name: 'Kick',  mute: false },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      silentChannels: ['line.ch1'],
+      activeChannels: ['line.ch2'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'detect_possible_patch_swap', {
+      deviceId: DEVICE_ID,
+      expectedChannels: [
+        { channelId: 'line.ch1', signalName: 'Kick' },
+        { channelId: 'line.ch2', signalName: 'Snare' },
+      ],
+    })
+    const data = body(result)
+    const swaps = data.possibleSwaps as Array<{ channelA: string; channelB: string; evidence: string }>
+
+    expect(result.isError).toBeFalsy()
+    expect(swaps.length).toBeGreaterThanOrEqual(1)
+    const swap = swaps[0]!
+    expect([swap.channelA, swap.channelB]).toContain('line.ch1')
+    expect([swap.channelA, swap.channelB]).toContain('line.ch2')
+    expect(swap.evidence).toBeTruthy()
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-006 (Issue #36)
+   * Scenario 2: No swap detected when all channels active on correct channels
+   * Test Type: Unit
+   * Priority: P1
+   *
+   * Acceptance Criteria (from #36):
+   *   Given: All expected channels have signal on correct channels
+   *   Then: possibleSwaps is empty
+   */
+  it('returns empty possibleSwaps when all channels are correctly wired — Scenario 2', async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch1', name: 'Kick',  mute: false },
+      { id: 'line.ch2', name: 'Snare', mute: false },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      activeChannels: ['line.ch1', 'line.ch2'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'detect_possible_patch_swap', {
+      deviceId: DEVICE_ID,
+      expectedChannels: [
+        { channelId: 'line.ch1', signalName: 'Kick' },
+        { channelId: 'line.ch2', signalName: 'Snare' },
+      ],
+    })
+    const data = body(result)
+
+    expect((data.possibleSwaps as unknown[]).length).toBe(0)
+  })
+
+  /**
+   * Verifies: REQ-F-ROUT-006 (Issue #36)
+   * Scenario 3: Silent without obvious swap partner → silentChannelsNotInExpectedList populated
+   * Test Type: Unit
+   * Priority: P1
+   *
+   * Acceptance Criteria (from #36):
+   *   Given: ch7 silent, no other channel has ch7's expected signal name as a label
+   *   Then: silentChannelsNotInExpectedList and unexpectedActiveChannels populated
+   */
+  it('reports silent expected channels and unexpected active channels without swap — Scenario 3', async () => {
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch7', name: 'Lead Vox', mute: false },
+      { id: 'line.ch9', name: 'Overhead',  mute: false },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      silentChannels: ['line.ch7'],
+      activeChannels: ['line.ch9'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'detect_possible_patch_swap', {
+      deviceId: DEVICE_ID,
+      expectedChannels: [
+        { channelId: 'line.ch7', signalName: 'Lead Vox' },
+      ],
+    })
+    const data = body(result)
+
+    // ch7 is silent (expected) → in silentChannelsNotInExpectedList
+    expect((data.silentChannelsNotInExpectedList as string[])).toContain('line.ch7')
+    // ch9 is active but not in expected list → unexpectedActiveChannels
+    expect((data.unexpectedActiveChannels as string[])).toContain('line.ch9')
+  })
+
+  it('returns error when device is not connected', async () => {
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(undefined), { writeEnabled: false })
+
+    const result = await callTool(tools, 'detect_possible_patch_swap', {
+      deviceId: DEVICE_ID,
+      expectedChannels: [{ channelId: 'line.ch1', signalName: 'Kick' }],
+    })
+
+    expect(result.isError).toBe(true)
+  })
+})
