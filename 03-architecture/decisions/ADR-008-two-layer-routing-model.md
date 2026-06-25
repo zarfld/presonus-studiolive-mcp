@@ -5,6 +5,10 @@
 **Traces to**: #4 (StR-4: Routing validation between FOH and stagebox)  
 **Depends on**: #29 (ADR-007: Routing domain read-only-first)
 
+## Status
+
+Accepted
+
 ---
 
 ## Context

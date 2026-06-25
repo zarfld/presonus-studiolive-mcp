@@ -189,6 +189,11 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Detect and configure build system
         shell: bash
         run: |
@@ -208,6 +213,9 @@ jobs:
             echo "BUILD_SYSTEM=cmake-subdir" >> $GITHUB_ENV
             echo "TEST_DIR=test/test_audio" >> $GITHUB_ENV
             echo "✅ CMake test subdirectory detected"
+          elif [ -f "pnpm-workspace.yaml" ] || grep -q '"vitest"' package.json 2>/dev/null; then
+            echo "BUILD_SYSTEM=pnpm-vitest" >> $GITHUB_ENV
+            echo "✅ Node.js/pnpm+vitest project detected"
           else
             echo "BUILD_SYSTEM=none" >> $GITHUB_ENV
             echo "⚠️ No standard build system detected"
@@ -253,6 +261,17 @@ jobs:
             echo "⚠️ Make build/test failed"
             exit 0
           }
+
+      - name: Build and run tests (pnpm/vitest)
+        if: env.BUILD_SYSTEM == 'pnpm-vitest'
+        shell: bash
+        run: |
+          echo "📦 Installing dependencies..."
+          npm install -g pnpm
+          pnpm install --frozen-lockfile
+          
+          echo "🧪 Running vitest unit tests..."
+          pnpm test
 
       - name: Report test status
         shell: bash

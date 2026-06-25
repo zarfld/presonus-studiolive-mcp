@@ -5,6 +5,10 @@
 **Supersedes**: ADR-005 (extends, does not replace)  
 **Issue**: (pending GitHub issue creation)
 
+## Status
+
+Accepted
+
 ## Traceability
 - Traces to: ADR-005 (read-only-first policy)
 - Motivated by: soundcheck/feedback adjustment assistance use case
