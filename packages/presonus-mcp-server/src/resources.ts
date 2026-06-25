@@ -417,4 +417,43 @@ export function registerResources(
       }
     },
   )
+
+  // ─── presonus://mixer-graph/current ───────────────────────────────────────
+  // @implements REQ-F-GRAPH-001 (Phase 8)
+  server.resource(
+    'mixer-graph',
+    'presonus://mixer-graph/current',
+    { description: 'Topology graph across all connected mixers: identities, roles, channel counts, routing summaries, and output patch confidence. Single resource read to understand the full system topology without multiple round trips.' },
+    async () => {
+      const deviceIds = clientManager.getConnectedDeviceIds()
+      const mixers = deviceIds.map((deviceId) => {
+        const snapshot = clientManager.getSnapshot(deviceId)
+        const identity = clientManager.getIdentity(deviceId)
+        const caps = clientManager.getCapabilities(deviceId)
+        const allMixes = snapshot ? extractAuxMixes(snapshot.flatState) : []
+        const observedRouteCount = allMixes.reduce((sum, m) => sum + m.sends.length, 0)
+        return {
+          deviceId,
+          serial: identity?.serial ?? null,
+          role: identity?.role ?? 'UNKNOWN',
+          ip: identity?.ip ?? null,
+          channelCount: snapshot?.channels.length ?? 0,
+          auxMixCapacity: caps.auxMixes,
+          outputPatchConfidence: snapshot?.outputPatch?.globalConfidence ?? 'not_verifiable_with_current_adapter',
+          isStale: snapshot?.isStale ?? true,
+          routing: {
+            auxMixCount: allMixes.length,
+            observedRouteCount,
+          },
+        }
+      })
+      return {
+        contents: [{
+          uri: 'presonus://mixer-graph/current',
+          text: JSON.stringify({ capturedAt: new Date().toISOString(), mixers }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
 }
