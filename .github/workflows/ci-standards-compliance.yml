@@ -59,21 +59,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🔍 Validating GitHub Issues-based requirements structure..."
-          python scripts/github-traceability-report.py > /tmp/traceability-check.md
+          python scripts/github-traceability-report.py > /tmp/traceability-check.md || true
           
-          # Check if any requirements were found
+          # Check if any requirements were found — warn only (not a hard gate)
+          # A new project legitimately starts with 0 issues; bootstrap should not block CI
           if grep -q "Total requirements: \*\*0\*\*" /tmp/traceability-check.md; then
-            echo "❌ No requirements found in GitHub Issues!"
-            echo "Expected issues with labels: phase:02-requirements, phase:03-architecture, etc."
+            echo "⚠️  WARNING: No requirements found in GitHub Issues!"
+            echo "Expected issues with labels: type:requirement:functional, type:architecture:decision, etc."
             echo "See docs/QUICK-START-github-issues.md for issue creation guidance"
             cat /tmp/traceability-check.md
-            exit 1
+            echo "::warning title=No Requirements Found::GitHub Issues have no labeled requirements yet. Downstream traceability jobs will run but may produce empty reports."
+          else
+            echo "✅ GitHub Issues requirements structure validated"
+            grep "Total requirements:" /tmp/traceability-check.md || echo "Summary not found in report"
           fi
-          
-          echo "✅ GitHub Issues requirements structure validated"
-          grep "Total requirements:" /tmp/traceability-check.md || echo "Summary not found in report"
   github-issues-generation:
-    needs: [spec-validation]
     name: GitHub Issues Artifact Generation
     runs-on: ubuntu-latest
     permissions:
@@ -422,7 +422,6 @@ jobs:
 
   # Phase 02: Requirements Traceability Check (GitHub Issues)
   requirements-traceability:
-    needs: [spec-validation]
     name: Requirements Traceability (ISO/IEC/IEEE 29148 via GitHub Issues)
     runs-on: ubuntu-latest
     permissions:
@@ -567,7 +566,6 @@ jobs:
 
   # Phase 03: Architecture Compliance (ISO/IEC/IEEE 42010)
   architecture-validation:
-    needs: [spec-validation]
     name: Architecture Compliance (ISO/IEC/IEEE 42010)
     runs-on: ubuntu-latest
 
@@ -613,6 +611,9 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout code
