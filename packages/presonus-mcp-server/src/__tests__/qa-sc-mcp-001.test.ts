@@ -119,11 +119,16 @@ function makeSnapshot(overrides: Partial<MixerSnapshot> = {}): MixerSnapshot {
   }
 }
 
-function makeMockManager(snapshot: MixerSnapshot | undefined = makeSnapshot()): PresonusClientManager {
+/**
+ * Build a mock manager.
+ * Pass `null` explicitly for "no snapshot available" — passing `undefined` would
+ * trigger the default parameter and accidentally create a fresh snapshot.
+ */
+function makeMockManager(snapshot: MixerSnapshot | null = makeSnapshot()): PresonusClientManager {
   return {
-    getConnectedDeviceIds: () => (snapshot ? [DEVICE_ID] : []),
-    getIdentity: (id: string) => (id === DEVICE_ID ? snapshot?.identity : undefined),
-    getSnapshot: (id: string) => (id === DEVICE_ID ? snapshot : undefined),
+    getConnectedDeviceIds: () => (snapshot !== null ? [DEVICE_ID] : []),
+    getIdentity: (id: string) => (id === DEVICE_ID && snapshot !== null ? snapshot.identity : undefined),
+    getSnapshot: (id: string) => (id === DEVICE_ID && snapshot !== null ? snapshot : undefined),
     getSummarizer: () => undefined,
     setAllWriteEnabled: () => {},
     connect: async () => {},
@@ -169,9 +174,10 @@ describe('QA-SC-MCP-001 criterion 1 — channels resource completeness (REQ-F-00
   })
 
   it('returns empty channel list when no snapshot exists for the requested deviceId', async () => {
-    // Simulates a request before the mixer has connected
+    // Simulates a request before the mixer has connected; pass null (not undefined) to
+    // avoid triggering the default-parameter fallback
     const { server, resources } = makeMockServer()
-    registerResources(server, makeMockManager(undefined))
+    registerResources(server, makeMockManager(null))
 
     const body = await invokeChannelResource(resources, DEVICE_ID)
 
@@ -202,7 +208,7 @@ describe('QA-SC-MCP-001 criterion 2 — scene resource (REQ-F-005 #19)', () => {
 
   it('returns null fields when no snapshot exists for the requested deviceId', async () => {
     const { server, resources } = makeMockServer()
-    registerResources(server, makeMockManager(undefined))
+    registerResources(server, makeMockManager(null))
 
     const body = await invokeSceneResource(resources, DEVICE_ID)
 
