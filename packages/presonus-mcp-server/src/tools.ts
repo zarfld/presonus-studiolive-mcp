@@ -533,6 +533,402 @@ export function registerTools(
     },
   )
 
+  // ─── get_aux_mix ──────────────────────────────────────────────────────────
+  server.tool(
+    'get_aux_mix',
+    'Get the state of a specific aux mix bus: master level, master mute, and all per-channel send levels. Monitor mix workflows: agent provides aux mix number, MCP returns current state. prePost is always "unknown" until hardware probed.',
+    {
+      deviceId: z.string(),
+      auxMixNumber: z.number().int().positive().describe('1-based aux mix number'),
+    },
+    async ({ deviceId, auxMixNumber }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mix = allMixes.find((m) => m.auxMixNumber === auxMixNumber)
+      if (!mix) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: `Aux mix ${auxMixNumber} not found in current state.` }) }],
+          isError: true,
+        }
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(mix, null, 2) }] }
+    },
+  )
+
+  // ─── validate_monitor_requirements ───────────────────────────────────────
+  server.tool(
+    'validate_monitor_requirements',
+    'Validate rider-derived monitor send requirements against the actual aux mix state. The agent provides expected sends (from rider); the MCP server checks the mixer and flags missing, muted, or very-low sends. Does NOT write to the mixer.',
+    {
+      deviceId: z.string(),
+      auxMix: z.number().int().positive().describe('1-based aux mix number'),
+      expectedSends: z.array(z.object({
+        channel: z.number().int().positive().describe('1-based physical channel number'),
+        name: z.string().describe('Signal name, e.g. "Lead Vox"'),
+        minimumPresence: z.enum(['strong', 'medium', 'any']).describe('Required presence level in the monitor'),
+      })).describe('Agent-provided expected sends for this monitor mix (from rider)'),
+    },
+    async ({ deviceId, auxMix, expectedSends }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mix = allMixes.find((m) => m.auxMixNumber === auxMix)
+
+      const issues: { type: string; auxMix: number; channel: number; name: string; severity: string }[] = []
+
+      for (const expected of expectedSends) {
+        const send = mix?.sends.find((s) => s.fromChannel === expected.channel)
+        if (!send) {
+          issues.push({ type: 'missing_monitor_send', auxMix, channel: expected.channel, name: expected.name, severity: 'high' })
+          continue
+        }
+        if (send.muted) {
+          issues.push({ type: 'muted_send', auxMix, channel: expected.channel, name: expected.name, severity: 'high' })
+          continue
+        }
+        const veryLowThreshold = expected.minimumPresence === 'strong' ? 0.3 : expected.minimumPresence === 'medium' ? 0.15 : 0.05
+        if (send.level < veryLowThreshold) {
+          issues.push({ type: 'very_low_send', auxMix, channel: expected.channel, name: expected.name, severity: expected.minimumPresence === 'strong' ? 'high' : 'medium' })
+        }
+      }
+
+      const status = issues.some((i) => i.severity === 'high') ? 'problem'
+        : issues.length > 0 ? 'warning'
+        : 'ok'
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status, issues }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_channel_setup ────────────────────────────────────────────────
+  server.tool(
+    'validate_channel_setup',
+    'Validate expected channel names, mute state, and phantom power against actual mixer state. The agent provides rider-derived expected channel list; the MCP server checks the actual mixer channels. Returns issues[] with severity. Does NOT write to the mixer.',
+    {
+      deviceId: z.string(),
+      expectedChannels: z.array(z.object({
+        channel: z.number().int().positive().describe('1-based physical channel number'),
+        name: z.string().describe('Expected channel name (scribble strip)'),
+        phantomRequired: z.boolean().optional().describe('Whether phantom power is expected'),
+      })).describe('Agent-provided expected channel list from rider'),
+    },
+    async ({ deviceId, expectedChannels }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+
+      const issues: { channel: number; issue: string; current: string; expected: string; severity: string }[] = []
+
+      for (const expected of expectedChannels) {
+        const channelId = `line.ch${expected.channel}`
+        const ch = snapshot.channels.find((c) => c.id === channelId)
+
+        if (!ch) {
+          issues.push({ channel: expected.channel, issue: 'channel_not_found', current: 'not_present', expected: expected.name, severity: 'high' })
+          continue
+        }
+
+        if (ch.name && ch.name !== expected.name) {
+          issues.push({ channel: expected.channel, issue: 'expected_name_mismatch', current: ch.name, expected: expected.name, severity: 'low' })
+        }
+
+        if (ch.mute === true) {
+          issues.push({ channel: expected.channel, issue: 'muted_expected_channel', current: 'muted', expected: 'active', severity: 'high' })
+        }
+
+        if (expected.phantomRequired !== undefined) {
+          const phantomKey = `line.ch${expected.channel}.48v`
+          const actualPhantom = Boolean(snapshot.flatState[phantomKey] ?? false)
+          if (actualPhantom !== expected.phantomRequired) {
+            issues.push({
+              channel: expected.channel,
+              issue: 'phantom_mismatch',
+              current: actualPhantom ? 'phantom_on' : 'phantom_off',
+              expected: expected.phantomRequired ? 'phantom_on' : 'phantom_off',
+              severity: 'medium',
+            })
+          }
+        }
+      }
+
+      const status = issues.some((i) => i.severity === 'high') ? 'problem'
+        : issues.length > 0 ? 'warning'
+        : 'ok'
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status, issues }, null, 2) }] }
+    },
+  )
+
+  // ─── check_required_setup ────────────────────────────────────────────────
+  server.tool(
+    'check_required_setup',
+    'Check whether the mixer can satisfy rider-derived capacity requirements (input count, monitor mixes, FX buses, stagebox). The agent provides requirements; the MCP server checks against mixer capabilities. Returns pass/fail per requirement.',
+    {
+      deviceId: z.string(),
+      requirements: z.object({
+        inputChannels: z.number().int().positive().optional().describe('Minimum input channels required'),
+        monitorMixes: z.number().int().positive().optional().describe('Minimum monitor mixes required'),
+        fxBuses: z.number().int().positive().optional().describe('Minimum FX buses required'),
+        stageboxRequired: z.boolean().optional().describe('Whether an AVB stagebox is required'),
+      }).describe('Rider-derived capacity requirements'),
+    },
+    async ({ deviceId, requirements }) => {
+      const identity = clientManager.getIdentity(deviceId)
+      if (!identity) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+      const caps = clientManager.getCapabilities(deviceId)
+
+      const checks: { requirement: string; required?: number; available?: number; status: string }[] = []
+
+      if (requirements.inputChannels !== undefined) {
+        checks.push({
+          requirement: 'inputChannels',
+          required: requirements.inputChannels,
+          available: caps.lineInputs,
+          status: caps.lineInputs >= requirements.inputChannels ? 'ok' : 'insufficient',
+        })
+      }
+      if (requirements.monitorMixes !== undefined) {
+        checks.push({
+          requirement: 'monitorMixes',
+          required: requirements.monitorMixes,
+          available: caps.auxMixes,
+          status: caps.auxMixes >= requirements.monitorMixes ? 'ok' : 'insufficient',
+        })
+      }
+      if (requirements.fxBuses !== undefined) {
+        checks.push({
+          requirement: 'fxBuses',
+          required: requirements.fxBuses,
+          available: caps.fxBuses,
+          status: caps.fxBuses >= requirements.fxBuses ? 'ok' : 'insufficient',
+        })
+      }
+      if (requirements.stageboxRequired !== undefined) {
+        checks.push({
+          requirement: 'stageboxRequired',
+          available: caps.avbStagebox ? 1 : 0,
+          status: !requirements.stageboxRequired || caps.avbStagebox ? 'ok' : 'unavailable',
+        })
+      }
+
+      const status = checks.some((c) => c.status === 'insufficient' || c.status === 'unavailable') ? 'problem'
+        : checks.length > 0 ? 'ok'
+        : 'ok'
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status, checks }, null, 2) }] }
+    },
+  )
+
+  // ─── find_missing_monitor_sends ───────────────────────────────────────────
+  // @implements #41 REQ-F-AUX-002
+  // @architecture #47 ADR-008: Layer A tool — zero-expectation unassigned/silent send detection
+  server.tool(
+    'find_missing_monitor_sends',
+    'Find channels that are not assigned to an aux mix or have a near-zero send level (< 0.05). Zero-expectation audit — does not require agent-provided rider expectations. Layer A: uses confirmed state keys.',
+    {
+      deviceId: z.string(),
+      auxMixNumber: z.number().int().positive().describe('1-based aux mix number'),
+    },
+    async ({ deviceId, auxMixNumber }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mix = allMixes.find((m) => m.auxMixNumber === auxMixNumber)
+      if (!mix) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ auxMixNumber, status: 'ok', missingSends: [] }) }] }
+      }
+
+      const missingSends: { channel: number; channelName: string; reason: string; level: number }[] = []
+      for (const send of mix.sends) {
+        if (send.muted) {
+          missingSends.push({ channel: send.fromChannel, channelName: send.fromChannelName, reason: 'not_assigned', level: send.level })
+        } else if (send.level < 0.05) {
+          missingSends.push({ channel: send.fromChannel, channelName: send.fromChannelName, reason: 'very_low_send', level: send.level })
+        }
+      }
+
+      const status = mix.masterMuted ? 'problem' : missingSends.length > 0 ? 'warning' : 'ok'
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ auxMixNumber, status, missingSends }, null, 2) }] }
+    },
+  )
+
+  // ─── find_muted_monitor_sends ─────────────────────────────────────────────
+  // @implements #42 REQ-F-AUX-003
+  server.tool(
+    'find_muted_monitor_sends',
+    'Find channels whose send to an aux mix is muted (not assigned). Returns the level at time of query even though the send is inactive. Layer A: uses confirmed state keys.',
+    {
+      deviceId: z.string(),
+      auxMixNumber: z.number().int().positive().describe('1-based aux mix number'),
+    },
+    async ({ deviceId, auxMixNumber }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mix = allMixes.find((m) => m.auxMixNumber === auxMixNumber)
+      if (!mix) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ auxMixNumber, status: 'ok', mutedSends: [] }) }] }
+      }
+
+      const mutedSends = mix.sends
+        .filter((s) => s.muted)
+        .map((s) => ({ channel: s.fromChannel, channelName: s.fromChannelName, level: s.level }))
+
+      const status = mutedSends.length > 0 ? 'problem' : 'ok'
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ auxMixNumber, status, mutedSends }, null, 2) }] }
+    },
+  )
+
+  // ─── find_hot_monitor_sends ───────────────────────────────────────────────
+  // @implements #43 REQ-F-AUX-004
+  server.tool(
+    'find_hot_monitor_sends',
+    'Find channels sending to an aux mix above a configurable threshold (default −6 dBFS). Only considers assigned and unmuted sends. Layer A: uses confirmed state keys.',
+    {
+      deviceId: z.string(),
+      auxMixNumber: z.number().int().positive().describe('1-based aux mix number'),
+      thresholdDb: z.number().optional().describe('Threshold in dBFS (default −6).'),
+    },
+    async ({ deviceId, auxMixNumber, thresholdDb }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const threshold = thresholdDb ?? HOT_SEND_THRESHOLD_DB
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mix = allMixes.find((m) => m.auxMixNumber === auxMixNumber)
+      if (!mix) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ auxMixNumber, thresholdDb: threshold, status: 'ok', hotSends: [] }) }] }
+      }
+
+      const hotSends = mix.sends
+        .filter((s) => !s.muted && s.level > 0)
+        .map((s) => ({ ...s, levelDb: 20 * Math.log10(s.level) }))
+        .filter((s) => s.levelDb > threshold)
+        .map((s) => ({ channel: s.fromChannel, channelName: s.fromChannelName, level: s.level, levelDb: s.levelDb }))
+
+      const status = hotSends.length > 0 ? 'warning' : 'ok'
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ auxMixNumber, thresholdDb: threshold, status, hotSends }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_aux_mix ─────────────────────────────────────────────────────
+  // @implements #44 REQ-F-AUX-005
+  server.tool(
+    'validate_aux_mix',
+    'Zero-expectation audit of an aux mix: combines missing, muted, and hot send detection into a single AuxMixAuditResult. Does not require rider-provided expected sends. Layer A: uses confirmed state keys.',
+    {
+      deviceId: z.string(),
+      auxMixNumber: z.number().int().positive().describe('1-based aux mix number'),
+      hotThresholdDb: z.number().optional().describe('Hot send threshold in dBFS (default −6)'),
+    },
+    async ({ deviceId, auxMixNumber, hotThresholdDb }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const threshold = hotThresholdDb ?? HOT_SEND_THRESHOLD_DB
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mix = allMixes.find((m) => m.auxMixNumber === auxMixNumber)
+
+      if (!mix) {
+        const result: AuxMixAuditResult = { auxMixNumber, name: `Aux ${auxMixNumber}`, masterLevel: 0, masterMuted: false, sendCount: 0, status: 'ok', issues: [], hotThresholdDb: threshold }
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+      }
+
+      const issues: AuxMixAuditIssue[] = []
+
+      if (mix.masterMuted) {
+        issues.push({ issueType: 'master_muted', auxMixNumber, channel: 0, channelName: mix.name, severity: 'high', detail: `Aux ${auxMixNumber} master output is muted` })
+      }
+
+      for (const send of mix.sends) {
+        if (send.muted) {
+          issues.push({ issueType: 'unassigned_send', auxMixNumber, channel: send.fromChannel, channelName: send.fromChannelName, severity: 'high', detail: `Channel not assigned to Aux ${auxMixNumber}`, level: send.level, levelDb: null })
+        } else if (send.level < 0.05) {
+          issues.push({ issueType: 'very_low_send', auxMixNumber, channel: send.fromChannel, channelName: send.fromChannelName, severity: 'low', detail: 'Send level very low (< 0.05 linear)', level: send.level, levelDb: send.level > 0 ? 20 * Math.log10(send.level) : null })
+        } else if (send.level > 0) {
+          const levelDb = 20 * Math.log10(send.level)
+          if (levelDb > threshold) {
+            issues.push({ issueType: 'hot_send', auxMixNumber, channel: send.fromChannel, channelName: send.fromChannelName, severity: 'medium', detail: `Send level ${levelDb.toFixed(1)} dBFS exceeds threshold ${threshold} dBFS`, level: send.level, levelDb })
+          }
+        }
+      }
+
+      const hasHigh = issues.some((i) => i.severity === 'high')
+      const status = hasHigh ? 'problem' : issues.some((i) => i.severity === 'medium' || i.severity === 'low') ? 'warning' : 'ok'
+
+      const result: AuxMixAuditResult = { auxMixNumber, name: mix.name, masterLevel: mix.masterLevel, masterMuted: mix.masterMuted, sendCount: mix.sends.length, status, issues, hotThresholdDb: threshold }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    },
+  )
+
+  // ─── get_input_routing (Layer B stub) ─────────────────────────────────────
+  // @implements #45 REQ-F-ROUT-011
+  server.tool(
+    'get_input_routing',
+    'Layer B stub: physical input source routing is not verifiable with the current adapter. Returns structured not_verifiable response with probe instructions.',
+    { deviceId: z.string() },
+    async ({ deviceId: _deviceId }) => {
+      const probeSteps = [
+        'pnpm probe-routing dump --device <IP> --out before-routing.json',
+        '<In UC Surface: change one channel input source>',
+        'pnpm probe-routing dump --device <IP> --out after-routing.json',
+        'pnpm probe-routing diff --before before-routing.json --after after-routing.json --kind input-source',
+      ]
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'not_verifiable_with_current_adapter', reason: 'Physical input source routing requires probe diff-state. No confirmed state key found yet.', probeSteps, probeMarkdown: `## How to discover input routing\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_avb_routing (Layer B stub) ──────────────────────────────────
+  // @implements #45 REQ-F-ROUT-011
+  server.tool(
+    'validate_avb_routing',
+    'Layer B stub: AVB stream routing requires a 32R stagebox and probe session. Returns structured not_verifiable response with probe instructions.',
+    { deviceId: z.string(), expectedStreams: z.array(z.string()).optional() },
+    async ({ deviceId: _deviceId, expectedStreams: _expectedStreams }) => {
+      const probeSteps = [
+        'Connect StudioLive 32R stagebox via AVB',
+        'pnpm probe-routing dump --device <FOH-IP> --out before-avb.json',
+        '<In UC Surface: change one AVB stream assignment>',
+        'pnpm probe-routing dump --device <FOH-IP> --out after-avb.json',
+        'pnpm probe-routing diff --before before-avb.json --after after-avb.json --kind avb-stream',
+      ]
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'not_verifiable_with_current_adapter', reason: 'AVB stream mapping requires 32R hardware and a separate probe session.', probeSteps, probeMarkdown: `## How to discover AVB routing\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_output_routing (Layer B partial) ────────────────────────────
+  // @implements #45 REQ-F-ROUT-011
+  server.tool(
+    'validate_output_routing',
+    'Layer B partial: output patch source index is known, but source name → index mapping is not probe-confirmed. Returns partial data with probe instructions for source names.',
+    { deviceId: z.string(), expectedOutputs: z.array(z.string()).optional() },
+    async ({ deviceId, expectedOutputs: _expectedOutputs }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      const probeSteps = [
+        'pnpm probe-routing dump --device <IP> --out before-patch.json',
+        '<In UC Surface: change one analog output source>',
+        'pnpm probe-routing dump --device <IP> --out after-patch.json',
+        'pnpm probe-routing diff --before before-patch.json --after after-patch.json --kind bus-to-output',
+      ]
+      const unverified = { reason: 'Output patch source names not yet probe-confirmed. Source indices are known.', probeSteps, probeMarkdown: `## How to confirm output patch source names\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'partial', outputPatchIndex: snapshot?.outputPatch ?? null, unverified }, null, 2) }] }
+    },
+  )
+
   // ─── Write tools (registered only when writeEnabled=true — ADR-005 #10, ADR-006) ───
   if (config.writeEnabled) {
     // Inform future maintainers: write tools are intentionally limited.
