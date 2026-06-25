@@ -54,6 +54,29 @@ export interface ToolsConfig {
 }
 
 // ---------------------------------------------------------------------------
+// In-memory probe session registry (Phase 7 — ADR-008 Layer B promotion)
+// Keys: probeId (UUID), Values: { deviceId, kind, baselineFlat, capturedAt, expiresAt }
+// ---------------------------------------------------------------------------
+const PROBE_TTL_MS = 5 * 60_000  // 5 minutes (probe sessions need time for operator interaction)
+
+interface ProbeSession {
+  deviceId: string
+  kind: string
+  baselineFlat: Record<string, unknown>
+  capturedAt: string
+  expiresAt: number
+}
+
+const probeSessions = new Map<string, ProbeSession>()
+
+function pruneExpiredProbeSessions(): void {
+  const now = Date.now()
+  for (const [id, session] of probeSessions) {
+    if (session.expiresAt <= now) probeSessions.delete(id)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // In-memory changeSet registry (ADR-006)
 // Keys: changeSetId, Values: { set, expiresAt (unix ms) }
 // ---------------------------------------------------------------------------
@@ -948,6 +971,86 @@ export function registerTools(
       ]
       const unverified = { reason: 'Output patch source names not yet probe-confirmed. Source indices are known.', probeSteps, probeMarkdown: `## How to confirm output patch source names\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }
       return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'partial', outputPatchIndex: snapshot?.outputPatch ?? null, unverified }, null, 2) }] }
+    },
+  )
+
+  // ─── start_routing_probe ──────────────────────────────────────────────────
+  // @implements REQ-F-PROBE-001: Layer B promotion — capture baseline state
+  // @architecture ADR-008: Layer B probe workflow
+  server.tool(
+    'start_routing_probe',
+    'Capture the current mixer state as a baseline for a routing probe session. The operator must then make the routing change in UC Surface (e.g. change one input source, AVB stream, or output patch), then call complete_routing_probe with the returned probeId to identify which state keys changed.',
+    {
+      deviceId: z.string(),
+      kind: z.enum(['input-source', 'avb-stream', 'output-patch', 'stagebox'])
+        .describe('Type of routing to probe: input-source, avb-stream, output-patch, or stagebox'),
+    },
+    async ({ deviceId, kind }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      pruneExpiredProbeSessions()
+      const probeId = randomUUID()
+      const capturedAt = new Date().toISOString()
+      probeSessions.set(probeId, {
+        deviceId, kind,
+        baselineFlat: { ...snapshot.flatState },
+        capturedAt,
+        expiresAt: Date.now() + PROBE_TTL_MS,
+      })
+      const kindLabel: Record<string, string> = {
+        'input-source': 'input source (e.g. change a channel input from Line to Digital)',
+        'avb-stream':   'AVB stream assignment (requires StudioLive 32R stagebox connected)',
+        'output-patch': 'analog output source (change one output in the Output Patch screen)',
+        'stagebox':     'stagebox connection or routing',
+      }
+      const instruction = `Baseline captured. Now in UC Surface, change one ${kindLabel[kind] ?? kind}. Then call complete_routing_probe with probeId "${probeId}" to see which state keys changed.`
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ probeId, kind, capturedAt, instruction }, null, 2) }] }
+    },
+  )
+
+  // ─── complete_routing_probe ───────────────────────────────────────────────
+  // @implements REQ-F-PROBE-002: Layer B promotion — diff and return changed keys
+  server.tool(
+    'complete_routing_probe',
+    'Diff the current mixer state against a baseline captured by start_routing_probe. Returns all state keys that changed, with before/after values. Run after making a routing change in UC Surface. The changed keys identify which state key controls the routing you adjusted.',
+    {
+      deviceId: z.string(),
+      probeId: z.string().uuid().describe('UUID returned by start_routing_probe'),
+    },
+    async ({ deviceId, probeId }) => {
+      pruneExpiredProbeSessions()
+      const session = probeSessions.get(probeId)
+      if (!session) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Probe session '${probeId}' not found or expired (TTL: 5 min). Re-run start_routing_probe.` }) }], isError: true }
+      }
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+      const beforeFlat = session.baselineFlat
+      const afterFlat = snapshot.flatState
+      const allKeys = new Set([...Object.keys(beforeFlat), ...Object.keys(afterFlat)])
+      const changedKeys: Array<{ key: string; before: unknown; after: unknown }> = []
+      for (const key of allKeys) {
+        const before = beforeFlat[key]
+        const after = afterFlat[key]
+        if (before !== after) {
+          changedKeys.push({ key, before: before ?? null, after: after ?? null })
+        }
+      }
+      probeSessions.delete(probeId)  // consume the session (one-shot)
+      return { content: [{ type: 'text' as const, text: JSON.stringify({
+        probeId, kind: session.kind,
+        capturedAt: session.capturedAt,
+        completedAt: new Date().toISOString(),
+        changedKeys,
+        summary: `Found ${changedKeys.length} changed key(s) between baseline and current state.`,
+        note: changedKeys.length === 0
+          ? 'No changes detected. Make sure you changed a routing setting in UC Surface between start and complete calls.'
+          : `Review changedKeys to identify the state key controlling ${session.kind} routing.`,
+      }, null, 2) }] }
     },
   )
 
