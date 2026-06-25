@@ -1683,3 +1683,301 @@ describe('detect_possible_patch_swap (REQ-F-ROUT-006 #36)', () => {
     expect(result.isError).toBe(true)
   })
 })
+
+// ---------------------------------------------------------------------------
+// REQ-F-DIAG-001 (#78) + TEST-DIAG-001 (#83): diagnose_channel
+// ---------------------------------------------------------------------------
+
+describe('diagnose_channel (REQ-F-DIAG-001 #78)', () => {
+  /**
+   * Verifies: #78 REQ-F-DIAG-001 — diagnose_channel MCP tool
+   * Verifies: #83 TEST-DIAG-001
+   * Traces to: #3 (StR: Soundcheck assistance via read-only mixer diagnostics)
+   *
+   * Tests the MCP tool layer (handler dispatch + JSON serialisation).
+   * Adapter-layer logic is already verified in diagnostics.test.ts.
+   */
+
+  it('muted channel → status:problem, cause mentions mute (StR #3 criterion 3)', async () => {
+    // Given: channel 7 is muted
+    const snapshot = makeSnapshotWithChannels([{ id: 'line.ch7', name: 'Lead Vox', mute: true }])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeMockManager(snapshot), { writeEnabled: false })
+
+    // When: diagnose_channel called
+    const result = await callTool(tools, 'diagnose_channel', { deviceId: DEVICE_ID, channel: 7 })
+    const data = body(result)
+
+    // Then: problem with mute cause
+    expect(result.isError).toBeFalsy()
+    expect(data.status).toBe('problem')
+    expect((data.mostLikelyCauses as string[]).some((c) => /mute|muted/i.test(c))).toBe(true)
+    expect(Array.isArray(data.safeNextSteps)).toBe(true)
+  })
+
+  it('fader at zero → status:problem, cause mentions fader (StR #3 criterion 3)', async () => {
+    // Given: channel 7 fader at minimum
+    const snapshot = makeSnapshotWithChannels([{ id: 'line.ch7', mute: false, faderLinear: 0.0 }])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeMockManager(snapshot), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_channel', { deviceId: DEVICE_ID, channel: 7 })
+    const data = body(result)
+
+    expect(data.status).toBe('problem')
+    expect((data.mostLikelyCauses as string[]).some((c) => /fader/i.test(c))).toBe(true)
+  })
+
+  it('gate enabled → status not ok, cause mentions gate (StR #3 criterion 3)', async () => {
+    // Given: channel 7 has gate enabled (may cut signal), everything else nominal
+    const snapshot = makeSnapshotWithChannels([{
+      id: 'line.ch7',
+      mute: false,
+      faderLinear: 0.75,
+      fatChannel: { gateEnabled: true } as ChannelFatState,
+    }])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeMockManager(snapshot), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_channel', { deviceId: DEVICE_ID, channel: 7 })
+    const data = body(result)
+
+    expect(data.status).not.toBe('ok')
+    expect((data.mostLikelyCauses as string[]).some((c) => /gate/i.test(c))).toBe(true)
+  })
+
+  it('active signal, unmuted, fader up → status:ok (StR #3 criterion 1)', async () => {
+    // Given: channel 7 nominal, meter shows active signal
+    const snapshot = makeSnapshotWithChannels([{ id: 'line.ch7', mute: false, faderLinear: 0.75 }])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, { activeChannels: ['line.ch7'] }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_channel', { deviceId: DEVICE_ID, channel: 7 })
+    const data = body(result)
+
+    expect(result.isError).toBeFalsy()
+    expect(data.status).toBe('ok')
+  })
+
+  it('device not connected → isError:true', async () => {
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeMockManager(undefined), { writeEnabled: false })
+
+    const result = await callTool(tools, 'diagnose_channel', { deviceId: DEVICE_ID, channel: 7 })
+
+    expect(result.isError).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// REQ-F-DIAG-002 (#74) + TEST-DIAG-002 (#81): analyze_line_check_step
+// ---------------------------------------------------------------------------
+
+describe('analyze_line_check_step (REQ-F-DIAG-002 #74)', () => {
+  /**
+   * Verifies: #74 REQ-F-DIAG-002 — analyze_line_check_step MCP tool
+   * Verifies: #81 TEST-DIAG-002
+   * Traces to: #3 (StR: Soundcheck assistance — criteria 1, 4)
+   */
+
+  it('expected channel silent → expectedActive shows silent, status not ok (StR #3 criterion 1)', async () => {
+    // Given: ch1 expected active, but meter shows it silent
+    const snapshot = makeSnapshotWithChannels([{ id: 'line.ch1', name: 'Kick' }])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, { silentChannels: ['line.ch1'] }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'analyze_line_check_step', {
+      deviceId: DEVICE_ID,
+      expectedActiveChannels: [{ channel: 1, name: 'Kick' }],
+    })
+    const data = body(result)
+
+    expect(result.isError).toBeFalsy()
+    expect(data.status).not.toBe('ok')
+    const expected = data.expectedActive as Array<{ channel: number; signal: string }>
+    expect(expected[0]!.signal).toBe('silent')
+  })
+
+  it('unexpected active channel → flagged in unexpectedActive (StR #3 criterion 4)', async () => {
+    // Given: ch1 expected but silent; ch2 unexpectedly active
+    const snapshot = makeSnapshotWithChannels([
+      { id: 'line.ch1', name: 'Kick' },
+      { id: 'line.ch2', name: 'Ch 2' },
+    ])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, {
+      silentChannels: ['line.ch1'],
+      activeChannels: ['line.ch2'],
+    }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'analyze_line_check_step', {
+      deviceId: DEVICE_ID,
+      expectedActiveChannels: [{ channel: 1, name: 'Kick' }],
+    })
+    const data = body(result)
+
+    const unexpected = data.unexpectedActive as Array<{ channel: number }>
+    expect(unexpected.some((u) => u.channel === 2)).toBe(true)
+  })
+
+  it('all expected channels active, no extras → status:ok (StR #3 criteria 1+4)', async () => {
+    const snapshot = makeSnapshotWithChannels([{ id: 'line.ch1', name: 'Kick' }])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, { activeChannels: ['line.ch1'] }), { writeEnabled: false })
+
+    const result = await callTool(tools, 'analyze_line_check_step', {
+      deviceId: DEVICE_ID,
+      expectedActiveChannels: [{ channel: 1, name: 'Kick' }],
+    })
+    const data = body(result)
+
+    expect(result.isError).toBeFalsy()
+    expect(data.status).toBe('ok')
+    expect((data.unexpectedActive as unknown[]).length).toBe(0)
+  })
+
+  it('no meter data available → isError:true with explanation', async () => {
+    // getSummarizer returns undefined → tool cannot proceed
+    const snapshot = makeSnapshotWithChannels([{ id: 'line.ch1' }])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeManagerWithMeter(snapshot, undefined), { writeEnabled: false })
+
+    const result = await callTool(tools, 'analyze_line_check_step', {
+      deviceId: DEVICE_ID,
+      expectedActiveChannels: [{ channel: 1, name: 'Kick' }],
+    })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.parse(result.content[0]!.text).error).toMatch(/meter|data/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// REQ-F-DIAG-003 (#76) + TEST-DIAG-003 (#82): check_required_setup
+// ---------------------------------------------------------------------------
+
+describe('check_required_setup (REQ-F-DIAG-003 #76)', () => {
+  /**
+   * Verifies: #76 REQ-F-DIAG-003 — check_required_setup MCP tool
+   * Verifies: #82 TEST-DIAG-003
+   * Traces to: #3 (StR: Soundcheck assistance)
+   * mockCaps = { lineInputs:32, auxMixes:16, fxBuses:4, avbStagebox:true }
+   */
+
+  it('all requirements met → status:ok, every check passes', async () => {
+    const snapshot = makeSnapshotWithChannels([])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeMockManager(snapshot), { writeEnabled: false })
+
+    const result = await callTool(tools, 'check_required_setup', {
+      deviceId: DEVICE_ID,
+      requirements: { inputChannels: 32, monitorMixes: 6, fxBuses: 4, stageboxRequired: true },
+    })
+    const data = body(result)
+
+    expect(result.isError).toBeFalsy()
+    expect(data.status).toBe('ok')
+    const checks = data.checks as Array<{ requirement: string; status: string }>
+    expect(checks.every((c) => c.status === 'ok')).toBe(true)
+  })
+
+  it('requires more FX buses than available → status:problem, fxBuses insufficient', async () => {
+    const snapshot = makeSnapshotWithChannels([])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeMockManager(snapshot), { writeEnabled: false })
+
+    // mockCaps.fxBuses === 4; require 8
+    const result = await callTool(tools, 'check_required_setup', {
+      deviceId: DEVICE_ID,
+      requirements: { fxBuses: 8 },
+    })
+    const data = body(result)
+
+    expect(data.status).toBe('problem')
+    const checks = data.checks as Array<{ requirement: string; status: string }>
+    const fxCheck = checks.find((c) => c.requirement === 'fxBuses')
+    expect(fxCheck?.status).toBe('insufficient')
+  })
+
+  it('requires stagebox but caps shows none → status:problem, stageboxRequired unavailable', async () => {
+    // Override caps to have no stagebox
+    const noStagebox = makeMockManager(makeSnapshotWithChannels([]))
+    ;(noStagebox as Record<string, unknown>).getCapabilities = () => ({
+      ...mockCaps,
+      avbStagebox: false,
+    })
+    const { server, tools } = makeMockServer()
+    registerTools(server, noStagebox, { writeEnabled: false })
+
+    const result = await callTool(tools, 'check_required_setup', {
+      deviceId: DEVICE_ID,
+      requirements: { stageboxRequired: true },
+    })
+    const data = body(result)
+
+    expect(data.status).toBe('problem')
+    const checks = data.checks as Array<{ requirement: string; status: string }>
+    const sbCheck = checks.find((c) => c.requirement === 'stageboxRequired')
+    expect(sbCheck?.status).toBe('unavailable')
+  })
+
+  it('device not connected → isError:true', async () => {
+    // check_required_setup gates on getIdentity (not getSnapshot)
+    const mgr = makeMockManager(undefined)
+    ;(mgr as Record<string, unknown>).getIdentity = () => undefined
+    const { server, tools } = makeMockServer()
+    registerTools(server, mgr, { writeEnabled: false })
+
+    const result = await callTool(tools, 'check_required_setup', {
+      deviceId: DEVICE_ID,
+      requirements: { inputChannels: 32 },
+    })
+
+    expect(result.isError).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// REQ-F-DIAG-004 (#79) + TEST-DIAG-004 (#80): get_mixer_capabilities
+// ---------------------------------------------------------------------------
+
+describe('get_mixer_capabilities (REQ-F-DIAG-004 #79)', () => {
+  /**
+   * Verifies: #79 REQ-F-DIAG-004 — get_mixer_capabilities MCP tool
+   * Verifies: #80 TEST-DIAG-004
+   * Traces to: #3 (StR: Soundcheck assistance)
+   * mockCaps = { lineInputs:32, auxMixes:16, subgroups:4, fxBuses:4, mainOutputs:true, fatChannel:true, avbStagebox:true }
+   * mockIdentity.role = 'FOH'
+   */
+
+  it('connected device → returns capabilities object with all fields', async () => {
+    const snapshot = makeSnapshotWithChannels([])
+    const { server, tools } = makeMockServer()
+    registerTools(server, makeMockManager(snapshot), { writeEnabled: false })
+
+    const result = await callTool(tools, 'get_mixer_capabilities', { deviceId: DEVICE_ID })
+    const data = body(result)
+
+    expect(result.isError).toBeFalsy()
+    expect(data.deviceId).toBe(DEVICE_ID)
+    expect(data.role).toBe('FOH')
+    const caps = data.capabilities as typeof mockCaps
+    expect(caps.lineInputs).toBe(32)
+    expect(caps.auxMixes).toBe(16)
+    expect(caps.fxBuses).toBe(4)
+    expect(caps.avbStagebox).toBe(true)
+    expect(caps.fatChannel).toBe(true)
+  })
+
+  it('unknown device id → isError:true', async () => {
+    // get_mixer_capabilities gates on getIdentity; override to return undefined
+    const mgr = makeMockManager(undefined)
+    ;(mgr as Record<string, unknown>).getIdentity = () => undefined
+    const { server, tools } = makeMockServer()
+    registerTools(server, mgr, { writeEnabled: false })
+
+    const result = await callTool(tools, 'get_mixer_capabilities', { deviceId: DEVICE_ID })
+
+    expect(result.isError).toBe(true)
+  })
+})

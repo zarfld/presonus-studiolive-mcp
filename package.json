@@ -14,7 +14,7 @@
     "clean": "pnpm -r exec rimraf dist tsconfig.tsbuildinfo",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:hil": "cross-env HIL_PRESONUS=1 vitest run --reporter verbose",
+    "test:hil": "cross-env HIL_PRESONUS=1 vitest run --config vitest.hil.config.ts",
     "test:coverage": "vitest run --coverage",
     "probe": "node packages/presonus-inspector/dist/cli/probe.js",
     "probe:dev": "tsx packages/presonus-inspector/src/cli/probe.ts",
