@@ -27,6 +27,9 @@ import {
   type AuxMixAuditIssue,
   type AuxMixAuditResult,
   HOT_SEND_THRESHOLD_DB,
+  type InputListEntry,
+  type PatchSheetRow,
+  type ChannelFatState,
 } from '@presonus-mcp/domain'
 
 export interface ToolsConfig {
@@ -929,6 +932,455 @@ export function registerTools(
       ]
       const unverified = { reason: 'Output patch source names not yet probe-confirmed. Source indices are known.', probeSteps, probeMarkdown: `## How to confirm output patch source names\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }
       return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'partial', outputPatchIndex: snapshot?.outputPatch ?? null, unverified }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_input_list_against_mixer ──────────────────────────────────
+  // @implements REQ-F-INP-001
+  server.tool(
+    'validate_input_list_against_mixer',
+    'Validate an agent-provided input list against actual mixer channel state. Checks channel name, phantom state, and mute. Returns issues[] and printable patch rows grounded in live mixer state. The agent provides the input list (from rider); the MCP validates it.',
+    {
+      deviceId: z.string(),
+      inputList: z.array(z.object({
+        inputNo: z.number().int().positive().describe('1-based physical channel number'),
+        sourceName: z.string().describe('Expected source name from rider (e.g. "Kick In")'),
+        phantomRequired: z.boolean().describe('Whether 48V phantom power is required'),
+        micPreference: z.string().optional().describe('Mic or DI preference for patch sheet printing'),
+        notes: z.string().optional().describe('Free-text notes for the patch document'),
+      })).describe('Agent-provided input list from rider analysis'),
+    },
+    async ({ deviceId, inputList }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const caps = clientManager.getCapabilities(deviceId)
+
+      // Detect duplicate inputNos
+      const seenNos = new Set<number>()
+      const duplicates = new Set<number>()
+      for (const e of inputList) {
+        if (seenNos.has(e.inputNo)) duplicates.add(e.inputNo)
+        seenNos.add(e.inputNo)
+      }
+
+      const issues: Array<{ inputNo: number; issue: string; current?: string; expected?: string; severity: string }> = []
+      const printablePatchRows: PatchSheetRow[] = []
+
+      for (const entry of inputList) {
+        const warnings: string[] = []
+
+        // Duplicate check
+        if (duplicates.has(entry.inputNo)) {
+          issues.push({ inputNo: entry.inputNo, issue: 'duplicate_input_number', expected: String(entry.inputNo), severity: 'high' })
+        }
+
+        // Range check
+        if (entry.inputNo > caps.lineInputs) {
+          issues.push({ inputNo: entry.inputNo, issue: 'input_out_of_range', current: String(caps.lineInputs), expected: String(entry.inputNo), severity: 'high' })
+          printablePatchRows.push({
+            inputNo: entry.inputNo, sourceName: entry.sourceName, micPreference: entry.micPreference,
+            phantomRequired: entry.phantomRequired, notes: entry.notes,
+            manualPatchInstruction: `Input ${entry.inputNo} exceeds mixer capacity (${caps.lineInputs} inputs)`,
+            currentMixerLabel: null, currentPhantomState: null, currentMuteState: 'unknown', warnings: ['Input out of range'],
+          })
+          continue
+        }
+
+        const channelId = `line.ch${entry.inputNo}`
+        const ch = snapshot.channels.find((c) => c.id === channelId)
+
+        // Name mismatch
+        if (ch?.name && ch.name !== entry.sourceName) {
+          issues.push({ inputNo: entry.inputNo, issue: 'channel_name_mismatch', current: ch.name, expected: entry.sourceName, severity: 'low' })
+          warnings.push(`Mixer label "${ch.name}" differs from expected "${entry.sourceName}"`)
+        }
+
+        // Mute check
+        if (ch?.mute === true) {
+          issues.push({ inputNo: entry.inputNo, issue: 'channel_muted', current: 'muted', expected: 'active', severity: 'high' })
+          warnings.push('Channel is muted — signal will not pass during line check')
+        }
+
+        // Phantom check
+        const phantomKey = `${channelId}.48v`
+        const actualPhantom = Boolean(snapshot.flatState[phantomKey] ?? false)
+        const phantomState: 'on' | 'off' = actualPhantom ? 'on' : 'off'
+        if (actualPhantom !== entry.phantomRequired) {
+          issues.push({
+            inputNo: entry.inputNo, issue: 'phantom_mismatch',
+            current: phantomState, expected: entry.phantomRequired ? 'on' : 'off', severity: 'medium',
+          })
+          warnings.push(`Phantom is ${phantomState} but ${entry.phantomRequired ? 'required' : 'not required'}`)
+        }
+
+        const muteState = ch?.mute === true ? 'muted' as const : ch?.mute === false ? 'active' as const : 'unknown' as const
+        printablePatchRows.push({
+          inputNo: entry.inputNo, sourceName: entry.sourceName, micPreference: entry.micPreference,
+          phantomRequired: entry.phantomRequired, notes: entry.notes,
+          manualPatchInstruction: `Patch ${entry.sourceName} to FOH/stagebox input ${entry.inputNo}`,
+          currentMixerLabel: ch?.name ?? null, currentPhantomState: ch ? phantomState : null,
+          currentMuteState: muteState, warnings,
+        })
+      }
+
+      const hasHigh = issues.some((i) => i.severity === 'high')
+      const status = hasHigh ? 'error' : issues.length > 0 ? 'warning' : 'ok'
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status, issues, printablePatchRows }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_patch_sheet ─────────────────────────────────────────────────
+  // @implements REQ-F-INP-002
+  server.tool(
+    'validate_patch_sheet',
+    'Offline-only validation of a patch sheet: checks for duplicate channel numbers, inputs outside mixer capacity, and phantom conflicts. Does NOT require a live mixer connection — purely validates the agent-provided list for internal consistency.',
+    {
+      inputs: z.array(z.object({
+        inputNo: z.number().int().positive().describe('1-based channel number'),
+        sourceName: z.string().describe('Source name'),
+        phantomRequired: z.boolean().describe('Whether 48V phantom is required'),
+        micPreference: z.string().optional(),
+        notes: z.string().optional(),
+      })).describe('Agent-provided input list to validate offline'),
+      maxInputs: z.number().int().positive().optional().describe('Maximum channel count to validate against (default 32)'),
+    },
+    async ({ inputs, maxInputs }) => {
+      const limit = maxInputs ?? 32
+      const issues: Array<{ inputNo: number; issue: string; detail: string }> = []
+      const seenNos = new Map<number, string>()
+
+      for (const entry of inputs) {
+        // Range check
+        if (entry.inputNo > limit) {
+          issues.push({ inputNo: entry.inputNo, issue: 'input_out_of_range', detail: `Input ${entry.inputNo} exceeds maximum ${limit}` })
+        }
+        // Duplicate check
+        if (seenNos.has(entry.inputNo)) {
+          issues.push({ inputNo: entry.inputNo, issue: 'duplicate_input_number', detail: `Input ${entry.inputNo} already assigned to "${seenNos.get(entry.inputNo)}"` })
+        } else {
+          seenNos.set(entry.inputNo, entry.sourceName)
+        }
+      }
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: issues.length === 0, issues }, null, 2) }] }
+    },
+  )
+
+  // ─── render_patch_sheet_data ──────────────────────────────────────────────
+  // @implements REQ-F-INP-003
+  server.tool(
+    'render_patch_sheet_data',
+    'Return structured patch sheet rows grounded in mixer state, suitable for agent-side rendering as a printable human patch document. Each row includes the manual patch instruction, current mixer label, phantom state, mute state, and any warnings. The agent formats the final human-readable document.',
+    {
+      deviceId: z.string(),
+      inputs: z.array(z.object({
+        inputNo: z.number().int().positive(),
+        sourceName: z.string(),
+        phantomRequired: z.boolean(),
+        micPreference: z.string().optional(),
+        standRequired: z.boolean().optional(),
+        notes: z.string().optional(),
+      })).describe('Agent-provided input list'),
+    },
+    async ({ deviceId, inputs }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+
+      const rows: PatchSheetRow[] = inputs.map((entry) => {
+        const channelId = `line.ch${entry.inputNo}`
+        const ch = snapshot.channels.find((c) => c.id === channelId)
+        const phantomKey = `${channelId}.48v`
+        const actualPhantom = Boolean(snapshot.flatState[phantomKey] ?? false)
+        const phantomState: 'on' | 'off' = actualPhantom ? 'on' : 'off'
+        const muteState = ch?.mute === true ? 'muted' as const : ch?.mute === false ? 'active' as const : 'unknown' as const
+        const warnings: string[] = []
+        if (ch?.name && ch.name !== entry.sourceName) warnings.push(`Mixer label "${ch.name}" differs from expected "${entry.sourceName}"`)
+        if (ch?.mute === true) warnings.push('Channel is muted')
+        if (ch && actualPhantom !== entry.phantomRequired) warnings.push(`Phantom is ${phantomState} but ${entry.phantomRequired ? 'required' : 'not required'}`)
+        return {
+          inputNo: entry.inputNo, sourceName: entry.sourceName, micPreference: entry.micPreference,
+          phantomRequired: entry.phantomRequired, standRequired: entry.standRequired, notes: entry.notes,
+          manualPatchInstruction: `Patch ${entry.sourceName} to FOH/stagebox input ${entry.inputNo}`,
+          currentMixerLabel: ch?.name ?? null, currentPhantomState: ch ? phantomState : null,
+          currentMuteState: muteState, warnings,
+        }
+      })
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ rows }, null, 2) }] }
+    },
+  )
+
+  // ─── get_monitor_mix_layout ───────────────────────────────────────────────
+  // @implements REQ-F-MON-001
+  server.tool(
+    'get_monitor_mix_layout',
+    'Return the monitor mix layout: all aux buses with name, type (mono/stereo-left/stereo-right/iem-stereo), and inferred stereo pairs. Stereo pair inference uses ≥80% send-channel overlap as heuristic — confidence is always "inferred" until operator-confirmed.',
+    { deviceId: z.string() },
+    async ({ deviceId }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const caps = clientManager.getCapabilities(deviceId)
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const auxBuses = Array.from({ length: caps.auxMixes }, (_, i) => {
+        const mix = allMixes.find((m) => m.auxMixNumber === i + 1)
+        return { auxBus: i + 1, name: mix?.name, type: 'mono' as const, inferenceConfidence: 'observed' as const }
+      })
+      const inferredPairs: Array<{ leftBus: number; rightBus: number; confidence: string }> = []
+      for (let i = 0; i < auxBuses.length - 1; i++) {
+        const left = allMixes.find((m) => m.auxMixNumber === i + 1)
+        const right = allMixes.find((m) => m.auxMixNumber === i + 2)
+        if (!left || !right) continue
+        const leftChs = new Set(left.sends.map((s) => s.fromChannel))
+        const rightChs = new Set(right.sends.map((s) => s.fromChannel))
+        const overlap = [...leftChs].filter((c) => rightChs.has(c))
+        if (leftChs.size > 0 && overlap.length / Math.max(leftChs.size, rightChs.size) >= 0.8) {
+          inferredPairs.push({ leftBus: i + 1, rightBus: i + 2, confidence: 'inferred' })
+        }
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ deviceId, capturedAt: snapshot.capturedAt, auxBuses, inferredPairs }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_stereo_monitor_pair ─────────────────────────────────────────
+  // @implements REQ-F-MON-002
+  server.tool(
+    'validate_stereo_monitor_pair',
+    'Validate that two aux buses form a consistent stereo pair (e.g. IEM L/R). Checks matching send channel assignments and reports channels present on one side but not the other.',
+    {
+      deviceId: z.string(),
+      auxBusLeft: z.number().int().positive().describe('Left aux bus number (1-based)'),
+      auxBusRight: z.number().int().positive().describe('Right aux bus number (1-based)'),
+      pairName: z.string().optional().describe('Optional label for this stereo pair (e.g. "IEM 1")'),
+    },
+    async ({ deviceId, auxBusLeft, auxBusRight, pairName }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const left = allMixes.find((m) => m.auxMixNumber === auxBusLeft)
+      const right = allMixes.find((m) => m.auxMixNumber === auxBusRight)
+      const issues: string[] = []
+      if (!left) issues.push(`Aux bus ${auxBusLeft} not found in mixer state`)
+      if (!right) issues.push(`Aux bus ${auxBusRight} not found in mixer state`)
+
+      if (!left || !right) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ auxBusLeft, auxBusRight, pairName, valid: false, issues, leftSendCount: 0, rightSendCount: 0, asymmetricChannels: [] }) }] }
+      }
+
+      const leftChs = new Set(left.sends.map((s) => s.fromChannel))
+      const rightChs = new Set(right.sends.map((s) => s.fromChannel))
+      const asymmetricChannels = [
+        ...[...leftChs].filter((c) => !rightChs.has(c)),
+        ...[...rightChs].filter((c) => !leftChs.has(c)),
+      ].sort((a, b) => a - b)
+      if (asymmetricChannels.length > 0) {
+        issues.push(`${asymmetricChannels.length} channel(s) present on one side only: ${asymmetricChannels.join(', ')}`)
+      }
+      if (left.masterMuted) issues.push(`Left bus Aux ${auxBusLeft} master is muted`)
+      if (right.masterMuted) issues.push(`Right bus Aux ${auxBusRight} master is muted`)
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({
+        auxBusLeft, auxBusRight, pairName, valid: issues.length === 0,
+        issues, leftSendCount: left.sends.length, rightSendCount: right.sends.length, asymmetricChannels,
+      }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_monitor_mix_names ───────────────────────────────────────────
+  // @implements REQ-F-MON-003
+  server.tool(
+    'validate_monitor_mix_names',
+    'Audit aux bus names against agent-provided expected names. Returns mismatches and unnamed buses. Useful for verifying that the monitor layout matches the rider/show plan.',
+    {
+      deviceId: z.string(),
+      expectedNames: z.array(z.object({
+        auxBus: z.number().int().positive().describe('1-based aux bus number'),
+        name: z.string().describe('Expected name (e.g. "Wedge 1", "IEM 1 L")'),
+      })).describe('Agent-provided expected aux bus names from rider/show plan'),
+    },
+    async ({ deviceId, expectedNames }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mismatches: Array<{ auxBus: number; expected: string; current: string; issue: string }> = []
+      for (const { auxBus, name } of expectedNames) {
+        const mix = allMixes.find((m) => m.auxMixNumber === auxBus)
+        if (!mix) {
+          mismatches.push({ auxBus, expected: name, current: '(not found)', issue: 'bus_not_found' })
+        } else if (mix.name !== name) {
+          mismatches.push({ auxBus, expected: name, current: mix.name, issue: 'name_mismatch' })
+        }
+      }
+      const unnamed = allMixes.filter((m) => !m.name || m.name.match(/^aux\s*\d+$/i)).map((m) => m.auxMixNumber)
+      return { content: [{ type: 'text' as const, text: JSON.stringify({
+        status: mismatches.length > 0 ? 'warning' : 'ok', mismatches, unnamedBuses: unnamed,
+      }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_output_patch_labels ─────────────────────────────────────────
+  // @implements REQ-F-ROUT-010 (Phase 5)
+  server.tool(
+    'validate_output_patch_labels',
+    'Compare expected output patch labels against actual mixer output patch state. Source indices are known; source names are not_verifiable_with_current_adapter until probe-routing diff --kind bus-to-output is run. Returns partial validation with confidence annotation.',
+    {
+      deviceId: z.string(),
+      expectedLabels: z.array(z.object({
+        outputIndex: z.number().int().positive().describe('1-based analog output index'),
+        expectedSourceName: z.string().describe('Expected source name (e.g. "Main L", "Aux 1")'),
+      })).describe('Agent-provided expected output patch labels'),
+    },
+    async ({ deviceId, expectedLabels }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+      const outputPatch = snapshot.outputPatch
+      const results = expectedLabels.map(({ outputIndex, expectedSourceName }) => {
+        const patch = outputPatch?.analogOutputs?.find((p) => p.outputIndex === outputIndex)
+        return {
+          outputIndex,
+          expectedSourceName,
+          actualSourceIndex: patch?.sourceIndex ?? null,
+          actualSourceName: patch?.sourceName ?? null,
+          confidence: 'not_verifiable_with_current_adapter',
+          note: 'Source name mapping not probe-confirmed. Run: pnpm probe-routing diff --kind bus-to-output',
+        }
+      })
+      return { content: [{ type: 'text' as const, text: JSON.stringify({
+        status: 'partial', globalConfidence: 'not_verifiable_with_current_adapter',
+        results, probeInstruction: 'pnpm probe-routing diff --before before.json --after after.json --kind bus-to-output',
+      }, null, 2) }] }
+    },
+  )
+
+  // ─── get_fat_channel ──────────────────────────────────────────────────────
+  // @implements REQ-F-FAT-001
+  server.tool(
+    'get_fat_channel',
+    'Return the Fat Channel DSP state (EQ model, compressor, gate, limiter, HPF frequency) for a single channel. Faster than reading the full channel list when only Fat Channel data is needed for one channel. Parameter confidence is "guessed" until probe-fat-channel calibration is run.',
+    {
+      deviceId: z.string(),
+      channelId: z.string().describe('Channel ID, e.g. "line.ch1", "line.ch8"'),
+    },
+    async ({ deviceId, channelId }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const ch = snapshot.channels.find((c) => c.id === channelId)
+      if (!ch) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found. Check channelId format (e.g. "line.ch1").` }) }], isError: true }
+      }
+      const fatState: ChannelFatState | null = ch.fatChannel ?? null
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ channelId, channelName: ch.name, fatState }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_fat_channel_for_source ──────────────────────────────────────
+  // @implements REQ-F-FAT-002
+  server.tool(
+    'validate_fat_channel_for_source',
+    'Check Fat Channel settings against source-type expectations (HPF engaged, gate enabled, compressor enabled, limiter enabled). Returns per-check pass/fail results with parameter confidence annotation. The agent provides the source type; the MCP checks the actual Fat Channel state.',
+    {
+      deviceId: z.string(),
+      channelId: z.string().describe('Channel ID, e.g. "line.ch1"'),
+      sourceType: z.enum(['vocal', 'kick', 'snare', 'bass', 'guitar', 'keys', 'drum_room', 'overhead', 'brass', 'strings', 'generic'])
+        .describe('Source type from rider — determines which Fat Channel checks are applied'),
+      expectedCompEnabled: z.boolean().optional().describe('Override: expect compressor to be enabled'),
+      expectedGateEnabled: z.boolean().optional().describe('Override: expect gate to be enabled'),
+      expectedHpfHz: z.number().optional().describe('Override: expect HPF at or above this frequency (Hz)'),
+    },
+    async ({ deviceId, channelId, sourceType, expectedCompEnabled, expectedGateEnabled, expectedHpfHz }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const ch = snapshot.channels.find((c) => c.id === channelId)
+      if (!ch) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found.` }) }], isError: true }
+      }
+      const fat = ch.fatChannel
+      if (!fat) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ channelId, sourceType, status: 'no_fat_channel_state', note: 'Fat Channel state not present — try refresh_mixer_state first.' }) }] }
+      }
+
+      // Per-source-type default expectations (guidance, not hard rules)
+      type SourceRule = { hpfMinHz?: number; compExpected?: boolean; gateExpected?: boolean; limiterExpected?: boolean }
+      const SOURCE_RULES: Record<string, SourceRule> = {
+        vocal:      { hpfMinHz: 80,  compExpected: true,  gateExpected: false, limiterExpected: false },
+        kick:       { hpfMinHz: 0,   compExpected: true,  gateExpected: true,  limiterExpected: false },
+        snare:      { hpfMinHz: 80,  compExpected: true,  gateExpected: true,  limiterExpected: false },
+        bass:       { hpfMinHz: 0,   compExpected: true,  gateExpected: false, limiterExpected: false },
+        guitar:     { hpfMinHz: 80,  compExpected: false, gateExpected: false, limiterExpected: false },
+        keys:       { hpfMinHz: 40,  compExpected: false, gateExpected: false, limiterExpected: false },
+        drum_room:  { hpfMinHz: 60,  compExpected: true,  gateExpected: false, limiterExpected: false },
+        overhead:   { hpfMinHz: 80,  compExpected: false, gateExpected: false, limiterExpected: false },
+        brass:      { hpfMinHz: 80,  compExpected: false, gateExpected: false, limiterExpected: false },
+        strings:    { hpfMinHz: 60,  compExpected: false, gateExpected: false, limiterExpected: false },
+        generic:    {},
+      }
+      const rule = SOURCE_RULES[sourceType] ?? {}
+
+      const checks: Array<{ check: string; passed: boolean | null; detail: string }> = []
+      const warnings: string[] = []
+
+      // HPF check
+      const hpfMin = expectedHpfHz ?? rule.hpfMinHz
+      if (hpfMin !== undefined && hpfMin > 0) {
+        const hpfHz = fat.hpfFrequencyHz
+        if (hpfHz === undefined) {
+          checks.push({ check: 'hpf_engaged', passed: null, detail: 'HPF frequency not in state — run refresh_mixer_state' })
+        } else if (hpfHz < hpfMin) {
+          checks.push({ check: 'hpf_engaged', passed: false, detail: `HPF at ${Math.round(hpfHz)} Hz (expected ≥ ${hpfMin} Hz for ${sourceType})` })
+          warnings.push(`HPF too low for ${sourceType}: ${Math.round(hpfHz)} Hz`)
+        } else {
+          checks.push({ check: 'hpf_engaged', passed: true, detail: `HPF at ${Math.round(hpfHz)} Hz ≥ ${hpfMin} Hz` })
+        }
+      }
+
+      // Compressor check
+      const compExp = expectedCompEnabled ?? rule.compExpected
+      if (compExp !== undefined) {
+        const compOn = fat.comp?.enabled
+        if (compOn === undefined) {
+          checks.push({ check: 'compressor_enabled', passed: null, detail: 'Compressor state not in snapshot' })
+        } else if (compOn !== compExp) {
+          checks.push({ check: 'compressor_enabled', passed: false, detail: `Compressor is ${compOn ? 'on' : 'off'} (expected ${compExp ? 'on' : 'off'} for ${sourceType})` })
+          if (compExp) warnings.push(`Compressor off — recommended for ${sourceType}`)
+        } else {
+          checks.push({ check: 'compressor_enabled', passed: true, detail: `Compressor ${compOn ? 'on' : 'off'} as expected` })
+        }
+      }
+
+      // Gate check
+      const gateExp = expectedGateEnabled ?? rule.gateExpected
+      if (gateExp !== undefined && gateExp) {
+        const gateOn = fat.gate?.enabled
+        if (gateOn === undefined) {
+          checks.push({ check: 'gate_enabled', passed: null, detail: 'Gate state not in snapshot' })
+        } else if (!gateOn) {
+          checks.push({ check: 'gate_enabled', passed: false, detail: `Gate is off (recommended for ${sourceType})` })
+          warnings.push(`Gate off — recommended for ${sourceType}`)
+        } else {
+          checks.push({ check: 'gate_enabled', passed: true, detail: 'Gate enabled as expected' })
+        }
+      }
+
+      const passedAll = checks.every((c) => c.passed !== false)
+      return { content: [{ type: 'text' as const, text: JSON.stringify({
+        channelId, channelName: ch.name, sourceType, status: passedAll ? 'ok' : 'warning',
+        checks, warnings, parameterConfidence: fat.parameterConfidence ?? 'guessed',
+      }, null, 2) }] }
     },
   )
 

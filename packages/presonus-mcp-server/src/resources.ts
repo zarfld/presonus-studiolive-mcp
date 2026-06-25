@@ -307,4 +307,114 @@ export function registerResources(
       }
     },
   )
+
+  // ─── presonus://mixer/{id}/fat-channel/{channelId} ──────────────────────────  // @implements REQ-F-FAT-001
+  server.resource(
+    'mixer-fat-channel',
+    new ResourceTemplate('presonus://mixer/{deviceId}/fat-channel/{channelId}', { list: undefined }),
+    { description: 'Fat Channel DSP state for a single channel (EQ model, compressor, gate, limiter, HPF). Parameter confidence is "guessed" until probe-fat-channel calibration is run. Use get_fat_channel tool for programmatic access.' },
+    async (_uri, { deviceId, channelId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      const ch = snapshot?.channels.find((c) => c.id === String(channelId))
+      const uri = `presonus://mixer/${String(deviceId)}/fat-channel/${String(channelId)}`
+      if (!snapshot || !ch) {
+        return {
+          contents: [{
+            uri,
+            text: JSON.stringify({ error: !snapshot ? 'Device not connected. Run discover_mixers first.' : `Channel '${String(channelId)}' not found.` }),
+            mimeType: 'application/json',
+          }],
+        }
+      }
+      return {
+        contents: [{
+          uri,
+          text: JSON.stringify({
+            channelId: String(channelId),
+            channelName: ch.name,
+            fatState: ch.fatChannel ?? null,
+            capturedAt: snapshot.capturedAt,
+            ...staleMetadata(snapshot),
+          }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/monitor-layout ─────────────────────────────────
+  // @implements REQ-F-MON-001 (Phase 4)
+  server.resource(
+    'mixer-monitor-layout',
+    new ResourceTemplate('presonus://mixer/{deviceId}/monitor-layout', { list: undefined }),
+    { description: 'Monitor mix layout for a mixer: all aux buses with type (mono/stereo-left/stereo-right/iem-stereo) and inferred stereo pairs. Pair inference is confidence=inferred until operator-confirmed.' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      const uri = `presonus://mixer/${String(deviceId)}/monitor-layout`
+      if (!snapshot) {
+        return {
+          contents: [{
+            uri,
+            text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }),
+            mimeType: 'application/json',
+          }],
+        }
+      }
+      const caps = clientManager.getCapabilities(String(deviceId))
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const auxBuses = Array.from({ length: caps.auxMixes }, (_, i) => {
+        const mix = allMixes.find((m) => m.auxMixNumber === i + 1)
+        return { auxBus: i + 1, name: mix?.name, type: 'mono' as const, inferenceConfidence: 'observed' as const }
+      })
+      // Infer stereo pairs: consecutive buses with same send channel assignments and very similar send levels
+      const inferredPairs: Array<{ leftBus: number; rightBus: number; confidence: 'inferred' }> = []
+      for (let i = 0; i < auxBuses.length - 1; i++) {
+        const left = allMixes.find((m) => m.auxMixNumber === i + 1)
+        const right = allMixes.find((m) => m.auxMixNumber === i + 2)
+        if (!left || !right) continue
+        const leftChs = new Set(left.sends.map((s) => s.fromChannel))
+        const rightChs = new Set(right.sends.map((s) => s.fromChannel))
+        const overlap = [...leftChs].filter((c) => rightChs.has(c))
+        // Heuristic: ≥80% channel overlap → likely stereo pair
+        if (leftChs.size > 0 && rightChs.size > 0 && overlap.length / Math.max(leftChs.size, rightChs.size) >= 0.8) {
+          inferredPairs.push({ leftBus: i + 1, rightBus: i + 2, confidence: 'inferred' })
+        }
+      }
+      return {
+        contents: [{
+          uri,
+          text: JSON.stringify({
+            deviceId: String(deviceId), capturedAt: snapshot.capturedAt, auxBuses, inferredPairs,
+            ...staleMetadata(snapshot),
+          }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/output-patch/labels ────────────────────────────
+  // @implements REQ-F-ROUT-010 (Phase 5)
+  server.resource(
+    'mixer-output-patch-labels',
+    new ResourceTemplate('presonus://mixer/{deviceId}/output-patch/labels', { list: undefined }),
+    { description: 'Output patch router with source indices. Source names are null until probe-routing diff --kind bus-to-output is run. confidence=not_verifiable_with_current_adapter for source names.' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      const uri = `presonus://mixer/${String(deviceId)}/output-patch/labels`
+      return {
+        contents: [{
+          uri,
+          text: JSON.stringify({
+            deviceId: String(deviceId),
+            outputPatch: snapshot?.outputPatch ?? null,
+            capturedAt: snapshot?.capturedAt ?? null,
+            note: 'Source names are null — run probe-routing diff --kind bus-to-output to confirm source name → index mapping.',
+            ...staleMetadata(snapshot),
+          }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
 }

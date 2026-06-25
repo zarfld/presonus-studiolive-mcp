@@ -4,7 +4,7 @@ An **MCP (Model Context Protocol) server** that connects AI coding agents and as
 
 Exposes live mixer context — channel names, mute/solo/fader state, Fat Channel compressor/EQ models, meter activity, and scene information — as MCP resources and tools so that AI agents can read, reason about, and assist with live sound engineering without touching hardware autonomously.
 
-> **Current status**: Read-only MVP. The MCP server exposes 5 resources + 3 tools. No write tools are implemented (ADR-005). Empirically validated on StudioLive 32SC firmware 3.3.0.109659.
+> **Current status**: Soundcheck-ready backend. The MCP server exposes **10 resources + 22 read-only tools** (+ 2 write tools when `controlEnabled: true`). Empirically validated on StudioLive 32SC firmware 3.3.0.109659.
 
 ---
 
@@ -29,14 +29,37 @@ The MCP server gives an AI agent these capabilities:
 | Capability | How |
 |---|---|
 | Discover mixers on the network | `discover_mixers` tool |
-| Read channel names, mute, solo, fader, pan, color | `presonus://mixer/{id}/channels` resource |
-| Know which Fat Channel compressor/EQ model is active per channel | `compModelName` / `eqModelName` in channels resource |
+| Verify FOH vs. stagebox identity | `validate_mixer_identity` tool |
+| Refresh state cache on demand | `refresh_mixer_state` tool |
+| Read channel names, mute, solo, fader, pan, color, Fat Channel models | `presonus://mixer/{id}/channels` resource |
+| Read per-channel Fat Channel DSP state (EQ, comp, gate, limiter) | `get_fat_channel` tool / `presonus://mixer/{id}/fat-channel/{id}` resource |
+| Validate Fat Channel settings for a source type | `validate_fat_channel_for_source` tool |
+| Know mixer capacity (inputs, aux mixes, FX buses, stagebox) | `get_mixer_capabilities` tool |
+| Validate rider capacity requirements | `check_required_setup` tool |
+| Validate expected channel names, phantom, mute | `validate_channel_setup` tool |
+| Validate an agent-provided input list against the mixer | `validate_input_list_against_mixer` tool |
+| Validate a patch sheet for conflicts and range issues | `validate_patch_sheet` tool |
+| Render a structured patch sheet for human printing | `render_patch_sheet_data` tool |
 | Monitor signal activity (silent / active / hot / clipping) | `presonus://mixer/{id}/meters/summary` resource |
 | Know which project and scene are loaded | `presonus://mixer/{id}/scene/current` resource |
-| Validate mixer identity before acting | `validate_mixer_identity` tool |
-| Refresh state cache on demand | `refresh_mixer_state` tool |
+| Diagnose a single channel (mute, fader, gate, signal) | `diagnose_channel` tool |
+| Run a line-check step and observe meter results | `analyze_line_check_step` tool |
+| Detect possible patch swaps during line check | `detect_possible_patch_swap` tool |
+| Diagnose no-signal routing causes | `diagnose_no_signal_routing` tool |
+| Inspect observable routing (AUX/FX/sub/main sends) | `get_routing_graph` tool / `presonus://mixer/{id}/routing` resource |
+| Validate input routing (Layer A: name, meter, mute) | `validate_input_routing` tool |
+| Validate stagebox connection | `validate_stagebox_routing` tool |
+| Inspect output patch router (source index) | `presonus://mixer/{id}/routing/outputs` resource |
+| Inspect AUX mixes (master, sends, levels) | `get_aux_mix` tool / `presonus://mixer/{id}/auxes` resource |
+| Validate monitor send requirements | `validate_monitor_requirements` tool |
+| Find missing / muted / hot monitor sends | `find_missing_monitor_sends`, `find_muted_monitor_sends`, `find_hot_monitor_sends` tools |
+| Full aux mix audit | `validate_aux_mix` tool |
+| Inspect FX send routing | `presonus://mixer/{id}/fx-sends` resource |
+| Inspect flat channel-to-aux routing graph | `presonus://mixer/{id}/monitor-routing` resource |
+| Raw diagnostic state dump | `presonus://mixer/{id}/raw/state` resource |
+| Propose and apply an EQ change (write-enabled only) | `propose_eq_change` + `apply_change_set` tools |
 
-Agents **cannot** change any mixer parameter yet (write tools are not implemented by design — see ADR-005).
+By default agents **cannot** change mixer parameters. Two write tools (`propose_eq_change` + `apply_change_set`) are available when `controlEnabled: true` — see ADR-006.
 
 ---
 
@@ -142,7 +165,7 @@ Probe CLI binary (`presonus-probe`) for hardware reconnaissance during developme
 
 ### `@presonus-mcp/server`
 
-MCP server that wires the adapter to the MCP SDK over stdio transport. Registers all 3 tools and 5 resources at startup and runs background discovery.
+MCP server that wires the adapter to the MCP SDK over stdio transport. Registers **10 resources** and **22 read-only tools** at startup (+ 2 write tools when write-enabled). Runs background mixer discovery.
 
 ---
 
@@ -150,28 +173,30 @@ MCP server that wires the adapter to the MCP SDK over stdio transport. Registers
 
 ### Tools
 
+All 22 read-only tools are always registered. Two write tools (`propose_eq_change`, `apply_change_set`) are registered only when `controlEnabled: true`.
+
+| Group | Tools |
+|---|---|
+| Discovery / identity | `discover_mixers`, `refresh_mixer_state`, `validate_mixer_identity` |
+| Capabilities | `get_mixer_capabilities`, `check_required_setup` |
+| Channel setup | `validate_channel_setup`, `diagnose_channel` |
+| Input list / patch sheet | `validate_input_list_against_mixer`, `validate_patch_sheet`, `render_patch_sheet_data` |
+| Fat Channel inspection | `get_fat_channel`, `validate_fat_channel_for_source` |
+| Line check | `analyze_line_check_step`, `detect_possible_patch_swap` |
+| Routing | `get_routing_graph`, `validate_input_routing`, `validate_stagebox_routing`, `diagnose_no_signal_routing`, `get_input_routing`\*, `validate_avb_routing`\*, `validate_output_routing`† |
+| Monitor / aux | `get_aux_mix`, `validate_monitor_requirements`, `find_missing_monitor_sends`, `find_muted_monitor_sends`, `find_hot_monitor_sends`, `validate_aux_mix` |
+| Write (gated) | `propose_eq_change`, `apply_change_set` |
+
+\* Layer B stub — returns `not_verifiable_with_current_adapter` with probe instructions.  
+† Layer B partial — source index known; source name requires probe.
+
 #### `discover_mixers`
 
 Trigger UDP discovery of StudioLive III mixers on the local network.
 
 ```typescript
-// Input (all optional)
 { timeoutMs?: number }    // discovery window in ms; default 5000
-
-// Output: JSON array of MixerIdentity
-[{ deviceId, serial, model, firmware, role, ipAddress, port }]
-```
-
-#### `refresh_mixer_state`
-
-Reconnect to a mixer and refresh its full state cache (including Fat Channel model decoding).
-
-```typescript
-// Input
-{ deviceId: string }    // from discover_mixers output
-
-// Output
-{ success: boolean, channelCount: number, capturedAt: string }
+// → [{ deviceId, serial, model, firmware, role, ipAddress, port }]
 ```
 
 #### `validate_mixer_identity`
@@ -179,15 +204,38 @@ Reconnect to a mixer and refresh its full state cache (including Fat Channel mod
 Verify a connected mixer matches expected serial and/or role before proceeding.
 
 ```typescript
-// Input
-{
-  deviceId:       string,
-  expectedSerial?: string,
-  expectedRole?:  "FOH" | "STAGEBOX" | "MONITOR" | "UNKNOWN"
-}
+{ deviceId: string, expectedSerial?: string, expectedRole?: "FOH"|"STAGEBOX"|"MONITOR"|"UNKNOWN" }
+// → { valid: boolean, reasons: string[] }
+```
 
-// Output
-{ valid: boolean, reasons: string[] }
+#### `validate_input_list_against_mixer`
+
+Validate an agent-provided input list against actual mixer state. Returns name mismatches, phantom mismatches, mute issues, and printable patch rows.
+
+```typescript
+{
+  deviceId: string,
+  inputList: [{ inputNo: number, sourceName: string, phantomRequired: boolean, micPreference?: string, notes?: string }]
+}
+// → { status: "ok"|"warning"|"error", issues[], printablePatchRows[] }
+```
+
+#### `get_fat_channel`
+
+Return the Fat Channel DSP state (EQ, compressor, gate, limiter, HPF) for a single channel.
+
+```typescript
+{ deviceId: string, channelId: string }   // channelId e.g. "line.ch1"
+// → ChannelFatState (eqModel, compModel, eqBands, comp, gate, limiter, hpfFrequencyHz)
+```
+
+#### `validate_fat_channel_for_source`
+
+Check Fat Channel settings against source-type expectations (HPF engaged, gate enabled, comp enabled, limiter enabled).
+
+```typescript
+{ deviceId: string, channelId: string, sourceType: "vocal"|"kick"|"snare"|"bass"|... }
+// → { checks: [{ check, passed, detail }], warnings: string[], parameterConfidence }
 ```
 
 ---
@@ -247,9 +295,35 @@ Time-windowed meter classification (last 10 seconds):
 }
 ```
 
+#### `presonus://mixer/{deviceId}/routing`
+
+Per-channel AUX/FX/subgroup/main-LR send routing. `parameterConfidence: 'inferred'` until AUX fader de-normalization is probe-confirmed.
+
+#### `presonus://mixer/{deviceId}/routing/outputs`
+
+Output patch router — source index known for each analog/AVB output; `sourceName: null` until probe confirms source → index mapping.
+
+#### `presonus://mixer/{deviceId}/auxes`
+
+All aux mixes: master level/mute + per-channel send levels. `prePost: 'unknown'` until hardware probing confirms.
+
+#### `presonus://mixer/{deviceId}/fx-sends`
+
+Per-channel FX bus send state.
+
+#### `presonus://mixer/{deviceId}/monitor-routing`
+
+Flattened channel-to-aux routing graph for monitor mix planning.
+
+#### `presonus://mixer/{deviceId}/fat-channel/{channelId}`
+
+Fat Channel DSP state for a single channel (EQ, compressor, gate, limiter, HPF, model names). Use `get_fat_channel` tool instead when querying programmatically.
+
 #### `presonus://mixer/{deviceId}/raw/state`
 
 Full raw state dump (pre-normalized flat dot-notation). For diagnostics and development only — do not use for agent reasoning logic.
+
+> **Layer A / Layer B routing model**: Layer A resources and tools return data directly observable from confirmed state keys. Layer B tools (`get_input_routing`, `validate_avb_routing`) return `not_verifiable_with_current_adapter` and include probe instructions — physical cable routing and AVB stream assignments cannot be verified by software alone.
 
 ---
 
@@ -341,7 +415,7 @@ Three-layer architecture (ADR-002):
                  │ stdio (MCP protocol)
 ┌────────────────▼────────────────────────┐
 │  @presonus-mcp/server                   │
-│  5 resources + 3 tools (read-only MVP)  │
+│  10 resources + 22 tools (read-only)    │
 └────────────────┬────────────────────────┘
                  │ internal API
 ┌────────────────▼────────────────────────┐
@@ -368,11 +442,13 @@ Key decisions:
 
 ### Known gaps / future work
 
-- **Write tools** — `set_fader`, `set_mute`, `apply_change_set` (ADR-005 gating)
-- **AVB routing** — `AudioRouteSchema` in domain is a stub
-- **Show prep layer** — `ShowInputSchema` is a stub (rider analysis, channel template suggestions)
-- **Scene file access** — `__classid` GUIDs not accessible over network; only live state model IDs available
-- **HIL test coverage** — tests with `*.hil.test.ts` require a physical mixer
+- **Write tools** — `propose_eq_change` + `apply_change_set` are available (write-enabled mode). Extended change-set framework (rename, mute, fader, aux send, comp/gate/limiter) planned.
+- **Layer B routing** — Physical input source routing and AVB stream routing require probe-diff sessions (`probe-routing diff --kind input-source/avb-stream`). `get_input_routing` and `validate_avb_routing` return probe instructions.
+- **Output patch source names** — `validate_output_routing` knows source indices but not names; probe-diff with `--kind bus-to-output` needed.
+- **Stereo IEM pair model** — Monitor layout and stereo-pair validation planned (Phase 4).
+- **Show prep layer** — `ShowInputSchema` is a stub (rider analysis, channel template suggestions).
+- **Scene file access** — `__classid` GUIDs not accessible over network; only live state model IDs available.
+- **HIL test coverage** — tests with `*.hil.test.ts` require a physical mixer.
 
 ---
 

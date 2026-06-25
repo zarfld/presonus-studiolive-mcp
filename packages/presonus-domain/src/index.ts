@@ -15,3 +15,4 @@ export * from './schemas/write.js'  // ProposedChangeSet, AppliedChange, ChangeP
 export * from './schemas/line-check.js'   // LineCheckStepInput, LineCheckStepResult, suspicion schemas
 export * from './schemas/diagnosis.js'    // DiagnoseChannelInput, DiagnoseChannelResult
 export * from './schemas/mixauxes.js'     // includes AuxMix, AuxMixSend, AuxMixSummary, MonitorRequirements, AuxMixAuditResult
+export * from './schemas/input-list.js'  // InputListEntry, PatchSheetRow, InputListValidationResult, PatchSheetValidationResult

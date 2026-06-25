@@ -604,3 +604,28 @@ export function compMakeupDbToNormalized(db: number): number {
 export function compRatioXToNormalized(ratioX: number): number {
   return Math.max(0, Math.min(1, (ratioX - 1) / 15))
 }
+
+/** Attack ms → raw 0–1. Clamps to 0–150 ms range. CONFIDENCE: guessed */
+export function attackMsToNormalized(ms: number): number {
+  return Math.max(0, Math.min(1, ms / 150))
+}
+
+/** Release ms → raw 0–1. Clamps to 0–2000 ms range. CONFIDENCE: guessed */
+export function releaseMsToNormalized(ms: number): number {
+  return Math.max(0, Math.min(1, ms / 2000))
+}
+
+/** Gate threshold dBFS → raw 0–1. Clamps to -80–0 dBFS range. CONFIDENCE: guessed */
+export function gateThresholdDbToNormalized(db: number): number {
+  return Math.max(0, Math.min(1, db / 80 + 1))
+}
+
+/** Gate range dB → raw 0–1. Clamps to 0 to -80 dB range. CONFIDENCE: guessed */
+export function gateRangeDbToNormalized(rangeDb: number): number {
+  return Math.max(0, Math.min(1, rangeDb / -80))
+}
+
+/** Limiter threshold dBFS → raw 0–1. Clamps to -20–0 dBFS range. CONFIDENCE: guessed */
+export function limiterThresholdDbToNormalized(db: number): number {
+  return Math.max(0, Math.min(1, db / 20 + 1))
+}

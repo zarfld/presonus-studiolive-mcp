@@ -160,3 +160,72 @@ export const AuxMixAuditResultSchema = z.object({
   hotThresholdDb: z.number(),
 })
 export type AuxMixAuditResult = z.infer<typeof AuxMixAuditResultSchema>
+
+// ---------------------------------------------------------------------------
+// Monitor layout and stereo-pair schemas (Phase 4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Classification of an aux bus for monitor mixing purposes.
+ * Stereo pairs (e.g. IEM L/R) are modelled as two buses with pairedWithBus set.
+ */
+export const MonitorBusTypeSchema = z.enum(['mono', 'stereo-left', 'stereo-right', 'iem-stereo'])
+export type MonitorBusType = z.infer<typeof MonitorBusTypeSchema>
+
+/** One aux bus in the monitor mix layout */
+export const MonitorBusLayoutEntrySchema = z.object({
+  /** 1-based aux bus number */
+  auxBus: z.number().int().positive(),
+  /** User-assigned or inferred bus name (e.g. "Wedge 1", "IEM L") */
+  name: z.string().optional(),
+  type: MonitorBusTypeSchema,
+  /** For stereo-left/right: the paired bus number */
+  pairedWithBus: z.number().int().positive().optional(),
+  /** Confidence of stereo-pair inference */
+  inferenceConfidence: z.enum(['observed', 'inferred', 'unknown']).optional(),
+})
+export type MonitorBusLayoutEntry = z.infer<typeof MonitorBusLayoutEntrySchema>
+
+/** Complete monitor layout for a mixer */
+export const MonitorLayoutSchema = z.object({
+  deviceId: z.string(),
+  capturedAt: z.string().datetime(),
+  /** All aux buses, ordered 1…N */
+  auxBuses: z.array(MonitorBusLayoutEntrySchema),
+  /** Inferred stereo pairs — confidence 'inferred' unless probe-confirmed */
+  inferredPairs: z.array(z.object({
+    leftBus: z.number().int().positive(),
+    rightBus: z.number().int().positive(),
+    confidence: z.enum(['observed', 'inferred']),
+  })),
+})
+export type MonitorLayout = z.infer<typeof MonitorLayoutSchema>
+
+/** Input to validate_stereo_monitor_pair */
+export const StereoPairInputSchema = z.object({
+  deviceId: z.string(),
+  /** Left aux bus number (1-based) */
+  auxBusLeft: z.number().int().positive(),
+  /** Right aux bus number (1-based) */
+  auxBusRight: z.number().int().positive(),
+  /** Optional user-facing name for the IEM/stereo pair */
+  pairName: z.string().optional(),
+  /** Optional: channel numbers expected to have sends on both buses */
+  expectedSendChannels: z.array(z.number().int().positive()).optional(),
+})
+export type StereoPairInput = z.infer<typeof StereoPairInputSchema>
+
+/** Result of validate_stereo_monitor_pair */
+export const StereoPairValidationResultSchema = z.object({
+  auxBusLeft: z.number().int().positive(),
+  auxBusRight: z.number().int().positive(),
+  pairName: z.string().optional(),
+  valid: z.boolean(),
+  issues: z.array(z.string()),
+  leftSendCount: z.number().int(),
+  rightSendCount: z.number().int(),
+  /** Channels present on left but missing on right (or vice versa) */
+  asymmetricChannels: z.array(z.number().int().positive()),
+})
+export type StereoPairValidationResult = z.infer<typeof StereoPairValidationResultSchema>
+
