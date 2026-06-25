@@ -423,3 +423,89 @@ describe('PresonusClientManager — stale event-gap warning (REQ-NF-003 #23 Scen
     expect(warnCalls.length).toBe(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Phase E: serial-stable identity in snapshot — REQ-F-002 (#16) / Issue #62
+// ---------------------------------------------------------------------------
+
+describe('PresonusClientManager — serial-stable identity in snapshot (REQ-F-002 #16)', () => {
+  /**
+   * Verifies: #62 (TEST: Mixer auto-discovery and stable serial identification)
+   * Verifies: #16 REQ-F-002: Identify each mixer by stable serial number (not IP address)
+   * Test Type: Unit
+   * Priority: P1
+   */
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    currentMockClient = makeMockClient()
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
+  })
+
+  it('snapshot.identity.serial matches the serial passed to connect()', async () => {
+    // Given: connect() called with testIdentity (serial='TEST001')
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+
+    // When: snapshot is retrieved after connect
+    const snap = manager.getSnapshot(testIdentity.deviceId)
+
+    // Then: snapshot.identity preserves the original serial
+    expect(snap?.identity.serial).toBe(testIdentity.serial)
+    expect(snap?.identity.serial).toBe('TEST001')
+  })
+
+  it('snapshot.identity.deviceId uses serial: prefix, not raw IP', async () => {
+    // Given: testIdentity.deviceId === 'serial:TEST001' (serial-derived, not 'ip:...')
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+
+    // When: snapshot is retrieved
+    const snap = manager.getSnapshot(testIdentity.deviceId)
+
+    // Then: deviceId in snapshot matches the serial-based key
+    expect(snap?.identity.deviceId).toMatch(/^serial:/)
+    expect(snap?.identity.deviceId).toBe('serial:TEST001')
+  })
+
+  it('getSnapshot() returns undefined for an unconnected deviceId (no phantom state)', async () => {
+    // Given: manager with no connections
+    const manager = new PresonusClientManager()
+
+    // When: snapshot for an unknown id is requested before any connect
+    const snap = manager.getSnapshot('serial:NOBODY')
+
+    // Then: undefined — no phantom snapshot exists
+    expect(snap).toBeUndefined()
+  })
+
+  it('reconnect after disconnect recovers using the same serial-derived deviceId', async () => {
+    // Given: connected with serial:TEST001
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+    expect(manager.getConnectedDeviceIds()).toContain(testIdentity.deviceId)
+
+    // When: mixer disconnects
+    currentMockClient.emit('disconnect')
+    expect(manager.getConnectedDeviceIds()).not.toContain(testIdentity.deviceId)
+
+    // Prepare a fresh mock client for the reconnect path
+    currentMockClient = makeMockClient()
+
+    // Advance past the first reconnect delay (attempt 1 = 1000 ms) and
+    // flush the microtask queue so the async _reconnect() resolves fully
+    await vi.advanceTimersByTimeAsync(1100)
+    // Multiple promise-resolution flushes cover nested await points inside _reconnect()
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+
+    // Then: same serial-derived deviceId is present again — NOT an IP-based fallback
+    expect(manager.getConnectedDeviceIds()).toContain(testIdentity.deviceId)
+    const snap = manager.getSnapshot(testIdentity.deviceId)
+    expect(snap?.identity.deviceId).toBe('serial:TEST001')
+    expect(snap?.isStale).toBe(false)
+  })
+})
