@@ -430,7 +430,7 @@ export function registerTools(
               channelALabel: silentChName || undefined,
               channelBLabel: activeChName || undefined,
               evidence: `${silent.channelId} silent (expected "${silent.signalName}", labeled "${silentChName}"); ${channelId} active (expected "${signalName}", labeled "${activeChName}")`,
-              confidence: 'guessed',
+              confidence: 'inferred',
             })
           }
         }
