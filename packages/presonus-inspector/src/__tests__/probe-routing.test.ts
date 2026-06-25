@@ -5,7 +5,7 @@
  * Architecture: #47 ADR-008
  */
 import { describe, it, expect } from 'vitest'
-import { getGrepPatterns, VALID_KINDS, type RoutingKindFilter } from '../commands/probe-routing.js'
+import { getGrepPatterns, VALID_KINDS, type RoutingKindFilter } from '../cli/commands/probe-routing.js'
 
 describe('getGrepPatterns', () => {
   it('returns default routing patterns when no kind specified', () => {
