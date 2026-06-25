@@ -83,7 +83,13 @@ vi.mock('@featherbear/presonus-studiolive-api', () => ({
 
 describe('PresonusClientManager — connection lifecycle', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     currentMockClient = makeMockClient()
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
   })
 
   it('sets connected=true after successful connect()', async () => {
@@ -112,7 +118,13 @@ describe('PresonusClientManager — connection lifecycle', () => {
 
 describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-003)', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     currentMockClient = makeMockClient()
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
   })
 
   it('marks snapshot as stale immediately on disconnect event', async () => {
@@ -140,7 +152,6 @@ describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-
   })
 
   it('schedules a reconnect timer after disconnect', async () => {
-    vi.useFakeTimers()
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
@@ -149,11 +160,9 @@ describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-
     // A reconnect should be scheduled (timer active)
     // We verify no synchronous error is thrown and timer advances without crash
     await vi.advanceTimersByTimeAsync(1100)  // past first backoff (1000 ms)
-    vi.useRealTimers()
   })
 
   it('marks snapshot stale on error event', async () => {
-    vi.useFakeTimers()
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
@@ -161,7 +170,6 @@ describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-
 
     const snap = manager.getSnapshot(testIdentity.deviceId)
     expect(snap?.isStale).toBe(true)
-    vi.useRealTimers()
   })
 })
 
@@ -294,6 +302,7 @@ describe('computeReconnectDelayMs — backoff formula (QA-SC-003 #27)', () => {
 
 describe('PresonusClientManager — reconnect timer scheduling (QA-SC-003 #27)', () => {
   afterEach(() => {
+    vi.clearAllTimers()
     vi.useRealTimers()
   })
 
