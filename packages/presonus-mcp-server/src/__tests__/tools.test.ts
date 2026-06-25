@@ -59,10 +59,10 @@ describe('registerTools â€” REQ-NF-002: zero write tools in default config'
 })
 
 describe('registerTools â€” ADR-006: write tools available when writeEnabled=true', () => {
-  it('registers exactly 33 tools when writeEnabled=true (31 read + 2 write)', () => {
+  it('registers exactly 39 tools when writeEnabled=true (31 read + 8 write)', () => {
     const { server, registeredTools } = makeMockServer()
     registerTools(server, makeMockManager(), { writeEnabled: true })
-    expect(registeredTools).toHaveLength(33)
+    expect(registeredTools).toHaveLength(39)
   })
 
   it('registers propose_eq_change when writeEnabled=true', () => {

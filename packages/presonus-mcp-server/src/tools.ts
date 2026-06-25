@@ -20,6 +20,22 @@ import {
   normalizedToEqGainDb,
   normalizedToEqFreqHz,
   normalizedToEqQ,
+  compThresholdDbToNormalized,
+  compMakeupDbToNormalized,
+  compRatioXToNormalized,
+  attackMsToNormalized,
+  releaseMsToNormalized,
+  gateThresholdDbToNormalized,
+  gateRangeDbToNormalized,
+  limiterThresholdDbToNormalized,
+  normalizedToCompThresholdDb,
+  normalizedToCompMakeupDb,
+  normalizedToCompRatioX,
+  normalizedToAttackMs,
+  normalizedToReleaseMs,
+  normalizedToGateThresholdDb,
+  normalizedToGateRangeDb,
+  normalizedToLimiterThresholdDb,
   type ProposedChangeSet,
   type NoSignalDiagnosis,
   type PatchSwapDetection,
@@ -1557,6 +1573,203 @@ export function registerTools(
           }],
           isError: errors.length > 0,
         }
+      },
+    )
+
+    // ─── prepare_mute_change_set ─────────────────────────────────────────
+    server.tool(
+      'prepare_mute_change_set',
+      'Prepare a change set to mute or unmute a channel. Returns a changeSetId to pass to apply_change_set. CONFIDENCE: observed (mute key confirmed on 32SC).',
+      {
+        deviceId: z.string(),
+        channelId: z.string().describe('Channel ID, e.g. "line.ch1"'),
+        muted: z.boolean().describe('true = mute the channel, false = unmute'),
+      },
+      async ({ deviceId, channelId, muted }) => {
+        pruneExpiredChangeSets()
+        const snap = clientManager.getSnapshot(deviceId)
+        if (!snap) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+        const ch = snap.channels.find((c) => c.id === channelId)
+        if (!ch) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found.` }) }], isError: true }
+        const flatKey = `${channelId}.mute`
+        const currentRaw = typeof snap.flatState[flatKey] === 'number' ? (snap.flatState[flatKey] as number) : null
+        const proposedRaw = muted ? 1.0 : 0.0
+        const now = Date.now()
+        const changeSetId = randomUUID()
+        const changeSet: ProposedChangeSet = {
+          changeSetId, deviceId, channelId,
+          proposedAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + CHANGESET_TTL_MS).toISOString(),
+          changes: [{ parameter: 'mute', rawKeyPath: flatKey, currentRawValue: currentRaw, proposedRawValue: proposedRaw,
+            currentDisplayValue: ch.mute === true ? 'muted' : 'active',
+            proposedDisplayValue: muted ? 'muted' : 'active' }],
+          description: `${muted ? 'Mute' : 'Unmute'} channel ${ch.name ?? channelId}`,
+        }
+        changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
+        return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
+      },
+    )
+
+    // ─── prepare_fader_change_set ─────────────────────────────────────────
+    server.tool(
+      'prepare_fader_change_set',
+      'Prepare a change set to set a channel fader level. levelLinear: 0.0 = off, 0.75 = approx unity (0 dBFS), 1.0 = maximum. CONFIDENCE: guessed — fader taper not probe-confirmed.',
+      {
+        deviceId: z.string(),
+        channelId: z.string().describe('Channel ID, e.g. "line.ch1"'),
+        levelLinear: z.number().min(0).max(1).describe('Fader level 0.0–1.0 (0.75 ≈ unity gain, guessed)'),
+      },
+      async ({ deviceId, channelId, levelLinear }) => {
+        pruneExpiredChangeSets()
+        const snap = clientManager.getSnapshot(deviceId)
+        if (!snap) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+        const ch = snap.channels.find((c) => c.id === channelId)
+        if (!ch) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found.` }) }], isError: true }
+        const flatKey = `${channelId}.volume`
+        const currentRaw = typeof snap.flatState[flatKey] === 'number' ? (snap.flatState[flatKey] as number) : null
+        const now = Date.now()
+        const changeSetId = randomUUID()
+        const changeSet: ProposedChangeSet = {
+          changeSetId, deviceId, channelId,
+          proposedAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + CHANGESET_TTL_MS).toISOString(),
+          changes: [{ parameter: 'fader', rawKeyPath: flatKey, currentRawValue: currentRaw, proposedRawValue: levelLinear,
+            currentDisplayValue: currentRaw !== null ? currentRaw.toFixed(3) : '(unknown)',
+            proposedDisplayValue: levelLinear.toFixed(3) }],
+          description: `Set fader on ${ch.name ?? channelId} to ${levelLinear.toFixed(3)} (guessed taper)`,
+        }
+        changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
+        return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
+      },
+    )
+
+    // ─── prepare_aux_send_change_set ─────────────────────────────────────
+    server.tool(
+      'prepare_aux_send_change_set',
+      'Prepare a change set to adjust a channel\'s send level to an aux mix bus. levelLinear 0.0–1.0. CONFIDENCE: inferred (aux send key pattern observed, de-normalization unverified).',
+      {
+        deviceId: z.string(),
+        channelId: z.string().describe('Source channel ID, e.g. "line.ch1"'),
+        auxBus: z.number().int().min(1).max(32).describe('Destination aux bus number (1–32)'),
+        levelLinear: z.number().min(0).max(1).describe('Send level 0.0–1.0'),
+      },
+      async ({ deviceId, channelId, auxBus, levelLinear }) => {
+        pruneExpiredChangeSets()
+        const snap = clientManager.getSnapshot(deviceId)
+        if (!snap) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+        const ch = snap.channels.find((c) => c.id === channelId)
+        if (!ch) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found.` }) }], isError: true }
+        const flatKey = `${channelId}.aux${auxBus}`
+        const currentRaw = typeof snap.flatState[flatKey] === 'number' ? (snap.flatState[flatKey] as number) : null
+        const now = Date.now()
+        const changeSetId = randomUUID()
+        // Use eq.gain1 slot in ChangeParameter — aux_send not in enum; store as fader (closest match)
+        const changeSet: ProposedChangeSet = {
+          changeSetId, deviceId, channelId,
+          proposedAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + CHANGESET_TTL_MS).toISOString(),
+          changes: [{ parameter: 'fader' as const, rawKeyPath: flatKey, currentRawValue: currentRaw, proposedRawValue: levelLinear,
+            currentDisplayValue: currentRaw !== null ? currentRaw.toFixed(3) : '(unknown)',
+            proposedDisplayValue: levelLinear.toFixed(3) }],
+          description: `Set ${ch.name ?? channelId} send to Aux ${auxBus} to ${levelLinear.toFixed(3)}`,
+        }
+        changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
+        return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
+      },
+    )
+
+    // ─── prepare_fat_channel_change_set ─────────────────────────────────
+    server.tool(
+      'prepare_fat_channel_change_set',
+      'Prepare a change set for compressor, gate, or limiter parameters. All de-normalization formulas are CONFIDENCE: guessed — verify with probe-fat-channel before use on a real show.',
+      {
+        deviceId: z.string(),
+        channelId: z.string().describe('Channel ID, e.g. "line.ch1"'),
+        compressor: z.object({
+          enabled: z.boolean().optional(),
+          thresholdDb: z.number().optional().describe('Threshold −60 to 0 dBFS'),
+          makeupDb: z.number().optional().describe('Makeup gain 0–24 dB'),
+          ratioX: z.number().optional().describe('Ratio 1–16×'),
+          attackMs: z.number().optional().describe('Attack 0–150 ms'),
+          releaseMs: z.number().optional().describe('Release 0–2000 ms'),
+        }).optional(),
+        gate: z.object({
+          enabled: z.boolean().optional(),
+          thresholdDb: z.number().optional().describe('Threshold −80 to 0 dBFS'),
+          attackMs: z.number().optional().describe('Attack 0–150 ms'),
+          releaseMs: z.number().optional().describe('Release 0–2000 ms'),
+          rangeDb: z.number().optional().describe('Range 0 to −80 dB'),
+        }).optional(),
+        limiter: z.object({
+          enabled: z.boolean().optional(),
+          thresholdDb: z.number().optional().describe('Threshold −20 to 0 dBFS'),
+          releaseMs: z.number().optional().describe('Release 0–2000 ms'),
+        }).optional(),
+      },
+      async ({ deviceId, channelId, compressor, gate, limiter }) => {
+        pruneExpiredChangeSets()
+        const snap = clientManager.getSnapshot(deviceId)
+        if (!snap) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+        const ch = snap.channels.find((c) => c.id === channelId)
+        if (!ch) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found.` }) }], isError: true }
+
+        const changes: ProposedChangeSet['changes'] = []
+        const f = (suffix: string) => snap.flatState[`${channelId}${suffix}`]
+
+        if (compressor) {
+          if (compressor.enabled !== undefined) changes.push({ parameter: 'comp.enabled', rawKeyPath: `${channelId}.comp.on`, currentRawValue: typeof f('.comp.on') === 'number' ? f('.comp.on') as number : null, proposedRawValue: compressor.enabled ? 1 : 0, currentDisplayValue: String(f('.comp.on')), proposedDisplayValue: compressor.enabled ? 'on' : 'off' })
+          if (compressor.thresholdDb !== undefined) changes.push({ parameter: 'comp.threshold', rawKeyPath: `${channelId}.comp.input`, currentRawValue: typeof f('.comp.input') === 'number' ? f('.comp.input') as number : null, proposedRawValue: compThresholdDbToNormalized(compressor.thresholdDb), currentDisplayValue: typeof f('.comp.input') === 'number' ? `${normalizedToCompThresholdDb(f('.comp.input') as number).toFixed(1)} dBFS` : '(unknown)', proposedDisplayValue: `${compressor.thresholdDb.toFixed(1)} dBFS` })
+          if (compressor.makeupDb !== undefined) changes.push({ parameter: 'comp.makeup', rawKeyPath: `${channelId}.comp.output`, currentRawValue: typeof f('.comp.output') === 'number' ? f('.comp.output') as number : null, proposedRawValue: compMakeupDbToNormalized(compressor.makeupDb), currentDisplayValue: typeof f('.comp.output') === 'number' ? `${normalizedToCompMakeupDb(f('.comp.output') as number).toFixed(1)} dB` : '(unknown)', proposedDisplayValue: `${compressor.makeupDb.toFixed(1)} dB` })
+          if (compressor.ratioX !== undefined) changes.push({ parameter: 'comp.ratio', rawKeyPath: `${channelId}.comp.ratio`, currentRawValue: typeof f('.comp.ratio') === 'number' ? f('.comp.ratio') as number : null, proposedRawValue: compRatioXToNormalized(compressor.ratioX), currentDisplayValue: typeof f('.comp.ratio') === 'number' ? `${normalizedToCompRatioX(f('.comp.ratio') as number).toFixed(1)}×` : '(unknown)', proposedDisplayValue: `${compressor.ratioX.toFixed(1)}×` })
+          if (compressor.attackMs !== undefined) changes.push({ parameter: 'comp.attack', rawKeyPath: `${channelId}.comp.attack`, currentRawValue: typeof f('.comp.attack') === 'number' ? f('.comp.attack') as number : null, proposedRawValue: attackMsToNormalized(compressor.attackMs), currentDisplayValue: typeof f('.comp.attack') === 'number' ? `${normalizedToAttackMs(f('.comp.attack') as number).toFixed(0)} ms` : '(unknown)', proposedDisplayValue: `${compressor.attackMs.toFixed(0)} ms` })
+          if (compressor.releaseMs !== undefined) changes.push({ parameter: 'comp.release', rawKeyPath: `${channelId}.comp.release`, currentRawValue: typeof f('.comp.release') === 'number' ? f('.comp.release') as number : null, proposedRawValue: releaseMsToNormalized(compressor.releaseMs), currentDisplayValue: typeof f('.comp.release') === 'number' ? `${normalizedToReleaseMs(f('.comp.release') as number).toFixed(0)} ms` : '(unknown)', proposedDisplayValue: `${compressor.releaseMs.toFixed(0)} ms` })
+        }
+        if (gate) {
+          if (gate.enabled !== undefined) changes.push({ parameter: 'gate.enabled', rawKeyPath: `${channelId}.gate.on`, currentRawValue: typeof f('.gate.on') === 'number' ? f('.gate.on') as number : null, proposedRawValue: gate.enabled ? 1 : 0, currentDisplayValue: String(f('.gate.on')), proposedDisplayValue: gate.enabled ? 'on' : 'off' })
+          if (gate.thresholdDb !== undefined) changes.push({ parameter: 'gate.threshold', rawKeyPath: `${channelId}.gate.threshold`, currentRawValue: typeof f('.gate.threshold') === 'number' ? f('.gate.threshold') as number : null, proposedRawValue: gateThresholdDbToNormalized(gate.thresholdDb), currentDisplayValue: typeof f('.gate.threshold') === 'number' ? `${normalizedToGateThresholdDb(f('.gate.threshold') as number).toFixed(1)} dBFS` : '(unknown)', proposedDisplayValue: `${gate.thresholdDb.toFixed(1)} dBFS` })
+          if (gate.attackMs !== undefined) changes.push({ parameter: 'gate.attack', rawKeyPath: `${channelId}.gate.attack`, currentRawValue: typeof f('.gate.attack') === 'number' ? f('.gate.attack') as number : null, proposedRawValue: attackMsToNormalized(gate.attackMs), currentDisplayValue: typeof f('.gate.attack') === 'number' ? `${normalizedToAttackMs(f('.gate.attack') as number).toFixed(0)} ms` : '(unknown)', proposedDisplayValue: `${gate.attackMs.toFixed(0)} ms` })
+          if (gate.releaseMs !== undefined) changes.push({ parameter: 'gate.release', rawKeyPath: `${channelId}.gate.release`, currentRawValue: typeof f('.gate.release') === 'number' ? f('.gate.release') as number : null, proposedRawValue: releaseMsToNormalized(gate.releaseMs), currentDisplayValue: typeof f('.gate.release') === 'number' ? `${normalizedToReleaseMs(f('.gate.release') as number).toFixed(0)} ms` : '(unknown)', proposedDisplayValue: `${gate.releaseMs.toFixed(0)} ms` })
+          if (gate.rangeDb !== undefined) changes.push({ parameter: 'gate.threshold' as const, rawKeyPath: `${channelId}.gate.range`, currentRawValue: typeof f('.gate.range') === 'number' ? f('.gate.range') as number : null, proposedRawValue: gateRangeDbToNormalized(gate.rangeDb), currentDisplayValue: typeof f('.gate.range') === 'number' ? `${normalizedToGateRangeDb(f('.gate.range') as number).toFixed(1)} dB` : '(unknown)', proposedDisplayValue: `${gate.rangeDb.toFixed(1)} dB` })
+        }
+        if (limiter) {
+          if (limiter.enabled !== undefined) changes.push({ parameter: 'limiter.enabled', rawKeyPath: `${channelId}.limit.on`, currentRawValue: typeof f('.limit.on') === 'number' ? f('.limit.on') as number : null, proposedRawValue: limiter.enabled ? 1 : 0, currentDisplayValue: String(f('.limit.on')), proposedDisplayValue: limiter.enabled ? 'on' : 'off' })
+          if (limiter.thresholdDb !== undefined) changes.push({ parameter: 'limiter.threshold', rawKeyPath: `${channelId}.limit.input`, currentRawValue: typeof f('.limit.input') === 'number' ? f('.limit.input') as number : null, proposedRawValue: limiterThresholdDbToNormalized(limiter.thresholdDb), currentDisplayValue: typeof f('.limit.input') === 'number' ? `${normalizedToLimiterThresholdDb(f('.limit.input') as number).toFixed(1)} dBFS` : '(unknown)', proposedDisplayValue: `${limiter.thresholdDb.toFixed(1)} dBFS` })
+          if (limiter.releaseMs !== undefined) changes.push({ parameter: 'limiter.release', rawKeyPath: `${channelId}.limit.release`, currentRawValue: typeof f('.limit.release') === 'number' ? f('.limit.release') as number : null, proposedRawValue: releaseMsToNormalized(limiter.releaseMs), currentDisplayValue: typeof f('.limit.release') === 'number' ? `${normalizedToReleaseMs(f('.limit.release') as number).toFixed(0)} ms` : '(unknown)', proposedDisplayValue: `${limiter.releaseMs.toFixed(0)} ms` })
+        }
+
+        if (changes.length === 0) {
+          return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'No parameters specified. Provide at least one of: compressor, gate, limiter.' }) }], isError: true }
+        }
+
+        const now = Date.now()
+        const changeSetId = randomUUID()
+        const changeSet: ProposedChangeSet = {
+          changeSetId, deviceId, channelId,
+          proposedAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + CHANGESET_TTL_MS).toISOString(),
+          changes,
+          description: `Fat Channel changes on ${ch.name ?? channelId}: ${changes.map((c) => c.parameter).join(', ')} [CONFIDENCE: guessed — verify before applying]`,
+        }
+        changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
+        return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
+      },
+    )
+
+    // ─── validate_change_set ──────────────────────────────────────────────────
+    server.tool(
+      'validate_change_set',
+      'Validate a change set by ID: checks that it exists, has not expired, and belongs to the specified device. Does NOT apply the change. Use before apply_change_set to confirm validity.',
+      {
+        deviceId: z.string(),
+        changeSetId: z.string().uuid().describe('UUID returned by a prepare_*_change_set tool'),
+      },
+      async ({ deviceId, changeSetId }) => {
+        pruneExpiredChangeSets()
+        const entry = changeSets.get(changeSetId)
+        if (!entry) return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: false, reason: `changeSetId '${changeSetId}' not found or expired (TTL: 60 s).` }) }] }
+        if (entry.set.deviceId !== deviceId) return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: false, reason: `changeSetId belongs to device '${entry.set.deviceId}', not '${deviceId}'.` }) }] }
+        const ttlRemaining = Math.max(0, Math.round((entry.expiresAt - Date.now()) / 1000))
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: true, changeSetId, deviceId, channelId: entry.set.channelId, description: entry.set.description, changeCount: entry.set.changes.length, ttlRemainingSeconds: ttlRemaining, changes: entry.set.changes.map((c) => ({ parameter: c.parameter, current: c.currentDisplayValue, proposed: c.proposedDisplayValue })) }, null, 2) }] }
       },
     )
   }
