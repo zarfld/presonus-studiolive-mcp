@@ -21,3 +21,5 @@ export type { MixerSnapshot } from './state-mapper.js'
 export { PresonusMeterSummarizer } from './meter-summarizer.js'
 
 export { PresonusClientManager } from './client-manager.js'
+
+export { diagnoseChannel, analyzeLineCheckStep } from './diagnostics.js'

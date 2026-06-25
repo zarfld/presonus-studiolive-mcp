@@ -12,7 +12,7 @@
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { discoverMixers, type PresonusClientManager } from '@presonus-mcp/adapter'
+import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, type PresonusClientManager } from '@presonus-mcp/adapter'
 import {
   eqGainDbToNormalized,
   eqFreqHzToNormalized,
@@ -185,7 +185,7 @@ export function registerTools(
       if (!snapshot) {
         return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected' }) }], isError: true }
       }
-      const meterSummary = summarizer?.getSummary(10)
+      const meterSummary = summarizer?.getSummary(10 as const)
       const silentSet  = new Set(meterSummary?.silentChannels ?? [])
       const activeSet  = new Set(meterSummary?.activeChannels ?? [])
       const clippingSet = new Set(meterSummary?.clippingChannels ?? [])
@@ -304,7 +304,7 @@ export function registerTools(
       }
 
       const ch = snapshot.channels.find((c) => c.id === channelId)
-      const meterSummary = summarizer?.getSummary(10)
+      const meterSummary = summarizer?.getSummary(10 as const)
       const isSilent   = meterSummary?.silentChannels.includes(channelId) ?? null
       const isActive   = meterSummary?.activeChannels.includes(channelId) ?? null
       const isClipping = meterSummary?.clippingChannels.includes(channelId) ?? null
@@ -402,7 +402,7 @@ export function registerTools(
       if (!snapshot) {
         return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected' }) }], isError: true }
       }
-      const meterSummary = summarizer?.getSummary(10)
+      const meterSummary = summarizer?.getSummary(10 as const)
       const activeSet  = new Set(meterSummary?.activeChannels ?? [])
       const silentSet  = new Set(meterSummary?.silentChannels ?? [])
 
@@ -472,6 +472,64 @@ export function registerTools(
           }, null, 2),
         }],
       }
+    },
+  )
+
+  // ─── analyze_line_check_step ─────────────────────────────────────────────
+  server.tool(
+    'analyze_line_check_step',
+    'Observe mixer meter activity during a line check step. The agent provides expected-active channels (e.g. "Kick on channel 1"). The MCP server checks meter readings and reports: silent expected channels, unexpected active channels, and suspected patch swaps. Does NOT write to the mixer.',
+    {
+      deviceId: z.string(),
+      expectedActiveChannels: z.array(z.object({
+        channel: z.number().int().positive().describe('1-based physical channel number'),
+        name: z.string().describe('Signal name, e.g. "Kick"'),
+      })).describe('Channels the agent expects to be active right now'),
+      allowedOtherChannels: z.array(z.object({
+        channel: z.number().int().positive(),
+        name: z.string(),
+      })).optional().describe('Channels that may also be active without being flagged (e.g. ambient mics)'),
+      windowSec: z.number().int().positive().optional().describe('Meter observation window in seconds (default 10)'),
+    },
+    async ({ deviceId, expectedActiveChannels, allowedOtherChannels, windowSec }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      const summarizer = clientManager.getSummarizer(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const win = (windowSec ?? 10) as 1 | 10 | 60
+      const meterSummary = summarizer?.getSummary(win)
+      if (!meterSummary) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'No meter data available yet. Wait a few seconds after connecting.' }) }], isError: true }
+      }
+      const result = analyzeLineCheckStep(
+        snapshot,
+        expectedActiveChannels,
+        allowedOtherChannels ?? [],
+        meterSummary,
+      )
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    },
+  )
+
+  // ─── diagnose_channel ─────────────────────────────────────────────────────
+  server.tool(
+    'diagnose_channel',
+    'Diagnose a single channel that is expected to have signal. Checks mute, fader, solo, meter, and gate state. Returns structured likelyCauses[] and safeNextSteps[]. Physical routing is NOT diagnosed (not verifiable from software). Does NOT write to the mixer.',
+    {
+      deviceId: z.string(),
+      channel: z.number().int().positive().describe('1-based physical channel number (as labeled on mixer front panel)'),
+      expectedSource: z.string().optional().describe('Human label for expected source, e.g. "Lead Vox"'),
+    },
+    async ({ deviceId, channel, expectedSource }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      const summarizer = clientManager.getSummarizer(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const meterSummary = summarizer?.getSummary(10 as const) ?? null
+      const result = diagnoseChannel(snapshot, channel, meterSummary, expectedSource)
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
     },
   )
 

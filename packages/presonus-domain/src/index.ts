@@ -12,3 +12,5 @@ export * from './schemas/fat-channel.js'  // includes decode*Model, decode*Model
 export * from './schemas/routing.js'      // includes ChannelSendRouting, OutputPatchRouter, RoutingValidationReport, NoSignalDiagnosis, PatchSwapDetection
 export * from './schemas/show.js'
 export * from './schemas/write.js'  // ProposedChangeSet, AppliedChange, ChangeParameter
+export * from './schemas/line-check.js'   // LineCheckStepInput, LineCheckStepResult, suspicion schemas
+export * from './schemas/diagnosis.js'    // DiagnoseChannelInput, DiagnoseChannelResult
