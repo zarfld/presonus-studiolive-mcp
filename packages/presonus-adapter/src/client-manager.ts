@@ -216,11 +216,12 @@ export class PresonusClientManager {
         process.stderr.write(
           `[presonus-mcp] ${identity.deviceId} disconnected (${reason}); reconnect attempt ${conn.reconnectAttempts} in ${delayMs} ms\n`,
         )
-        conn.reconnectTimer = setTimeout(() => {
-          this._reconnect(identity.deviceId).catch((err: unknown) => {
+        conn.reconnectTimer = setTimeout(
+          () => this._reconnect(identity.deviceId).catch((err: unknown) => {
             process.stderr.write(`[presonus-mcp] _reconnect error for ${identity.deviceId}: ${String(err)}\n`)
-          })
-        }, delayMs)
+          }),
+          delayMs,
+        )
       }
 
       client.on('disconnect', () => onLost('disconnect'))
@@ -332,9 +333,10 @@ export class PresonusClientManager {
         conn.reconnectAttempts++
         const delayMs = computeReconnectDelayMs(conn.reconnectAttempts)
         process.stderr.write(`[presonus-mcp] ${deviceId} disconnected (${reason}); reconnect in ${delayMs} ms\n`)
-        conn.reconnectTimer = setTimeout(() => {
-          this._reconnect(deviceId).catch(() => undefined)
-        }, delayMs)
+        conn.reconnectTimer = setTimeout(
+          () => this._reconnect(deviceId).catch(() => undefined),
+          delayMs,
+        )
       }
       client.on('disconnect', () => onLost('disconnect'))
       client.on('error', (err: unknown) => { conn.lastError = String(err); onLost(`error: ${String(err)}`) })
@@ -346,9 +348,10 @@ export class PresonusClientManager {
       conn.reconnectAttempts++
       const delayMs = computeReconnectDelayMs(conn.reconnectAttempts)
       process.stderr.write(`[presonus-mcp] ${deviceId} reconnect failed: ${String(err)}; retry in ${delayMs} ms\n`)
-      conn.reconnectTimer = setTimeout(() => {
-        this._reconnect(deviceId).catch(() => undefined)
-      }, delayMs)
+      conn.reconnectTimer = setTimeout(
+        () => this._reconnect(deviceId).catch(() => undefined),
+        delayMs,
+      )
     }
   }
 
