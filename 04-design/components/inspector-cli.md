@@ -158,3 +158,40 @@ Algorithm:
 | `docs/generated/fat-channel-enum-map.md` | Manual table: model name → raw value | Yes (after probe-fat-channel run) |
 
 **Process**: After running probe CLI on real hardware, manually review captures and update the `docs/generated/` files. Then update state mapper key constants and adapter tests to match.
+
+---
+
+## Phase 04 Amendment — probe-routing Command Design (ADR-008)
+
+**Added**: 2026-06-25  
+**Requirements**: #46 (REQ-F-PROBE-002)  
+**Architecture**: #47 (ADR-008)
+
+### Command structure
+
+```
+presonus-probe probe-routing dump --device <serial|ip> --out <file>
+presonus-probe probe-routing diff --before <file> --after <file> [--kind <RoutingKind>] [--grep <csv>]
+```
+
+### `--kind` → grep pattern mapping
+
+| `--kind` | grep pattern |
+|----------|-------------|
+| (none) | `source,input,route,avb,digital,patch,network,assign,fx,aux` |
+| `channel-to-aux` | `aux,assign_aux` |
+| `channel-to-fx` | `FX,assign_FX` |
+| `fx-return-to-aux` | `fxreturn,aux,assign_aux` |
+| `talkback-to-aux` | `talkback,aux,assign_aux` |
+| `input-source` | `source,input,digital,patch,network` |
+| `bus-to-output` | `mix,output,outputpatchrouter` |
+| `avb-stream` | `avb,stream,network` |
+| `stagebox` | `stagebox,avb` |
+
+### Design constraints
+
+- `dump` delegates to `dump-state` logic — no code duplication
+- `diff` filters changed keys by grep, then annotates with inferred `RoutingKind`
+- Unknown `--kind` → non-zero exit with list of valid values
+- File: `packages/presonus-inspector/src/cli/commands/probe-routing.ts`
+- Register in: `packages/presonus-inspector/src/cli/probe.ts`

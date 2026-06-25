@@ -131,9 +131,9 @@ describe('extractChannelSendRouting — REQ-F-ROUT-001 (#31)', () => {
     expect(result.mainLrAssigned).toBe(false)
   })
 
-  it('parameterConfidence is guessed (send level formula unverified)', () => {
+  it('parameterConfidence is inferred (send level formula unverified)', () => {
     const result = extractChannelSendRouting(ch1FlatState, 'line.ch1')!
-    expect(result.parameterConfidence).toBe('guessed')
+    expect(result.parameterConfidence).toBe('inferred')
   })
 
   it('send level values are clamped to [0, 1]', () => {

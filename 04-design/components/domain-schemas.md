@@ -177,3 +177,105 @@ Unit tests in `packages/presonus-domain/src/__tests__/`:
 | `metering.test.ts` | GainHint values; MeterSummary parsing; noSignalButExpected structure |
 
 **Principle**: Tests define the contract before the adapter uses these schemas. If a test breaks, either the schema or the caller is wrong — not both.
+
+---
+
+## Phase 04 Amendment — Routing Layer Types (ADR-008)
+
+**Added**: 2026-06-25  
+**Requirements**: #38 (REQ-F-ROUT-008), #44 (REQ-F-AUX-005)  
+**Architecture**: #47 (ADR-008: Two-layer routing model)
+
+### New schemas in `routing.ts`
+
+#### `RoutingKind` (Value Object — enum)
+
+| Kind | Layer | Description |
+|------|-------|-------------|
+| `channel-to-aux` | A | LINE channel → AUX bus |
+| `channel-to-fx` | A | LINE channel → FX bus |
+| `fx-return-to-aux` | A | FX Return channel → AUX bus |
+| `talkback-to-aux` | A | TALKBACK channel → AUX bus |
+| `input-source` | B | Physical input → console channel |
+| `bus-to-output` | B | AUX/SUB/FX bus → analog output |
+| `avb-stream` | B | AVB network stream mapping |
+| `stagebox` | B | Stagebox input mapping |
+
+#### `MixerRoute` (Value Object)
+
+All fields except `kind`, `source`, `destination`, `confidence` are optional — absence means "key not in state".
+
+```
+MixerRoute {
+  kind: RoutingKind
+  source: string           // state prefix, e.g. "line.ch1"
+  destination: string      // state prefix, e.g. "aux.ch3"
+  level?: number           // 0.0–1.0 send level
+  assigned?: boolean       // send enabled/assigned
+  muted?: boolean          // source channel muted
+  rawPath?: string         // state key read from
+  rawValue?: unknown
+  confidence: RoutingConfidence
+}
+```
+
+#### `MixerRoutingGraph` (Aggregate for routing view)
+
+```
+MixerRoutingGraph {
+  deviceId: string
+  capturedAt: ISO 8601
+  routes: MixerRoute[]
+  summary: {
+    byKind: Record<RoutingKind, number>
+    observed: number
+    inferred: number
+    not_verifiable: number
+  }
+}
+```
+
+#### `RoutingConfidence` rename
+
+`'guessed'` → `'inferred'`. fat-channel.ts `ConfidenceSchema` unchanged.
+
+### New schemas in `mixauxes.ts`
+
+#### `AuxMixAuditIssue` (Value Object)
+
+```
+AuxMixAuditIssue {
+  issueType: 'unassigned_send'|'muted_send'|'very_low_send'|'hot_send'|'master_muted'
+  auxMixNumber: number
+  channel: number
+  channelName: string
+  severity: 'high'|'medium'|'low'
+  detail: string
+  level?: number
+  levelDb?: number | null
+}
+```
+
+#### `AuxMixAuditResult` (Value Object)
+
+```
+AuxMixAuditResult {
+  auxMixNumber: number
+  name: string
+  masterLevel: number
+  masterMuted: boolean
+  sendCount: number
+  status: 'ok'|'warning'|'problem'
+  issues: AuxMixAuditIssue[]
+  hotThresholdDb: number         // default: -6 dBFS
+}
+```
+
+`HOT_SEND_THRESHOLD_DB = -6` constant exported from `mixauxes.ts`.
+
+### Tests to add
+
+| Test file | New coverage |
+|-----------|-------------|
+| `routing.test.ts` | RoutingKind all 8 values; MixerRoute optional fields; MixerRoutingGraph summary |
+| `monitor-aux.test.ts` | AuxMixAuditIssue all 5 types; AuxMixAuditResult status aggregation |

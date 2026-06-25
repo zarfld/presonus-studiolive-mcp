@@ -172,3 +172,50 @@ server.resource("mixer-channels", new ResourceTemplate("presonus://mixer/{device
 | Integration | MCP Inspector connects; lists resources and tools | Manual + HIL |
 
 **REQ-NF-002 enforcement**: The test `server.test.ts` must assert that zero write tools are registered when the server is instantiated with no config or with `controlEnabled: false`. This test runs in CI on every PR.
+
+---
+
+## Phase 04 Amendment — Layer A + Layer B Routing (ADR-008)
+
+**Added**: 2026-06-25  
+**Requirements**: #41–#44 (REQ-F-AUX-002–005), #45 (REQ-F-ROUT-011)  
+**Architecture**: #47 (ADR-008)
+
+### New Layer A tools
+
+| Tool | Input | Output |
+|------|-------|--------|
+| `find_missing_monitor_sends` | `{deviceId, auxMixNumber}` | `{auxMixNumber, status, missingSends[]}` |
+| `find_muted_monitor_sends` | `{deviceId, auxMixNumber}` | `{auxMixNumber, status, mutedSends[]}` |
+| `find_hot_monitor_sends` | `{deviceId, auxMixNumber, thresholdDb?=-6}` | `{auxMixNumber, thresholdDb, status, hotSends[]}` |
+| `validate_aux_mix` | `{deviceId, auxMixNumber, hotThresholdDb?=-6}` | `AuxMixAuditResult` |
+
+All four call `extractAuxMixes(snapshot.flatState)` from `@presonus-mcp/adapter`.
+
+`validate_aux_mix` runs missing + muted + hot sub-audits, adds `master_muted` issue when master is muted, aggregates status: any `severity:high` → `problem`.
+
+### New Layer B stubs
+
+```typescript
+{
+  status: 'not_verifiable_with_current_adapter' | 'partial',
+  reason: string,
+  probeSteps: string[],
+  probeMarkdown: string,
+}
+```
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `get_input_routing` | `not_verifiable_with_current_adapter` | Pure stub |
+| `validate_avb_routing` | `not_verifiable_with_current_adapter` | Pure stub |
+| `validate_output_routing` | `partial` | Returns OutputPatchRouter (index known, sourceName=null) + unverified block |
+
+### New Layer A resources
+
+| URI | Returns |
+|-----|---------|
+| `presonus://mixer/{id}/fx-sends` | Per-channel FxSend arrays |
+| `presonus://mixer/{id}/monitor-routing` | `MixerRoutingGraph` (all channel→AUX sends as MixerRoute[]) |
+
+`monitor-routing` construction: for each AuxMix, for each send, emit a `MixerRoute` with `kind` from channel prefix (`line.*` → `channel-to-aux`; `fxreturn.*` → `fx-return-to-aux`; etc.), `confidence: 'inferred'`.

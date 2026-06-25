@@ -11,9 +11,13 @@
  *
  * CONFIDENCE POLICY:
  *   'observed'  = confirmed by probe diff-state on real hardware
- *   'guessed'   = best-estimate (e.g. same log law as fader); needs calibration
+ *   'inferred'  = logically inferred from observed patterns (key confirmed, formula plausible);
+ *                  needs probe-routing calibration to promote to 'observed'
  *   'not_verifiable_with_current_adapter' = physically unobservable (cable routing)
  *                  or requires AVB probe session not yet completed
+ *
+ * NOTE: fat-channel.ts retains its own ConfidenceSchema with 'guessed' (different domain).
+ * ADR-008: Two-layer routing model — observable (Layer A) vs probe-required (Layer B).
  */
 import { z } from 'zod'
 
@@ -50,6 +54,12 @@ export const FxSendSchema = z.object({
   fxBus: z.enum(['FXA', 'FXB', 'FXC', 'FXD', 'FXE', 'FXF', 'FXG', 'FXH']),
   /** Raw send level 0–1 */
   sendLevelLinear: z.number().min(0).max(1),
+  /**
+   * Whether this FX send is assigned/enabled.
+   * Key pattern: `line.chN.assign_FXA` (inferred — not yet probe-confirmed).
+   * Absent when the key is not present in mixer state.
+   */
+  assigned: z.boolean().optional(),
 })
 export type FxSend = z.infer<typeof FxSendSchema>
 
@@ -88,10 +98,10 @@ export const ChannelSendRoutingSchema = z.object({
   mainLrAssigned: z.boolean().optional(),
   /**
    * Confidence of send level values.
-   * 'guessed' = raw 0–1 linear values exposed without dB calibration.
+   * 'inferred' = raw 0–1 linear values exposed; formula plausible but not probe-confirmed.
    * 'observed' = set after probe diff-state confirms the AUX send formula.
    */
-  parameterConfidence: z.enum(['observed', 'guessed']),
+  parameterConfidence: z.enum(['observed', 'inferred']),
 })
 export type ChannelSendRouting = z.infer<typeof ChannelSendRoutingSchema>
 
@@ -102,7 +112,7 @@ export type ChannelSendRouting = z.infer<typeof ChannelSendRoutingSchema>
 /** Confidence that a source mapping is correct */
 export const RoutingConfidenceSchema = z.enum([
   'observed',   // confirmed by probe diff-state
-  'guessed',    // estimated from default sequence (index N = line ch N+1)
+  'inferred',   // logically inferred from observed patterns; needs probe to promote to 'observed'
   'not_verifiable_with_current_adapter',
 ])
 export type RoutingConfidence = z.infer<typeof RoutingConfidenceSchema>
@@ -233,3 +243,72 @@ export const PatchSwapDetectionSchema = z.object({
   unexpectedActiveChannels: z.array(z.string()),
 })
 export type PatchSwapDetection = z.infer<typeof PatchSwapDetectionSchema>
+
+// ---------------------------------------------------------------------------
+// RoutingKind + MixerRoute — unified routing model (ADR-008)
+// ---------------------------------------------------------------------------
+
+/**
+ * Classifies a route by its functional role in the signal chain.
+ *
+ * Layer A (observable now): channel-to-aux, channel-to-fx, fx-return-to-aux, talkback-to-aux
+ * Layer B (probe-required): input-source, bus-to-output, avb-stream, stagebox
+ *
+ * @see ADR-008-two-layer-routing-model.md
+ */
+export const RoutingKindSchema = z.enum([
+  'input-source',      // physical input → console channel  (Layer B: probe-required)
+  'channel-to-aux',   // console channel → AUX bus          (Layer A: observable)
+  'channel-to-fx',    // console channel → FX bus           (Layer A: observable)
+  'fx-return-to-aux', // FX return channel → AUX bus        (Layer A: observable when data available)
+  'talkback-to-aux',  // talkback channel → AUX bus         (Layer A: observable when data available)
+  'bus-to-output',    // AUX/SUB/FX bus → analog output     (Layer B: source names probe-required)
+  'avb-stream',       // AVB network stream mapping         (Layer B: probe-required)
+  'stagebox',         // stagebox input channel mapping     (Layer B: requires 32R hardware)
+])
+export type RoutingKind = z.infer<typeof RoutingKindSchema>
+
+/**
+ * A single normalized route with full confidence annotation.
+ *
+ * Used by Layer A tools to expose confirmed send routing as a flat list,
+ * and by Layer B stubs to document the gap with `not_verifiable_with_current_adapter`.
+ *
+ * Design: prefer this type over raw AuxSend/FxSend arrays when building cross-channel
+ * routing views (e.g. presonus://mixer/{id}/monitor-routing).
+ */
+export const MixerRouteSchema = z.object({
+  kind: RoutingKindSchema,
+  /** Source identifier — e.g. 'line.ch1', 'talkback.ch1', 'fxbus.ch1' */
+  source: z.string(),
+  /** Destination identifier — e.g. 'aux.ch3', 'fxbus.chA', 'sub.ch1', 'main.ch1' */
+  destination: z.string(),
+  /** Send level 0.0–1.0 (absent for boolean-only assignments) */
+  level: z.number().min(0).max(1).optional(),
+  /** Whether the send is enabled/assigned (absent when key not in state) */
+  assigned: z.boolean().optional(),
+  /** Whether the source channel is muted (affects post-fader sends) */
+  muted: z.boolean().optional(),
+  /** Raw state key path where this route was read (e.g. 'line.ch1.aux3') */
+  rawPath: z.string().optional(),
+  /** Raw state value at rawPath */
+  rawValue: z.unknown().optional(),
+  /** Confidence that this route reflects hardware reality */
+  confidence: RoutingConfidenceSchema,
+})
+export type MixerRoute = z.infer<typeof MixerRouteSchema>
+
+/** A collection of mixer routes for one device — used by monitor-routing resource */
+export const MixerRoutingGraphSchema = z.object({
+  deviceId: z.string(),
+  capturedAt: z.string().datetime(),
+  routes: z.array(MixerRouteSchema),
+  /** Summary counts by kind and confidence */
+  summary: z.object({
+    byKind: z.record(z.string(), z.number().int()),
+    observed: z.number().int(),
+    inferred: z.number().int(),
+    not_verifiable: z.number().int(),
+  }),
+})
+export type MixerRoutingGraph = z.infer<typeof MixerRoutingGraphSchema>

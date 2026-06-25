@@ -21,6 +21,7 @@ import { registerWatchMetersCommand } from './commands/watch-meters.js'
 import { registerDiffStateCommand } from './commands/diff-state.js'
 import { registerProbeFatChannelCommand } from './commands/probe-fat-channel.js'
 import { registerReadSceneCommand } from './commands/read-scene.js'
+import { registerProbeRoutingCommand } from './commands/probe-routing.js'
 
 const program = new Command()
 
@@ -36,6 +37,7 @@ registerWatchMetersCommand(program)
 registerDiffStateCommand(program)
 registerProbeFatChannelCommand(program)
 registerReadSceneCommand(program)
+registerProbeRoutingCommand(program)
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error('Error:', err instanceof Error ? err.message : String(err))

@@ -202,9 +202,15 @@ export function extractChannelSendRouting(
   for (const bus of ['FXA', 'FXB', 'FXC', 'FXD', 'FXE', 'FXF', 'FXG', 'FXH'] as const) {
     const sendLevel = f(`.${bus}`)
     if (sendLevel !== undefined) {
+      // assign_FXA key pattern: inferred (matches uppercase FX key convention), not probe-confirmed
+      const assignRaw = f(`.assign_${bus}`)
+      const assigned = assignRaw !== undefined
+        ? (typeof assignRaw === 'boolean' ? assignRaw : (assignRaw as number) !== 0)
+        : undefined
       fxSends.push({
         fxBus: bus,
         sendLevelLinear: typeof sendLevel === 'number' ? Math.max(0, Math.min(1, sendLevel)) : 0,
+        ...(assigned !== undefined ? { assigned } : {}),
       })
     }
   }
@@ -229,7 +235,7 @@ export function extractChannelSendRouting(
     ? (typeof lrRaw === 'boolean' ? lrRaw : typeof lrRaw === 'number' ? lrRaw !== 0 : undefined)
     : undefined
 
-  return { auxSends, fxSends, subgroupAssigns, mainLrAssigned, parameterConfidence: 'guessed' }
+  return { auxSends, fxSends, subgroupAssigns, mainLrAssigned, parameterConfidence: 'inferred' }
 }
 
 /**
@@ -701,21 +707,35 @@ export function extractAuxMixes(flat: Record<string, unknown>): AuxMix[] {
 
   // ── Collect aux sends ─────────────────────────────────────────────────────
   const sendsMap = new Map<number, AuxMix['sends']>()
+  // OBSERVED: key pattern is `line.chN.auxM` (e.g. line.ch1.aux3), NOT line.ch1.aux.ch3
+  // Extended to: return.chN.auxM, fxreturn.chN.auxM, talkback.chN.auxM (#40 REQ-F-ROUT-010)
+  const SEND_KEY_RE = /^(line|return|fxreturn|talkback)\.ch(\d+)\.aux(\d+)$/
   for (const [key, value] of Object.entries(flat)) {
-    const sendMatch = /^line\.ch(\d+)\.aux\.ch(\d+)$/.exec(key)
+    const sendMatch = SEND_KEY_RE.exec(key)
     if (!sendMatch) continue
-    const srcCh = parseInt(sendMatch[1]!, 10)
-    const auxMixNum = parseInt(sendMatch[2]!, 10)
+    const chanType = sendMatch[1]!
+    const srcCh = parseInt(sendMatch[2]!, 10)
+    const auxMixNum = parseInt(sendMatch[3]!, 10)
     const level = typeof value === 'number' ? Math.max(0, Math.min(1, value)) : 0
     const levelDb = level > 0 ? 20 * Math.log10(level) : -Infinity
 
-    // Resolve channel name from flatState
-    const chName = (flat[`line.ch${srcCh}.username`] as string | undefined)
-      ?? (flat[`line.ch${srcCh}.name`] as string | undefined)
-      ?? `Ch ${srcCh}`
+    const channelPrefix = `${chanType}.ch${srcCh}`
 
-    // Collect send mute (key: line.chN.aux.chM.mute — may not exist; default false)
-    const sendMuted = Boolean(flat[`line.ch${srcCh}.aux.ch${auxMixNum}.mute`] ?? false)
+    // Resolve channel name from flatState
+    const chName = (flat[`${channelPrefix}.username`] as string | undefined)?.trim()
+      ?? (flat[`${channelPrefix}.name`] as string | undefined)
+      ?? (chanType === 'fxreturn' ? `FX Ret ${srcCh}`
+        : chanType === 'talkback' ? `Talkback`
+        : chanType === 'return'   ? `Return ${srcCh}`
+        : `Ch ${srcCh}`)
+
+    // Muted = channel NOT assigned to this AUX bus (assign_auxN = 0/false)
+    // OBSERVED: assign_auxN is boolean or integer 0/1 in state
+    const assignRaw = flat[`${channelPrefix}.assign_aux${auxMixNum}`]
+    const isAssigned = assignRaw === undefined
+      ? true  // default: assume assigned if key absent (safer than assuming muted)
+      : (typeof assignRaw === 'boolean' ? assignRaw : (assignRaw as number) !== 0)
+    const sendMuted = !isAssigned
 
     const send: AuxMix['sends'][number] = {
       fromChannel: srcCh,

@@ -182,3 +182,54 @@ This is intentional: the adapter's public TypeScript interface contains only:
 - `getIdentity(deviceId)` — returns identity for a device
 
 No method named `mute`, `setFader`, `recallScene`, `setColor`, or similar exists on this class.
+
+---
+
+## Phase 04 Amendment — Routing Extraction Design (ADR-008)
+
+**Added**: 2026-06-25  
+**Requirements**: #39 (REQ-F-ROUT-009), #40 (REQ-F-ROUT-010)  
+**Architecture**: #47 (ADR-008)
+
+### Bug fix: `extractAuxMixes` regex
+
+**Current (incorrect)**: `^line\.ch(\d+)\.aux\.ch(\d+)$` — matches `line.ch1.aux.ch2` which does not exist.
+
+**Corrected**: `^(?:line|return|fxreturn|talkback)\.ch(\d+)\.aux(\d+)$` — matches `line.ch1.aux1` (observed on 32SC).
+
+Also fix muted detection — current code checks `line.chN.aux.chM.mute` (non-existent key). Correct: use `${prefix}.assign_aux${M}` where `0` = not assigned = effectively muted.
+
+### FX send assignment extraction (REQ-F-ROUT-009)
+
+In `extractChannelSendRouting()`, for each FX bus (FXA–FXH):
+
+```typescript
+const assignRaw = f(`.assign_${bus}`)  // e.g. line.ch1.assign_FXA (inferred key)
+const assigned = assignRaw !== undefined
+  ? (typeof assignRaw === 'boolean' ? assignRaw : (assignRaw as number) !== 0)
+  : undefined
+```
+
+Key pattern `assign_FXA` is inferred (not probe-confirmed). `FxSend.assigned` is optional; absent when key not in state.
+
+### Non-LINE channel routing (REQ-F-ROUT-010)
+
+Extend `extractAuxMixes()` to match channel prefixes: `line`, `return`, `fxreturn`, `talkback`.
+
+`fromChannelName` derivation order:
+1. `flat[\`${prefix}.username\`]`
+2. `flat[\`${prefix}.name\`]`
+3. Type-based default: `"FX Ret N"`, `"Talkback"`, `"Return N"`
+
+### `parameterConfidence` rename
+
+`'guessed'` → `'inferred'` in two places: `extractChannelSendRouting()` and `extractFatChannelState()`.
+
+### Tests to add/update
+
+| Test file | Coverage |
+|-----------|----------|
+| `routing.test.ts` | FX assign present → `assigned: true`; absent → `undefined` |
+| `routing.test.ts` | `parameterConfidence: 'inferred'` |
+| `state-mapper.test.ts` | `parameterConfidence: 'inferred'` |
+| `aux-mix.test.ts` (new) | `extractAuxMixes` with `aux1` key; FXRETURN and TALKBACK sends included |

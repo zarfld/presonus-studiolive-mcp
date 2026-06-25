@@ -108,3 +108,55 @@ export const MonitorRequirementsResultSchema = z.object({
   issues: z.array(MonitorRequirementsIssueSchema),
 })
 export type MonitorRequirementsResult = z.infer<typeof MonitorRequirementsResultSchema>
+
+// ---------------------------------------------------------------------------
+// Zero-expectation aux mix audit schemas (ADR-008 Layer A tools)
+// Used by: validate_aux_mix, find_missing_monitor_sends, find_muted_monitor_sends,
+//          find_hot_monitor_sends
+// ---------------------------------------------------------------------------
+
+/**
+ * Default threshold in dBFS above which a send is considered "hot".
+ * Level 1.0 linear = 0 dBFS; threshold -6 dBFS ≈ linear 0.501.
+ */
+export const HOT_SEND_THRESHOLD_DB = -6
+
+/**
+ * A single issue found during a zero-expectation aux mix audit.
+ * Does not require agent-provided rider expectations — audits the mix's own state.
+ */
+export const AuxMixAuditIssueSchema = z.object({
+  issueType: z.enum([
+    'unassigned_send',  // send level > 0 but assigned = false (signal not routed)
+    'muted_send',       // assigned = true but mute key active
+    'very_low_send',    // assigned and not muted but level near zero (< 0.05 linear)
+    'hot_send',         // send level above configurable threshold (default -6 dBFS)
+    'master_muted',     // aux mix master output is muted
+  ]),
+  auxMixNumber: z.number().int().positive(),
+  /** Channel number; 0 is used for aux-level issues (e.g. master_muted) */
+  channel: z.number().int().min(0),
+  channelName: z.string(),
+  severity: z.enum(['high', 'medium', 'low']),
+  /** Human-readable description of the issue */
+  detail: z.string(),
+  /** Send level at time of audit (0.0–1.0) */
+  level: z.number().min(0).max(1).optional(),
+  /** Approximate dBFS (−Infinity represented as null) */
+  levelDb: z.number().nullable().optional(),
+})
+export type AuxMixAuditIssue = z.infer<typeof AuxMixAuditIssueSchema>
+
+/** Result of validate_aux_mix — zero-expectation audit of one aux mix bus */
+export const AuxMixAuditResultSchema = z.object({
+  auxMixNumber: z.number().int().positive(),
+  name: z.string(),
+  masterLevel: z.number().min(0).max(1),
+  masterMuted: z.boolean(),
+  sendCount: z.number().int(),
+  status: z.enum(['ok', 'warning', 'problem']),
+  issues: z.array(AuxMixAuditIssueSchema),
+  /** Threshold used for hot_send detection (dBFS) */
+  hotThresholdDb: z.number(),
+})
+export type AuxMixAuditResult = z.infer<typeof AuxMixAuditResultSchema>

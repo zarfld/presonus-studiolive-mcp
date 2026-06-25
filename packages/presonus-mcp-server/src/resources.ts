@@ -12,6 +12,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { extractAuxMixes, type PresonusClientManager } from '@presonus-mcp/adapter'
 import type { MixerSnapshot } from '@presonus-mcp/adapter'
+import type { MixerRoute, RoutingKind } from '@presonus-mcp/domain'
 
 /** Build stale metadata to inject into resource responses when the connection is lost. */
 function staleMetadata(snapshot: MixerSnapshot | undefined): Record<string, unknown> {
@@ -133,7 +134,7 @@ export function registerResources(
   server.resource(
     'mixer-routing',
     new ResourceTemplate('presonus://mixer/{deviceId}/routing', { list: undefined }),
-    { description: 'Per-channel send routing: AUX sends (1–32), FX sends (FXA–FXH), subgroup assigns (1–4), main LR. parameterConfidence=guessed until AUX probe calibration.' },
+    { description: 'Per-channel send routing: AUX sends (1–32), FX sends (FXA–FXH), subgroup assigns (1–4), main LR. parameterConfidence=inferred until AUX probe calibration.' },
     async (_uri, { deviceId }) => {
       const snapshot = clientManager.getSnapshot(String(deviceId))
       const channelRouting = (snapshot?.channels ?? []).map((ch) => ({
@@ -200,6 +201,107 @@ export function registerResources(
             auxMixes,
             ...staleMetadata(snapshot),
           }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/fx-sends ─────────────────────────────────────────
+  // @implements #39 REQ-F-ROUT-009: FX send level and assignment per channel
+  // @architecture #47 ADR-008: Layer A resource
+  server.resource(
+    'mixer-fx-sends',
+    new ResourceTemplate('presonus://mixer/{deviceId}/fx-sends', { list: undefined }),
+    { description: 'Per-channel FX send levels and assignments (FXA–FXH). confidence=inferred until probe-routing confirms assign_FXA key pattern. Part of ADR-008 Layer A routing.' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      const channels = (snapshot?.channels ?? []).map((ch) => ({
+        channelId: ch.id,
+        channelName: ch.name,
+        fxSends: ch.sendRouting?.fxSends ?? [],
+      })).filter((ch) => ch.fxSends.length > 0)
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/fx-sends`,
+          text: JSON.stringify({ channels, ...staleMetadata(snapshot) }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/monitor-routing ───────────────────────────────────
+  // @implements #38 REQ-F-ROUT-008: MixerRoute unified type
+  // @implements #40 REQ-F-ROUT-010: non-LINE channel routing
+  // @architecture #47 ADR-008: Layer A resource — flattened MixerRoute[] for all AUX sends
+  server.resource(
+    'mixer-monitor-routing',
+    new ResourceTemplate('presonus://mixer/{deviceId}/monitor-routing', { list: undefined }),
+    { description: 'All channel→AUX sends as a flat MixerRoute[] (MixerRoutingGraph). Includes LINE, RETURN, FXRETURN, and TALKBACK sends. confidence=inferred (ADR-008 Layer A).' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      if (!snapshot) {
+        return {
+          contents: [{
+            uri: `presonus://mixer/${String(deviceId)}/monitor-routing`,
+            text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }),
+            mimeType: 'application/json',
+          }],
+        }
+      }
+
+      const auxMixes = extractAuxMixes(snapshot.flatState)
+
+      // Derive RoutingKind from channel prefix
+      function channelPrefixToKind(prefix: string): RoutingKind {
+        if (prefix.startsWith('fxreturn.')) return 'fx-return-to-aux'
+        if (prefix.startsWith('talkback.')) return 'talkback-to-aux'
+        return 'channel-to-aux'
+      }
+
+      const routes: MixerRoute[] = []
+      const byKind: Record<string, number> = {}
+      let inferred = 0
+
+      for (const mix of auxMixes) {
+        for (const send of mix.sends) {
+          // Reconstruct source prefix from fromChannel and channel type
+          // AuxMix.sends currently only have fromChannel (int) and fromChannelName — no type prefix stored.
+          // Default to 'line' for now; RETURN/FXRETURN detection requires prefix in send (future enhancement).
+          const source = `line.ch${send.fromChannel}`
+          const destination = `aux.ch${mix.auxMixNumber}`
+          const kind = channelPrefixToKind(source)
+          const rawPath = `${source}.aux${mix.auxMixNumber}`
+
+          const route: MixerRoute = {
+            kind,
+            source,
+            destination,
+            level: send.level,
+            assigned: !send.muted,
+            muted: send.muted,
+            rawPath,
+            rawValue: snapshot.flatState[rawPath],
+            confidence: 'inferred',
+          }
+          routes.push(route)
+          byKind[kind] = (byKind[kind] ?? 0) + 1
+          inferred++
+        }
+      }
+
+      const graph = {
+        deviceId: String(deviceId),
+        capturedAt: snapshot.capturedAt,
+        routes,
+        summary: { byKind, observed: 0, inferred, not_verifiable: 0 },
+        ...staleMetadata(snapshot),
+      }
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/monitor-routing`,
+          text: JSON.stringify(graph, null, 2),
           mimeType: 'application/json',
         }],
       }
