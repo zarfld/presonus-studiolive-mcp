@@ -12,7 +12,7 @@
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, type PresonusClientManager } from '@presonus-mcp/adapter'
+import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, extractAuxMixes, type PresonusClientManager } from '@presonus-mcp/adapter'
 import {
   eqGainDbToNormalized,
   eqFreqHzToNormalized,
@@ -530,6 +530,203 @@ export function registerTools(
       const meterSummary = summarizer?.getSummary(10 as const) ?? null
       const result = diagnoseChannel(snapshot, channel, meterSummary, expectedSource)
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    },
+  )
+
+  // ─── get_aux_mix ──────────────────────────────────────────────────────────
+  server.tool(
+    'get_aux_mix',
+    'Get the state of a specific aux mix bus: master level, master mute, and all per-channel send levels. Monitor mix workflows: agent provides aux mix number, MCP returns current state. prePost is always "unknown" until hardware probed.',
+    {
+      deviceId: z.string(),
+      auxMixNumber: z.number().int().positive().describe('1-based aux mix number'),
+    },
+    async ({ deviceId, auxMixNumber }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mix = allMixes.find((m) => m.auxMixNumber === auxMixNumber)
+      if (!mix) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: `Aux mix ${auxMixNumber} not found in current state.` }) }],
+          isError: true,
+        }
+      }
+      return { content: [{ type: 'text' as const, text: JSON.stringify(mix, null, 2) }] }
+    },
+  )
+
+  // ─── validate_monitor_requirements ───────────────────────────────────────
+  server.tool(
+    'validate_monitor_requirements',
+    'Validate rider-derived monitor send requirements against the actual aux mix state. The agent provides expected sends (from rider); the MCP server checks the mixer and flags missing, muted, or very-low sends. Does NOT write to the mixer.',
+    {
+      deviceId: z.string(),
+      auxMix: z.number().int().positive().describe('1-based aux mix number'),
+      expectedSends: z.array(z.object({
+        channel: z.number().int().positive().describe('1-based physical channel number'),
+        name: z.string().describe('Signal name, e.g. "Lead Vox"'),
+        minimumPresence: z.enum(['strong', 'medium', 'any']).describe('Required presence level in the monitor'),
+      })).describe('Agent-provided expected sends for this monitor mix (from rider)'),
+    },
+    async ({ deviceId, auxMix, expectedSends }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+      const allMixes = extractAuxMixes(snapshot.flatState)
+      const mix = allMixes.find((m) => m.auxMixNumber === auxMix)
+
+      const issues: { type: string; auxMix: number; channel: number; name: string; severity: string }[] = []
+
+      for (const expected of expectedSends) {
+        const send = mix?.sends.find((s) => s.fromChannel === expected.channel)
+        if (!send) {
+          issues.push({ type: 'missing_monitor_send', auxMix, channel: expected.channel, name: expected.name, severity: 'high' })
+          continue
+        }
+        if (send.muted) {
+          issues.push({ type: 'muted_send', auxMix, channel: expected.channel, name: expected.name, severity: 'high' })
+          continue
+        }
+        const veryLowThreshold = expected.minimumPresence === 'strong' ? 0.3 : expected.minimumPresence === 'medium' ? 0.15 : 0.05
+        if (send.level < veryLowThreshold) {
+          issues.push({ type: 'very_low_send', auxMix, channel: expected.channel, name: expected.name, severity: expected.minimumPresence === 'strong' ? 'high' : 'medium' })
+        }
+      }
+
+      const status = issues.some((i) => i.severity === 'high') ? 'problem'
+        : issues.length > 0 ? 'warning'
+        : 'ok'
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status, issues }, null, 2) }] }
+    },
+  )
+
+  // ─── validate_channel_setup ────────────────────────────────────────────────
+  server.tool(
+    'validate_channel_setup',
+    'Validate expected channel names, mute state, and phantom power against actual mixer state. The agent provides rider-derived expected channel list; the MCP server checks the actual mixer channels. Returns issues[] with severity. Does NOT write to the mixer.',
+    {
+      deviceId: z.string(),
+      expectedChannels: z.array(z.object({
+        channel: z.number().int().positive().describe('1-based physical channel number'),
+        name: z.string().describe('Expected channel name (scribble strip)'),
+        phantomRequired: z.boolean().optional().describe('Whether phantom power is expected'),
+      })).describe('Agent-provided expected channel list from rider'),
+    },
+    async ({ deviceId, expectedChannels }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+
+      const issues: { channel: number; issue: string; current: string; expected: string; severity: string }[] = []
+
+      for (const expected of expectedChannels) {
+        const channelId = `line.ch${expected.channel}`
+        const ch = snapshot.channels.find((c) => c.id === channelId)
+
+        if (!ch) {
+          issues.push({ channel: expected.channel, issue: 'channel_not_found', current: 'not_present', expected: expected.name, severity: 'high' })
+          continue
+        }
+
+        // Name mismatch check
+        if (ch.name && ch.name !== expected.name) {
+          issues.push({ channel: expected.channel, issue: 'expected_name_mismatch', current: ch.name, expected: expected.name, severity: 'low' })
+        }
+
+        // Mute check
+        if (ch.mute === true) {
+          issues.push({ channel: expected.channel, issue: 'muted_expected_channel', current: 'muted', expected: 'active', severity: 'high' })
+        }
+
+        // Phantom power check (if key available in flatState)
+        if (expected.phantomRequired !== undefined) {
+          const phantomKey = `line.ch${expected.channel}.48v`
+          const actualPhantom = Boolean(snapshot.flatState[phantomKey] ?? false)
+          if (actualPhantom !== expected.phantomRequired) {
+            issues.push({
+              channel: expected.channel,
+              issue: 'phantom_mismatch',
+              current: actualPhantom ? 'phantom_on' : 'phantom_off',
+              expected: expected.phantomRequired ? 'phantom_on' : 'phantom_off',
+              severity: 'medium',
+            })
+          }
+        }
+      }
+
+      const status = issues.some((i) => i.severity === 'high') ? 'problem'
+        : issues.length > 0 ? 'warning'
+        : 'ok'
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status, issues }, null, 2) }] }
+    },
+  )
+
+  // ─── check_required_setup ────────────────────────────────────────────────
+  server.tool(
+    'check_required_setup',
+    'Check whether the mixer can satisfy rider-derived capacity requirements (input count, monitor mixes, FX buses, stagebox). The agent provides requirements; the MCP server checks against mixer capabilities. Returns pass/fail per requirement.',
+    {
+      deviceId: z.string(),
+      requirements: z.object({
+        inputChannels: z.number().int().positive().optional().describe('Minimum input channels required'),
+        monitorMixes: z.number().int().positive().optional().describe('Minimum monitor mixes required'),
+        fxBuses: z.number().int().positive().optional().describe('Minimum FX buses required'),
+        stageboxRequired: z.boolean().optional().describe('Whether an AVB stagebox is required'),
+      }).describe('Rider-derived capacity requirements'),
+    },
+    async ({ deviceId, requirements }) => {
+      const identity = clientManager.getIdentity(deviceId)
+      if (!identity) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+      }
+      const caps = clientManager.getCapabilities(deviceId)
+
+      const checks: { requirement: string; required?: number; available?: number; status: string }[] = []
+
+      if (requirements.inputChannels !== undefined) {
+        checks.push({
+          requirement: 'inputChannels',
+          required: requirements.inputChannels,
+          available: caps.lineInputs,
+          status: caps.lineInputs >= requirements.inputChannels ? 'ok' : 'insufficient',
+        })
+      }
+      if (requirements.monitorMixes !== undefined) {
+        checks.push({
+          requirement: 'monitorMixes',
+          required: requirements.monitorMixes,
+          available: caps.auxMixes,
+          status: caps.auxMixes >= requirements.monitorMixes ? 'ok' : 'insufficient',
+        })
+      }
+      if (requirements.fxBuses !== undefined) {
+        checks.push({
+          requirement: 'fxBuses',
+          required: requirements.fxBuses,
+          available: caps.fxBuses,
+          status: caps.fxBuses >= requirements.fxBuses ? 'ok' : 'insufficient',
+        })
+      }
+      if (requirements.stageboxRequired !== undefined) {
+        checks.push({
+          requirement: 'stageboxRequired',
+          available: caps.avbStagebox ? 1 : 0,
+          status: !requirements.stageboxRequired || caps.avbStagebox ? 'ok' : 'unavailable',
+        })
+      }
+
+      const status = checks.some((c) => c.status === 'insufficient' || c.status === 'unavailable') ? 'problem'
+        : checks.length > 0 ? 'ok'
+        : 'ok'
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status, checks }, null, 2) }] }
     },
   )
 

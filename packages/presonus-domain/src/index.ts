@@ -14,3 +14,4 @@ export * from './schemas/show.js'
 export * from './schemas/write.js'  // ProposedChangeSet, AppliedChange, ChangeParameter
 export * from './schemas/line-check.js'   // LineCheckStepInput, LineCheckStepResult, suspicion schemas
 export * from './schemas/diagnosis.js'    // DiagnoseChannelInput, DiagnoseChannelResult
+export * from './schemas/mixauxes.js'     // AuxSend, AuxMix, AuxMixSummary, MonitorRequirements*export * from './schemas/validation.js'   // ExpectedChannel, ChannelSetupValidation*, MixerRequirements*, RequirementsCheck*

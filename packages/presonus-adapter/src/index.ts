@@ -15,6 +15,7 @@ export {
   extractMixerSerial,
   flattenFeatherbearState,
   deriveCapabilities,
+  extractAuxMixes,
 } from './state-mapper.js'
 export type { MixerSnapshot } from './state-mapper.js'
 

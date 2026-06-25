@@ -10,7 +10,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { PresonusClientManager } from '@presonus-mcp/adapter'
+import { extractAuxMixes, type PresonusClientManager } from '@presonus-mcp/adapter'
 import type { MixerSnapshot } from '@presonus-mcp/adapter'
 
 /** Build stale metadata to inject into resource responses when the connection is lost. */
@@ -165,6 +165,39 @@ export function registerResources(
           uri: `presonus://mixer/${String(deviceId)}/routing/outputs`,
           text: JSON.stringify({
             outputPatch: snapshot?.outputPatch ?? null,
+            ...staleMetadata(snapshot),
+          }, null, 2),
+          mimeType: 'application/json',
+        }],
+      }
+    },
+  )
+
+  // ─── presonus://mixer/{id}/auxes ────────────────────────────────────────────
+  // @implements REQ-F-AUX-001
+  server.resource(
+    'mixer-auxes',
+    new ResourceTemplate('presonus://mixer/{deviceId}/auxes', { list: undefined }),
+    { description: 'All aux mix buses with master state and per-channel send levels. Used by the sound engineer agent to validate monitor/IEM sends. prePost is always "unknown" until hardware probed.' },
+    async (_uri, { deviceId }) => {
+      const snapshot = clientManager.getSnapshot(String(deviceId))
+      if (!snapshot) {
+        return {
+          contents: [{
+            uri: `presonus://mixer/${String(deviceId)}/auxes`,
+            text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }),
+            mimeType: 'application/json',
+          }],
+        }
+      }
+      const auxMixes = extractAuxMixes(snapshot.flatState)
+      return {
+        contents: [{
+          uri: `presonus://mixer/${String(deviceId)}/auxes`,
+          text: JSON.stringify({
+            deviceId: String(deviceId),
+            capturedAt: snapshot.capturedAt,
+            auxMixes,
             ...staleMetadata(snapshot),
           }, null, 2),
           mimeType: 'application/json',

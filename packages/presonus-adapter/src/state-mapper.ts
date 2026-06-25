@@ -16,7 +16,7 @@
  * The featherbear state.get("line.ch1.mute") traverses this tree using dot-notation.
  * We flatten it first with flattenFeatherbearState() before key-pattern processing.
  */
-import type { MixerChannel, MixerIdentity, ChannelFatState, NormalizedEqBand, ChannelSendRouting, AuxSend, FxSend, SubgroupAssign, OutputPatchRouter, MixerCapabilities } from '@presonus-mcp/domain'
+import type { MixerChannel, MixerIdentity, ChannelFatState, NormalizedEqBand, ChannelSendRouting, AuxSend, FxSend, SubgroupAssign, OutputPatchRouter, MixerCapabilities, AuxMix } from '@presonus-mcp/domain'
 import {
   decodeCompressorModel,
   decodeEqModel,
@@ -657,3 +657,95 @@ export function deriveCapabilities(
 
 // Alias for external consumers that import the typed return
 export type { ModelCapTable as MixerCapTable }
+
+// ---------------------------------------------------------------------------
+// Aux mix extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract all aux mix state from a flattened state dict.
+ *
+ * Key patterns (OBSERVED on 32SC fw 3.3.0.109659):
+ *   line.chN.aux.chM  — aux send level from LINE channel N to AUX mix M (0.0–1.0)
+ *   aux.chM.mute      — aux mix M master mute (boolean)
+ *   aux.chM.volume    — aux mix M master level (0.0–1.0)
+ *   aux.chM.username  — aux mix M user name (string)
+ *
+ * Pre/Post fader state is NOT determinable from current state keys → always 'unknown'.
+ *
+ * @param flat  Flattened dot-notation state dict from flattenFeatherbearState()
+ */
+export function extractAuxMixes(flat: Record<string, unknown>): AuxMix[] {
+  // ── Collect aux mix master state ─────────────────────────────────────────
+  const auxMasterMap = new Map<number, { mute: boolean; volume: number; name: string }>()
+  for (const [key, value] of Object.entries(flat)) {
+    const masterMuteMatch = /^aux\.ch(\d+)\.mute$/.exec(key)
+    if (masterMuteMatch) {
+      const m = parseInt(masterMuteMatch[1]!, 10)
+      const existing = auxMasterMap.get(m) ?? { mute: false, volume: 0.75, name: `Aux ${m}` }
+      auxMasterMap.set(m, { ...existing, mute: Boolean(value) })
+    }
+    const masterVolMatch = /^aux\.ch(\d+)\.volume$/.exec(key)
+    if (masterVolMatch) {
+      const m = parseInt(masterVolMatch[1]!, 10)
+      const existing = auxMasterMap.get(m) ?? { mute: false, volume: 0.75, name: `Aux ${m}` }
+      auxMasterMap.set(m, { ...existing, volume: typeof value === 'number' ? value : 0.75 })
+    }
+    const masterNameMatch = /^aux\.ch(\d+)\.username$/.exec(key)
+    if (masterNameMatch) {
+      const m = parseInt(masterNameMatch[1]!, 10)
+      const existing = auxMasterMap.get(m) ?? { mute: false, volume: 0.75, name: `Aux ${m}` }
+      auxMasterMap.set(m, { ...existing, name: typeof value === 'string' ? value : `Aux ${m}` })
+    }
+  }
+
+  // ── Collect aux sends ─────────────────────────────────────────────────────
+  const sendsMap = new Map<number, AuxMix['sends']>()
+  for (const [key, value] of Object.entries(flat)) {
+    const sendMatch = /^line\.ch(\d+)\.aux\.ch(\d+)$/.exec(key)
+    if (!sendMatch) continue
+    const srcCh = parseInt(sendMatch[1]!, 10)
+    const auxMixNum = parseInt(sendMatch[2]!, 10)
+    const level = typeof value === 'number' ? Math.max(0, Math.min(1, value)) : 0
+    const levelDb = level > 0 ? 20 * Math.log10(level) : -Infinity
+
+    // Resolve channel name from flatState
+    const chName = (flat[`line.ch${srcCh}.username`] as string | undefined)
+      ?? (flat[`line.ch${srcCh}.name`] as string | undefined)
+      ?? `Ch ${srcCh}`
+
+    // Collect send mute (key: line.chN.aux.chM.mute — may not exist; default false)
+    const sendMuted = Boolean(flat[`line.ch${srcCh}.aux.ch${auxMixNum}.mute`] ?? false)
+
+    const send: AuxMix['sends'][number] = {
+      fromChannel: srcCh,
+      fromChannelName: chName,
+      auxMixNumber: auxMixNum,
+      level,
+      levelDb: isFinite(levelDb) ? levelDb : -Infinity,
+      prePost: 'unknown',  // Not determinable from current state keys
+      muted: sendMuted,
+    }
+
+    const existing = sendsMap.get(auxMixNum) ?? []
+    sendsMap.set(auxMixNum, [...existing, send])
+  }
+
+  // ── Merge into AuxMix[] ───────────────────────────────────────────────────
+  // Collect all aux mix numbers from both maps
+  const allMixNumbers = new Set([...auxMasterMap.keys(), ...sendsMap.keys()])
+
+  return Array.from(allMixNumbers)
+    .sort((a, b) => a - b)
+    .map((m) => {
+      const master = auxMasterMap.get(m) ?? { mute: false, volume: 0.75, name: `Aux ${m}` }
+      const sends = (sendsMap.get(m) ?? []).sort((a, b) => a.fromChannel - b.fromChannel)
+      return {
+        auxMixNumber: m,
+        name: master.name,
+        masterLevel: master.volume,
+        masterMuted: master.mute,
+        sends,
+      }
+    })
+}
