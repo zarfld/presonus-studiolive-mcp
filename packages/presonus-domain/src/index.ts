@@ -9,9 +9,9 @@ export * from './schemas/mixer.js'
 export * from './schemas/channel.js'
 export * from './schemas/metering.js'
 export * from './schemas/fat-channel.js'  // includes decode*Model, decode*ModelFromClassid, *_BY_INDEX, *_BY_CLASSID, ChannelFatStateSchema, normalized*() helpers
-export * from './schemas/routing.js'      // includes ChannelSendRouting, OutputPatchRouter, RoutingValidationReport, NoSignalDiagnosis, PatchSwapDetection, RoutingKind, MixerRoute, MixerRoutingGraph
+export * from './schemas/routing.js'      // includes ChannelSendRouting, OutputPatchRouter, RoutingValidationReport, NoSignalDiagnosis, PatchSwapDetection
 export * from './schemas/show.js'
 export * from './schemas/write.js'  // ProposedChangeSet, AppliedChange, ChangeParameter
 export * from './schemas/line-check.js'   // LineCheckStepInput, LineCheckStepResult, suspicion schemas
 export * from './schemas/diagnosis.js'    // DiagnoseChannelInput, DiagnoseChannelResult
-export * from './schemas/mixauxes.js'     // AuxSend, AuxMix, AuxMixSummary, MonitorRequirements*export * from './schemas/validation.js'   // ExpectedChannel, ChannelSetupValidation*, MixerRequirements*, RequirementsCheck*
+export * from './schemas/mixauxes.js'     // includes AuxMix, AuxMixSend, AuxMixSummary, MonitorRequirements, AuxMixAuditResult
