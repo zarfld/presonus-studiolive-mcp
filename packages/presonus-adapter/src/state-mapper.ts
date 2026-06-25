@@ -759,7 +759,7 @@ export function extractAuxMixes(flat: Record<string, unknown>): AuxMix[] {
     .sort((a, b) => a - b)
     .map((m) => {
       const master = auxMasterMap.get(m) ?? { mute: false, volume: 0.75, name: `Aux ${m}` }
-      const sends = (sendsMap.get(m) ?? []).sort((a, b) => a.fromChannel - b.fromChannel)
+      const sends = (sendsMap.get(m) ?? [] as AuxMix['sends']).sort((a, b) => a.fromChannel - b.fromChannel)
       return {
         auxMixNumber: m,
         name: master.name,
