@@ -9,6 +9,11 @@
  * Verifies: REQ-F-MON-001 — get_monitor_mix_layout behavior
  * Verifies: REQ-F-MON-002 — validate_stereo_monitor_pair behavior
  * Verifies: REQ-F-MON-003 — validate_monitor_mix_names behavior
+ * Verifies: REQ-F-ROUT-002 — get_routing_graph behavior
+ * Verifies: REQ-F-ROUT-003 — validate_input_routing behavior
+ * Verifies: REQ-F-ROUT-004 — validate_stagebox_routing behavior
+ * Verifies: REQ-F-ROUT-005 — diagnose_no_signal_routing behavior
+ * Verifies: REQ-F-ROUT-006 — detect_possible_patch_swap behavior
  * Verifies: REQ-F-ROUT-010 — validate_output_patch_labels behavior
  * Verifies: ADR-006 — prepare_mute/fader/aux_send/fat_channel change-set tools
  *
