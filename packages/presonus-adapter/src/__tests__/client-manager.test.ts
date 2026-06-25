@@ -153,6 +153,7 @@ describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-
   })
 
   it('marks snapshot stale on error event', async () => {
+    vi.useFakeTimers()
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
@@ -160,6 +161,7 @@ describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-
 
     const snap = manager.getSnapshot(testIdentity.deviceId)
     expect(snap?.isStale).toBe(true)
+    vi.useRealTimers()
   })
 })
 
