@@ -29,7 +29,13 @@ export function registerWatchEventsCommand(program: Command): void {
       const { Client } = await import('@featherbear/presonus-studiolive-api')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = new (Client as any)({ host: opts.device, port })
-      await client.connect()
+      // Pass explicit subscription options so the mixer knows this is a legitimate client.
+      // Without options, featherbear uses default clientIdentifier "133d066a919ea0ea";
+      // after many repeated connects the mixer may stop responding to that identifier.
+      await client.connect({
+        clientDescription: 'presonus-mcp-probe',
+        clientIdentifier: `presonus-mcp-probe-${Date.now()}`,
+      })
       console.error(`Connected. Watching events${duration > 0 ? ` for ${duration}s` : ' (Ctrl+C to stop)'}...`)
 
       const dateStr = formatISO(new Date())

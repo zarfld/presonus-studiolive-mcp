@@ -92,7 +92,15 @@ export class PresonusClientManager {
     this.connections.set(identity.deviceId, conn)
 
     try {
-      await client.connect()
+      // Pass a unique clientIdentifier per connection.
+      // featherbear docs: "If using multiple instances of this API, it is recommended
+      // to modify the clientIdentifier property." Using the same default ID across
+      // multiple connections causes the mixer to treat them as the same client and
+      // may refuse state sync after repeated connects (e.g. HIL test runs).
+      await client.connect({
+        clientDescription: 'presonus-mcp-server',
+        clientIdentifier: `presonus-mcp-${identity.deviceId}-${Date.now()}`,
+      })
       conn.connected = true
 
       // Verify serial after connect (REQ-F-002 #16)
@@ -290,7 +298,10 @@ export class PresonusClientManager {
       const client = new (Client as any)({ host: conn.identity.ip, port: conn.identity.port })
       conn.client = client
 
-      await client.connect()
+      await client.connect({
+        clientDescription: 'presonus-mcp-server',
+        clientIdentifier: `presonus-mcp-${conn.identity.deviceId}-${Date.now()}`,
+      })
       conn.connected = true
       conn.reconnectAttempts = 0
       conn.lastError = undefined
