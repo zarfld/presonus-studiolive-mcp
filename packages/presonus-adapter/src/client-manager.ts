@@ -110,6 +110,24 @@ export class PresonusClientManager {
       } catch {
         // dumpState may not exist in all firmware versions; graceful fallback
       }
+
+      // Fallback: read featherbear's internal state tree directly.
+      // featherbear builds state._data from protocol packets received AFTER connect()
+      // WITHOUT emitting JavaScript 'data' events — it takes ~2 s for the full state
+      // to arrive (same timing as the presonus-probe dump-state command).
+      // We schedule a non-blocking background read so connect() returns immediately
+      // (unit tests unaffected); real hardware gets a populated snapshot 2 s later.
+      // HIL test discovery: dumpState() silently returns empty; state._data has the data.
+      void (async () => {
+        await new Promise<void>((r) => setTimeout(r, 2_000))
+        if (!conn.connected) return
+        const internalState = (client.state as Record<string, unknown> | undefined)?._data
+        if (internalState && typeof internalState === 'object') {
+          Object.assign(conn.rawState, internalState as Record<string, unknown>)
+          conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
+        }
+      })()
+
       conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
 
       // Fetch available projects list (REQ-F-005 #19)
@@ -139,9 +157,18 @@ export class PresonusClientManager {
       // Subscribe to state updates
       client.on('data', (data: unknown) => {
         conn.lastEventAt = Date.now()  // REQ-NF-003 #23: track last event time
-        if (data && typeof data === 'object') {
+        // Read featherbear's authoritative internal state tree directly.
+        // This avoids the shallow-merge problem: Object.assign with nested delta events
+        // (format: {internal: {children: ...}}) would overwrite the top-level 'internal'
+        // key on each event, losing all previously-received state.
+        // If state._data is unavailable (unit test mocks), fall back to delta merge.
+        const internalNow = (client.state as Record<string, unknown> | undefined)?._data
+        if (internalNow && typeof internalNow === 'object') {
+          conn.rawState = internalNow as Record<string, unknown>
+        } else if (data && typeof data === 'object') {
           Object.assign(conn.rawState, data)
-          conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
+        }
+        conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
           // Re-apply scene/project from client properties after state update
           if (conn.snapshot) {
             const project = typeof client.currentProject === 'string' && client.currentProject
@@ -154,7 +181,6 @@ export class PresonusClientManager {
               currentScene: scene,
             }
           }
-        }
       })
 
       // Subscribe to meters
