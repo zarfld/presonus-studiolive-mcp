@@ -215,13 +215,13 @@ describe('find_hot_monitor_sends — realistic fixture (REQ-F-AUX-004 #57)', () 
 
   const HOT_THRESHOLD = 0.5  // -6 dBFS
 
-  it('finds 1 hot send in aux1 (ch8 level=0.75 > 0.5)', () => {
+  it('finds 2 hot sends in aux1 (ch5 level=0.524 and ch8 level=0.75 — both > 0.5)', () => {
     const mixes = extractAuxMixes(realisticFlatState)
     const aux1 = mixes.find((m) => m.auxMixNumber === 1)!
     const hot = aux1.sends.filter((s) => s.level > HOT_THRESHOLD)
-    expect(hot).toHaveLength(1)
-    expect(hot[0]!.fromChannel).toBe(8)
-    expect(hot[0]!.level).toBe(0.75)
+    expect(hot).toHaveLength(2)
+    const channels = hot.map((s) => s.fromChannel).sort((a, b) => a - b)
+    expect(channels).toEqual([5, 8])  // ch5 (0.524) and ch8 (0.75)
   })
 
   it('finds 1 hot send in aux2 (ch5 level=0.85 > 0.5)', () => {
