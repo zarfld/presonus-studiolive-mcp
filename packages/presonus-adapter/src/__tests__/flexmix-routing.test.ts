@@ -156,10 +156,10 @@ describe('extractFlexMixBusTopology — AUX mode (REQ-F-FLEXMIX-001 #84)', () =>
     expect(bus1.assignedChannels).toBeNull()
   })
 
-  it('all 6 AUX mode buses have assignedChannels = null', () => {
+  it('all 5 AUX mode buses have assignedChannels = null', () => {
     const topology = extractFlexMixBusTopology(FLEXMIX_FIXTURE)
     const auxBuses = topology.buses.filter((b) => b.mode === 'AUX')
-    expect(auxBuses).toHaveLength(6)
+    expect(auxBuses).toHaveLength(5)   // ch1, ch4, ch5, ch7, ch8
     for (const bus of auxBuses) {
       expect(bus.assignedChannels, `AUX bus ${bus.busIndex} should have null assignedChannels`).toBeNull()
     }
