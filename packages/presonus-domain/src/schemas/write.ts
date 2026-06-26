@@ -30,6 +30,10 @@ export const ChangeParameterSchema = z.enum([
   'limiter.threshold', 'limiter.release', 'limiter.enabled',
   // Channel-level
   'fader', 'mute',
+  // String writes (REQ-F-WRITE-005a #86)
+  'username',
+  // Binary routing writes (REQ-F-WRITE-005c/d #86)
+  'sub.membership', 'aux.assignment',
 ])
 export type ChangeParameter = z.infer<typeof ChangeParameterSchema>
 
@@ -43,13 +47,24 @@ export const ProposedChangeSchema = z.object({
   parameter: ChangeParameterSchema,
   /** Dot-notation state key path, e.g. "line.ch1.eq.eqgain1" */
   rawKeyPath: z.string(),
-  /** Current normalized value from snapshot (null if not in state) */
+  /**
+   * Current normalized value from snapshot (null if not in state, or if this is a string write).
+   * Null for username/sub.membership/aux.assignment changes.
+   */
   currentRawValue: z.number().nullable(),
-  /** Proposed normalized value to send to mixer (0.0–1.0) */
-  proposedRawValue: z.number().min(0).max(1),
-  /** Human-readable current value, e.g. "+1.5 dB" */
+  /**
+   * Proposed normalized value to send to mixer (0.0–1.0).
+   * Null for string writes (use proposedStringValue instead).
+   */
+  proposedRawValue: z.number().min(0).max(1).nullable(),
+  /**
+   * Proposed string value — only set when parameter === 'username'.
+   * Sent via PS (ParamString) packet instead of PV (ParamValue).
+   */
+  proposedStringValue: z.string().nullable().optional(),
+  /** Human-readable current value, e.g. "+1.5 dB" or channel name */
   currentDisplayValue: z.string(),
-  /** Human-readable proposed value, e.g. "-3.0 dB" */
+  /** Human-readable proposed value, e.g. "-3.0 dB" or new channel name */
   proposedDisplayValue: z.string(),
 })
 export type ProposedChange = z.infer<typeof ProposedChangeSchema>

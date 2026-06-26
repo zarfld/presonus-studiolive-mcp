@@ -12,7 +12,7 @@
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, extractAuxMixes, type PresonusClientManager } from '@presonus-mcp/adapter'
+import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, extractAuxMixes, extractFixedSubGroups, type PresonusClientManager } from '@presonus-mcp/adapter'
 import {
   eqGainDbToNormalized,
   eqFreqHzToNormalized,
@@ -195,16 +195,44 @@ export function registerTools(
       if (!snapshot) {
         return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
       }
+      // REQ-F-READ-005e (#86): include fxreturn, sub, fxbus channels in addition to line channels
+      const fxReturnChannels = Object.entries(snapshot.flatState)
+        .filter(([k]) => /^fxreturn\.ch\d+\.username$/.test(k))
+        .map(([k, v]) => {
+          const chId = k.replace('.username', '')
+          return {
+            channelId: chId,
+            channelType: 'fxreturn',
+            channelName: String(v ?? ''),
+            sendRouting: {},
+          }
+        })
+      const subChannels = Object.entries(snapshot.flatState)
+        .filter(([k]) => /^sub\.ch\d+\.username$/.test(k))
+        .map(([k, v]) => {
+          const chId = k.replace('.username', '')
+          return {
+            channelId: chId,
+            channelType: 'sub',
+            channelName: String(v ?? ''),
+            sendRouting: {},
+          }
+        })
       const routing = {
         deviceId,
         capturedAt: snapshot.capturedAt,
         isStale: snapshot.isStale,
         channelCount: snapshot.channels.length,
-        channels: snapshot.channels.map((ch) => ({
-          channelId: ch.id,
-          channelName: ch.name,
-          sendRouting: ch.sendRouting,
-        })),
+        channels: [
+          ...snapshot.channels.map((ch) => ({
+            channelId: ch.id,
+            channelType: 'line',
+            channelName: ch.name,
+            sendRouting: ch.sendRouting,
+          })),
+          ...fxReturnChannels,
+          ...subChannels,
+        ],
         outputPatch: snapshot.outputPatch ?? null,
         globalConfidence: snapshot.outputPatch?.globalConfidence ?? 'not_verifiable_with_current_adapter',
       }
@@ -1511,6 +1539,22 @@ export function registerTools(
     },
   )
 
+  // ─── list_sub_groups (read-only, always registered) ─────────────────────
+  // @implements REQ-F-WRITE-005b (#86)
+  server.tool(
+    'list_sub_groups',
+    'Return all fixed hardware sub group buses (Sub A–D) with their names, stereolink state, and full member channel list (includes fxreturn channels). Read-only — no mixer changes.',
+    { deviceId: z.string() },
+    async ({ deviceId }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      if (!snapshot) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected. Run discover_mixers first.' }) }], isError: true }
+      }
+      const topology = extractFixedSubGroups(snapshot.flatState)
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ deviceId, capturedAt: snapshot.capturedAt, ...topology }, null, 2) }] }
+    },
+  )
+
   // ─── Write tools (registered only when writeEnabled=true — ADR-005 #10, ADR-006) ───
   if (config.writeEnabled) {
     // Inform future maintainers: write tools are intentionally limited.
@@ -1650,7 +1694,14 @@ export function registerTools(
         const errors: string[] = []
         for (const change of entry.set.changes) {
           try {
-            await clientManager.applyChange(deviceId, change.rawKeyPath, change.proposedRawValue)
+            // Dispatch: string writes (username) use applyStringChange; numeric use applyChange
+            if (change.parameter === 'username' && change.proposedStringValue != null) {
+              await clientManager.applyStringChange(deviceId, change.rawKeyPath, change.proposedStringValue)
+            } else if (change.proposedRawValue != null) {
+              await clientManager.applyChange(deviceId, change.rawKeyPath, change.proposedRawValue)
+            } else {
+              errors.push(`Skipped ${change.parameter}: no proposedRawValue or proposedStringValue`)
+            }
           } catch (err) {
             errors.push(`Failed to apply ${change.parameter}: ${String(err)}`)
           }
@@ -1881,6 +1932,131 @@ export function registerTools(
         if (entry.set.deviceId !== deviceId) return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: false, reason: `changeSetId belongs to device '${entry.set.deviceId}', not '${deviceId}'.` }) }] }
         const ttlRemaining = Math.max(0, Math.round((entry.expiresAt - Date.now()) / 1000))
         return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: true, changeSetId, deviceId, channelId: entry.set.channelId, description: entry.set.description, changeCount: entry.set.changes.length, ttlRemainingSeconds: ttlRemaining, changes: entry.set.changes.map((c) => ({ parameter: c.parameter, current: c.currentDisplayValue, proposed: c.proposedDisplayValue })) }, null, 2) }] }
+      },
+    )
+
+    // ─── prepare_channel_rename_change_set ────────────────────────────────────
+    // @implements REQ-F-WRITE-005a (#86)
+    server.tool(
+      'prepare_channel_rename_change_set',
+      'Prepare a change set to rename a channel (update its scribble-strip username label). Accepts any channel type: line.chN, fxreturn.chN, sub.chN, aux.chN, fxbus.chN, main.chN. Returns changeSetId to pass to apply_change_set. Name must be 1–16 chars.',
+      {
+        deviceId: z.string(),
+        channelId: z.string().describe('Full channel ID, e.g. "line.ch11", "fxreturn.ch4", "sub.ch4"'),
+        newName: z.string().min(1).max(16).describe('New channel name (scribble strip label, max 16 chars)'),
+      },
+      async ({ deviceId, channelId, newName }) => {
+        pruneExpiredChangeSets()
+        const snap = clientManager.getSnapshot(deviceId)
+        if (!snap) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+        const usernameKey = `${channelId}.username`
+        if (!(usernameKey in snap.flatState)) {
+          return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found — no '${usernameKey}' key in current state.` }) }], isError: true }
+        }
+        const currentName = String(snap.flatState[usernameKey] ?? '')
+        const now = Date.now()
+        const changeSetId = randomUUID()
+        const changeSet: ProposedChangeSet = {
+          changeSetId, deviceId, channelId,
+          proposedAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + CHANGESET_TTL_MS).toISOString(),
+          changes: [{
+            parameter: 'username',
+            rawKeyPath: usernameKey,
+            currentRawValue: null,
+            proposedRawValue: null,
+            proposedStringValue: newName,
+            currentDisplayValue: currentName,
+            proposedDisplayValue: newName,
+          }],
+          description: `Rename ${channelId} from "${currentName}" to "${newName}"`,
+        }
+        changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
+        return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
+      },
+    )
+
+    // ─── prepare_sub_group_membership_change_set ──────────────────────────────
+    // @implements REQ-F-WRITE-005c (#86)
+    server.tool(
+      'prepare_sub_group_membership_change_set',
+      'Prepare a change set to add or remove a channel from a fixed hardware sub group bus (Sub A=1, Sub B=2, Sub C=3, Sub D=4). Supported channel types: line.chN, fxreturn.chN. Returns changeSetId.',
+      {
+        deviceId: z.string(),
+        channelId: z.string().describe('Channel ID, e.g. "line.ch16" or "fxreturn.ch4"'),
+        subGroupIndex: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+          .describe('Sub group number: 1=Sub A, 2=Sub B, 3=Sub C, 4=Sub D'),
+        assigned: z.boolean().describe('true = add to group, false = remove from group'),
+      },
+      async ({ deviceId, channelId, subGroupIndex, assigned }) => {
+        pruneExpiredChangeSets()
+        if (!/^(line|fxreturn)\.ch\d+$/.test(channelId)) {
+          return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Unsupported channelId '${channelId}'. Use line.chN or fxreturn.chN.` }) }], isError: true }
+        }
+        const snap = clientManager.getSnapshot(deviceId)
+        if (!snap) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+        const flatKey = `${channelId}.sub${subGroupIndex}`
+        const currentRaw = typeof snap.flatState[flatKey] === 'number' ? (snap.flatState[flatKey] as number) : null
+        const subName = ['Sub A', 'Sub B', 'Sub C', 'Sub D'][subGroupIndex - 1]!
+        const now = Date.now()
+        const changeSetId = randomUUID()
+        const changeSet: ProposedChangeSet = {
+          changeSetId, deviceId, channelId,
+          proposedAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + CHANGESET_TTL_MS).toISOString(),
+          changes: [{
+            parameter: 'sub.membership',
+            rawKeyPath: flatKey,
+            currentRawValue: currentRaw,
+            proposedRawValue: assigned ? 1.0 : 0.0,
+            currentDisplayValue: currentRaw === 1 ? 'assigned' : 'unassigned',
+            proposedDisplayValue: assigned ? 'assigned' : 'unassigned',
+          }],
+          description: `${assigned ? 'Add' : 'Remove'} ${channelId} ${assigned ? 'to' : 'from'} ${subName}`,
+        }
+        changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
+        return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
+      },
+    )
+
+    // ─── prepare_aux_assignment_change_set ────────────────────────────────────
+    // @implements REQ-F-WRITE-005d (#86)
+    server.tool(
+      'prepare_aux_assignment_change_set',
+      'Prepare a change set to assign or unassign a channel from a FlexMix aux bus. Controls assign_auxN key (channel routing assignment), NOT the send level. Returns changeSetId.',
+      {
+        deviceId: z.string(),
+        channelId: z.string().describe('Source channel ID, e.g. "line.ch17"'),
+        auxBus: z.number().int().min(1).max(32).describe('Aux bus number (1–32)'),
+        assigned: z.boolean().describe('true = assign channel to aux bus, false = unassign'),
+      },
+      async ({ deviceId, channelId, auxBus, assigned }) => {
+        pruneExpiredChangeSets()
+        const snap = clientManager.getSnapshot(deviceId)
+        if (!snap) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
+        const ch = snap.channels.find((c) => c.id === channelId)
+        if (!ch) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found.` }) }], isError: true }
+        const flatKey = `${channelId}.assign_aux${auxBus}`
+        const currentRaw = snap.flatState[flatKey]
+        const currentAssigned = currentRaw === true || currentRaw === 1
+        const now = Date.now()
+        const changeSetId = randomUUID()
+        const changeSet: ProposedChangeSet = {
+          changeSetId, deviceId, channelId,
+          proposedAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + CHANGESET_TTL_MS).toISOString(),
+          changes: [{
+            parameter: 'aux.assignment',
+            rawKeyPath: flatKey,
+            currentRawValue: currentAssigned ? 1.0 : 0.0,
+            proposedRawValue: assigned ? 1.0 : 0.0,
+            currentDisplayValue: currentAssigned ? 'assigned' : 'unassigned',
+            proposedDisplayValue: assigned ? 'assigned' : 'unassigned',
+          }],
+          description: `${assigned ? 'Assign' : 'Unassign'} ${ch.name ?? channelId} ${assigned ? 'to' : 'from'} Aux ${auxBus}`,
+        }
+        changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
+        return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
       },
     )
   }

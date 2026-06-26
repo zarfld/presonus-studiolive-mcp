@@ -917,9 +917,21 @@ export function extractFlexMixBusTopology(flat: Record<string, unknown>): FlexMi
 // ---------------------------------------------------------------------------
 
 /** Descriptor for a single fixed hardware subgroup bus (Sub A/B/C/D). */
+/** A channel assigned to a fixed sub bus — includes type (line vs fxreturn etc.) */
+export interface SubGroupMember {
+  /** 1-based channel number within its type namespace. */
+  channelIndex: number
+  /** Channel type prefix as used in flatState keys. */
+  channelType: 'line' | 'fxreturn' | 'return' | 'talkback'
+  /** Full channel ID, e.g. "line.ch4" or "fxreturn.ch4" */
+  channelId: string
+}
+
 export interface FixedSubGroup {
   /** 1-based bus number: 1=Sub A, 2=Sub B, 3=Sub C, 4=Sub D (matches sub.chN index). */
   busIndex: number
+  /** Canonical bus ID, e.g. "sub.ch4" */
+  busId: string
   /** User-assigned name (sub.chN.username). */
   username: string
   /** Mixer short label ("Sb A", "Sb B", etc.) from sub.chN.chnum. */
@@ -939,10 +951,14 @@ export interface FixedSubGroup {
   /** busIndex of the stereolink partner, or null when not stereolinked. */
   stereoPartnerIndex: number | null
   /**
-   * Source channels explicitly assigned to this bus (line.chM.subN = 1).
-   *
-   * For stereolinked pairs, both master and slave have the same assignedChannels
-   * (the protocol sets both subN flags when a channel is assigned to the pair).
+   * All channels assigned to this bus with type information.
+   * Includes line AND fxreturn channels.
+   * REQ-F-WRITE-005 (#86): fxreturn channels are visible in sub group membership.
+   */
+  members: SubGroupMember[]
+  /**
+   * @deprecated Use members instead. Kept for backward compatibility with existing HIL tests.
+   * Contains only the channel INDEX (number) for line channels only.
    */
   assignedChannels: number[]
 }
@@ -1027,8 +1043,18 @@ export function extractFixedSubGroups(flat: Record<string, unknown>): FixedSubGr
       : typeof masterRaw === 'boolean' ? masterRaw : false
     )
 
+    const members = (memberSets[n - 1] ?? []).sort((a, b) =>
+      a.channelType.localeCompare(b.channelType) || a.channelIndex - b.channelIndex
+    )
+    // Legacy: assignedChannels = line-only channel indices for backward compatibility
+    const assignedChannels = members
+      .filter(m => m.channelType === 'line')
+      .map(m => m.channelIndex)
+      .sort((a, b) => a - b)
+
     buses.push({
       busIndex: n,
+      busId: prefix,
       username,
       chnum,
       volume,
@@ -1036,7 +1062,8 @@ export function extractFixedSubGroups(flat: Record<string, unknown>): FixedSubGr
       stereoLinked,
       isLinkMaster,
       stereoPartnerIndex: null,  // set below after all buses are built
-      assignedChannels: Array.from(channelSets[n - 1]!).sort((a, b) => a - b),
+      members,
+      assignedChannels,
     })
   }
 

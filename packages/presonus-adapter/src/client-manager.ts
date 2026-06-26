@@ -507,4 +507,55 @@ export class PresonusClientManager {
       conn.snapshot = buildSnapshotFromFlatState(conn.identity, newFlat, conn.rawState)
     }
   }
+
+  /**
+   * Write a string value to the mixer via a PS (ParamString) packet.
+   *
+   * Used for channel rename operations (username key).
+   * The mixer echoes the change back as an incoming PS packet which the adapter
+   * processes and updates the local flatState automatically.
+   *
+   * PS packet format (inferred from featherbear handlePSPacket parser):
+   *   [slash/path]\x00\x00\x00[value string]\x00
+   *   (mirrors PV format but value is UTF-8 string instead of 4-byte float)
+   *
+   * @param deviceId   Device identifier (from getConnectedDeviceIds)
+   * @param flatKey    Dot-notation state key, e.g. "line.ch11.username"
+   * @param stringValue  New string value (e.g. new channel name, max 16 chars)
+   *
+   * @implements REQ-F-WRITE-005a (#86)
+   */
+  async applyStringChange(
+    deviceId: string,
+    flatKey: string,
+    stringValue: string,
+  ): Promise<void> {
+    const conn = this.connections.get(deviceId)
+    if (!conn) throw new Error(`applyStringChange: device '${deviceId}' not connected`)
+    if (!conn.writeEnabled) {
+      throw new Error(
+        `applyStringChange: write not enabled for device '${deviceId}'. ` +
+        'Pass controlEnabled: true to createServer() and use soundcheck_assist mode.',
+      )
+    }
+    if (stringValue.length > 16) {
+      throw new Error(`applyStringChange: stringValue length ${stringValue.length} exceeds max 16 chars`)
+    }
+
+    // PS packet: [slash/path]\x00\x00\x00[value]\x00
+    // Mirrors PV format (\x00\x00\x00 = null + 2 padding), but value is string not float.
+    const slashPath = flatKey.replace(/\./g, '/')
+    const pathBuf  = Buffer.from(slashPath + '\x00\x00\x00', 'utf8')
+    const valueBuf = Buffer.concat([Buffer.from(stringValue, 'utf8'), Buffer.from([0x00])])
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    await conn.client._sendPacket('PS', Buffer.concat([pathBuf, valueBuf]))
+
+    // Optimistic local update — mixer will echo back the real value via PS event
+    const snap = conn.snapshot
+    if (snap) {
+      const newFlat = { ...snap.flatState, [flatKey]: stringValue }
+      conn.rawState[flatKey] = stringValue
+      conn.snapshot = buildSnapshotFromFlatState(conn.identity, newFlat, conn.rawState)
+    }
+  }
 }
