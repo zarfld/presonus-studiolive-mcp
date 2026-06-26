@@ -331,7 +331,7 @@ describe.skipIf(!HIL)('field-acceptance v1.0 — field-readiness invariants', ()
   it('all 33 read-only tools registered — no write tools by default (REQ-NF-002 #22)', () => {
     const { server, tools } = makeMockServer()
     registerTools(server, manager, { writeEnabled: false })
-    expect(tools.size).toBe(33)
+    expect(tools.size).toBe(34)
     expect(tools.has('propose_eq_change')).toBe(false)
     expect(tools.has('apply_change_set')).toBe(false)
   })

@@ -54,6 +54,7 @@ async function connectOnce(): Promise<void> {
   expect(result.devices.length, HIL_IP ? `No mixer at ${HIL_IP}` : 'No mixer via UDP').toBeGreaterThan(0)
   identity = result.devices[0]!
   manager = new PresonusClientManager()
+  manager.setAllWriteEnabled(true)
   await manager.connect(identity)
   const deadline = Date.now() + 15_000
   while (Date.now() < deadline) {

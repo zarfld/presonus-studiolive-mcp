@@ -1955,8 +1955,7 @@ export function registerTools(
         if (newName.length > 16) {
           return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `newName length ${newName.length} exceeds max 16 chars.` }) }], isError: true }
         }
-          return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'newName must not be empty.' }) }], isError: true }
-        }
+        const usernameKey = `${channelId}.username`
         if (!(usernameKey in snap.flatState)) {
           return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found — no '${usernameKey}' key in current state.` }) }], isError: true }
         }
