@@ -235,15 +235,13 @@ describe('find_hot_monitor_sends — realistic fixture (REQ-F-AUX-004 #57)', () 
 
   it('threshold applies to send level (0-1 scale), not master level (0-100 raw scale)', () => {
     const mixes = extractAuxMixes(realisticFlatState)
-    // masterLevel for aux1 = 51.37/100 = 0.514 which is > HOT_THRESHOLD = 0.5
-    // but the HOT threshold should be for SEND levels, not master levels
-    // verify we never compare master level to send hot threshold
+    // masterLevel for aux1 = 51.37/100 = 0.514 which is > HOT_THRESHOLD = 0.5.
+    // The hot threshold must apply to individual SEND levels, not the bus master.
     const aux1 = mixes.find((m) => m.auxMixNumber === 1)!
-    // masterLevel 0.514 should NOT create any hot sends by itself
-    // sends are only hot if their OWN level > 0.5
     const hotByOwnLevel = aux1.sends.filter((s) => s.level > HOT_THRESHOLD)
-    // ch8 (level=0.75) is hot; ch5 (level=0.524) is NOT hot (< 0.75 but test says it's 0.524 which > 0.5)
-    expect(hotByOwnLevel.some((s) => s.fromChannel === 5)).toBe(true)  // 0.524 > 0.5
+    // ch5 (0.524 > 0.5) and ch8 (0.75 > 0.5) are hot
+    expect(hotByOwnLevel.some((s) => s.fromChannel === 5)).toBe(true)
+    expect(hotByOwnLevel.some((s) => s.fromChannel === 8)).toBe(true)
   })
 
   it('zero-level sends are never hot', () => {
