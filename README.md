@@ -4,7 +4,7 @@ An **MCP (Model Context Protocol) server** that connects AI coding agents and as
 
 Exposes live mixer context — channel names, mute/solo/fader state, Fat Channel compressor/EQ models, meter activity, and scene information — as MCP resources and tools so that AI agents can read, reason about, and assist with live sound engineering without touching hardware autonomously.
 
-> **Current status**: Soundcheck-ready backend. The MCP server exposes **10 resources + 22 read-only tools** (+ 2 write tools when `controlEnabled: true`). Empirically validated on StudioLive 32SC firmware 3.3.0.109659.
+> **Current status**: Field-ready backend (v1.0). The MCP server exposes **10 resources + 33 read-only tools** (+ 7 write tools when `controlEnabled: true`). Empirically validated on StudioLive 32SC firmware 3.3.0.109659, covering v0.1–v1.0 milestones.
 
 ---
 
@@ -389,9 +389,47 @@ pnpm mcp:server       # run MCP server (compiled dist/)
 | Test type | Command | Requires hardware |
 |---|---|---|
 | Unit (schema/adapter logic) | `pnpm test` | No |
-| HIL (hardware-in-loop) | `pnpm test:hil` | Yes — `HIL_PRESONUS=1` env var |
+| HIL (hardware-in-loop) | `pnpm test:hil` | Yes — see below |
+
+#### HIL test setup
+
+HIL tests require a physical StudioLive III mixer on the local network. Set the following environment variables before running `pnpm test:hil`:
+
+```bash
+# Required
+export HIL_PRESONUS=1                        # enables HIL test suite
+export HIL_PRESONUS_IP=<mixer-ip-address>    # e.g. 192.168.1.50
+export HIL_PRESONUS_SERIAL=<serial-number>   # e.g. SD7E21010066
+
+# Then run
+pnpm test:hil
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:HIL_PRESONUS="1"
+$env:HIL_PRESONUS_IP="<mixer-ip>"
+$env:HIL_PRESONUS_SERIAL="<serial>"
+pnpm test:hil
+```
 
 Unit tests cover all domain schemas, decode functions, `flattenFeatherbearState`, and `PresonusMeterSummarizer` using captured fixture data from `captures/`.
+
+### GitHub issue model and traceability
+
+All requirements, architecture decisions, and test cases are tracked as GitHub issues following this taxonomy:
+
+| Prefix | Type | Example |
+|---|---|---|
+| `StR-NNN` | Stakeholder requirement | #1–#4 |
+| `REQ-F-*` | Functional requirement | #15–#46 |
+| `REQ-NF-*` | Non-functional requirement | #21–#24 |
+| `ADR-*` | Architecture decision | #47 |
+| `QA-SC-*` | Quality attribute scenario | #25–#27, #49–#50 |
+| `TEST-*` | Verification test case | #51–#60, #80–#83 |
+
+Issues are organized into milestones v0.1–v1.0. See the [GitHub Issues tab](https://github.com/zarfld/presonus-studiolive-mcp/issues) for the full traceability register.
 
 ### Adding a new raw state key
 
@@ -415,7 +453,7 @@ Three-layer architecture (ADR-002):
                  │ stdio (MCP protocol)
 ┌────────────────▼────────────────────────┐
 │  @presonus-mcp/server                   │
-│  10 resources + 22 tools (read-only)    │
+│  10 resources + 33 tools (read-only)    │
 └────────────────┬────────────────────────┘
                  │ internal API
 ┌────────────────▼────────────────────────┐
