@@ -98,4 +98,42 @@ describe('registerTools â€” stderr warning suppressed when write tools regi
   })
 })
 
+// ---------------------------------------------------------------------------
+// REQ-F-ROUT-011 (#45) + TEST #59: Layer B routing stub tool registration
+// ---------------------------------------------------------------------------
+
+describe('registerTools — Layer B routing stubs (REQ-F-ROUT-011 #45, TEST #59)', () => {
+  /**
+   * Verifies: REQ-F-ROUT-011 (#45) — Layer B stub tools are registered
+   * Verifies: TEST-ROUT-011 (#59) — Layer B tool registration and response structure
+   * ADR-008 (#47): These tools are INTENTIONALLY stubs — they return
+   * 'not_verifiable_with_current_adapter' for physical/AVB routing.
+   * Traces to: #3 (StR: Soundcheck assistance)
+   */
+
+  it('registers all 5 routing tools including Layer B stubs (get_routing_graph, validate_input_routing, validate_stagebox_routing, diagnose_no_signal_routing, detect_possible_patch_swap)', () => {
+    const { server, registeredTools } = makeMockServer()
+    registerTools(server, makeMockManager(), { writeEnabled: false })
+    // Layer A tools (observable software state)
+    expect(registeredTools).toContain('get_routing_graph')
+    expect(registeredTools).toContain('detect_possible_patch_swap')
+    // Layer B stubs (intentionally return not_verifiable for physical routing)
+    expect(registeredTools).toContain('validate_input_routing')
+    expect(registeredTools).toContain('validate_stagebox_routing')
+    expect(registeredTools).toContain('diagnose_no_signal_routing')
+  })
+
+  it('Layer B tools are present in both writeEnabled=true and writeEnabled=false configs', () => {
+    for (const writeEnabled of [false, true]) {
+      const { server, registeredTools } = makeMockServer()
+      registerTools(server, makeMockManager(), { writeEnabled })
+      // Layer B stubs must always be registered regardless of write mode
+      expect(registeredTools).toContain('validate_stagebox_routing')
+      expect(registeredTools).toContain('validate_input_routing')
+      expect(registeredTools).toContain('diagnose_no_signal_routing')
+    }
+  })
+})
+
+
 

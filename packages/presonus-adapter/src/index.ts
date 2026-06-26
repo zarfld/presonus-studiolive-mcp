@@ -16,6 +16,8 @@ export {
   flattenFeatherbearState,
   deriveCapabilities,
   extractAuxMixes,
+  extractChannelSendRouting,
+  extractOutputPatchRouter,
 } from './state-mapper.js'
 export type { MixerSnapshot } from './state-mapper.js'
 
