@@ -18,8 +18,17 @@ export {
   extractAuxMixes,
   extractChannelSendRouting,
   extractOutputPatchRouter,
+  extractFlexMixBusTopology,
+  extractFixedSubGroups,
 } from './state-mapper.js'
-export type { MixerSnapshot } from './state-mapper.js'
+export type {
+  MixerSnapshot,
+  FlexMixBusMode,
+  FlexMixBus,
+  FlexMixTopology,
+  FixedSubGroup,
+  FixedSubGroupTopology,
+} from './state-mapper.js'
 
 export { PresonusMeterSummarizer } from './meter-summarizer.js'
 

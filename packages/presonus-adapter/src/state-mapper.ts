@@ -774,3 +774,286 @@ export function extractAuxMixes(flat: Record<string, unknown>): AuxMix[] {
       }
     })
 }
+
+// ---------------------------------------------------------------------------
+// FlexMix bus topology (REQ-F-FLEXMIX-001 #84)
+// ---------------------------------------------------------------------------
+
+/**
+ * Operational mode of a FlexMix bus.
+ *
+ * Decoded from aux.chN.busmode.value using formula:
+ *   modeIndex = Math.round(busmodeRaw × (strings - 1))  where strings=8, max=7
+ *
+ * OBSERVED on StudioLive 32SC fw 3.3.0.109659 (2026-06-26 HIL capture):
+ *   value=0.0 → index=0 → AUX      (chnum "Ax N")
+ *   value=0.5 → index=4 → SUBGROUP (chnum "Sb N")
+ *   value=1.0 → index=7 → MATRIX   (chnum "Mx N")
+ */
+export type FlexMixBusMode = 'AUX' | 'SUBGROUP' | 'MATRIX' | 'FXGROUP' | 'UNKNOWN'
+
+/** Descriptor for a single FlexMix bus. */
+export interface FlexMixBus {
+  /** 1-based FlexMix bus number (matches aux.chN key index). */
+  busIndex: number
+  /** Operational mode derived from aux.chN.busmode.value. */
+  mode: FlexMixBusMode
+  /** User-assigned bus name (aux.chN.username). */
+  username: string
+  /** Mixer short label ("Ax N" / "Sb N" / "Mx N") from aux.chN.chnum. */
+  chnum: string
+  /** Raw busmode float as stored in protocol (0.0, 0.5, 1.0, etc.). */
+  busmodeRaw: number
+  /**
+   * Source channels explicitly assigned to this bus.
+   *
+   * - **null** when mode is AUX: all channels are auto-assigned; assign_auxN=true is NOT user intent.
+   * - **number[]** when mode is SUBGROUP or MATRIX: sparse list of channels where assign_auxN=true.
+   */
+  assignedChannels: number[] | null
+  /** Whether this bus is stereo-linked (aux.chN.panlinkstate !== 0). */
+  isStereoLinked: boolean
+}
+
+/** Result of FlexMix bus topology extraction. */
+export interface FlexMixTopology {
+  buses: FlexMixBus[]
+  /** Always 'high' — fully Layer A observable, no probe session required. */
+  confidence: 'high'
+}
+
+/** Number of busmode string options on StudioLive III (8 = indices 0–7). */
+const BUSMODE_STRINGS = 8
+
+function decodeBusMode(raw: number): FlexMixBusMode {
+  // modeIndex = Math.round(raw × (strings - 1))
+  // 0.0 × 7 = 0   → AUX
+  // 0.5 × 7 = 3.5 → Math.round → 4 → SUBGROUP
+  // 1.0 × 7 = 7   → MATRIX
+  const index = Math.round(raw * (BUSMODE_STRINGS - 1))
+  switch (index) {
+    case 0: return 'AUX'
+    case 4: return 'SUBGROUP'
+    case 7: return 'MATRIX'
+    default: return 'UNKNOWN'
+  }
+}
+
+/**
+ * Extract FlexMix bus topology from a flattened state dict.
+ *
+ * @implements #84 REQ-F-FLEXMIX-001: FlexMix bus mode classification and per-channel routing extraction
+ * @see https://github.com/zarfld/presonus-studiolive-mcp/issues/84
+ *
+ * Key semantic distinction:
+ *   AUX mode     → assignedChannels = null  (auto-assigned; value is mixer default, not user routing)
+ *   SUBGROUP/MATRIX → assignedChannels = number[]  (explicit user intent; sparse)
+ *
+ * OBSERVED on StudioLive 32SC fw 3.3.0.109659 (2026-06-26 HIL capture):
+ *   aux.ch2 "Sub 2" (SUBGROUP) → assigned ch10, ch11, ch12, ch14, ch15
+ *   aux.ch3 "Sub 3" (SUBGROUP) → assigned ch4, ch5, ch6, ch7
+ *   aux.ch6 "Mtx 6" (MATRIX)   → no send-level assignment (matrix routing)
+ *   aux.ch1,4,5,7,8 (AUX)      → null (auto)
+ *
+ * @param flat  Flattened dot-notation state from flattenFeatherbearState()
+ */
+export function extractFlexMixBusTopology(flat: Record<string, unknown>): FlexMixTopology {
+  // ── Discover all FlexMix bus indices from busmode.value keys ──────────────
+  const busIndices = new Set<number>()
+  for (const key of Object.keys(flat)) {
+    const m = /^aux\.ch(\d+)\.busmode\.value$/.exec(key)
+    if (m) busIndices.add(parseInt(m[1]!, 10))
+  }
+
+  if (busIndices.size === 0) {
+    return { buses: [], confidence: 'high' }
+  }
+
+  // ── Pre-collect explicit channel assignments for SUBGROUP/MATRIX buses ────
+  // Maps auxBusIndex → Set of source channel numbers where assign_auxN = true
+  const assignedByBus = new Map<number, Set<number>>()
+  const SOURCE_ASSIGN_RE = /^(?:line|return|fxreturn|talkback)\.ch(\d+)\.assign_aux(\d+)$/
+  for (const [key, value] of Object.entries(flat)) {
+    const m = SOURCE_ASSIGN_RE.exec(key)
+    if (!m) continue
+    const srcCh = parseInt(m[1]!, 10)
+    const auxN  = parseInt(m[2]!, 10)
+    const isAssigned = typeof value === 'boolean' ? value : (value as number) !== 0
+    if (isAssigned) {
+      const set = assignedByBus.get(auxN) ?? new Set<number>()
+      set.add(srcCh)
+      assignedByBus.set(auxN, set)
+    }
+  }
+
+  // ── Build FlexMixBus descriptors ──────────────────────────────────────────
+  const buses: FlexMixBus[] = Array.from(busIndices)
+    .sort((a, b) => a - b)
+    .map((n) => {
+      const rawMode = flat[`aux.ch${n}.busmode.value`]
+      const busmodeRaw = typeof rawMode === 'number' ? rawMode : 0
+      const mode       = decodeBusMode(busmodeRaw)
+      const username   = (flat[`aux.ch${n}.username`] as string | undefined) ?? `Aux ${n}`
+      const chnum      = (flat[`aux.ch${n}.chnum`]    as string | undefined) ?? `Ax ${n}`
+      const panRaw     = flat[`aux.ch${n}.panlinkstate`]
+      const isStereoLinked = panRaw !== undefined
+        ? (typeof panRaw === 'boolean' ? panRaw : (panRaw as number) !== 0)
+        : false
+
+      // AUX mode: return null — auto-assignment is NOT user routing intent
+      // SUBGROUP/MATRIX: return sorted array of explicitly assigned channels
+      const assignedChannels: number[] | null = mode === 'AUX'
+        ? null
+        : Array.from(assignedByBus.get(n) ?? []).sort((a, b) => a - b)
+
+      return { busIndex: n, mode, username, chnum, busmodeRaw, assignedChannels, isStereoLinked }
+    })
+
+  return { buses, confidence: 'high' }
+}
+
+// ---------------------------------------------------------------------------
+// Fixed hardware subgroup buses (REQ-F-FIXEDSUB-001 #85)
+// ---------------------------------------------------------------------------
+
+/** Descriptor for a single fixed hardware subgroup bus (Sub A/B/C/D). */
+export interface FixedSubGroup {
+  /** 1-based bus number: 1=Sub A, 2=Sub B, 3=Sub C, 4=Sub D (matches sub.chN index). */
+  busIndex: number
+  /** User-assigned name (sub.chN.username). */
+  username: string
+  /** Mixer short label ("Sb A", "Sb B", etc.) from sub.chN.chnum. */
+  chnum: string
+  /** Master fader level, normalized 0–1 from 0–100 raw scale. */
+  volume: number
+  /** Master mute state. */
+  muted: boolean
+  /** Whether this bus is stereolinked (sub.chN.link !== 0). */
+  stereoLinked: boolean
+  /**
+   * Stereolink role:
+   *   true  = this is the stereolink MASTER (sub.chN.linkmaster = 1)
+   *   false = slave or not linked
+   */
+  isLinkMaster: boolean
+  /** busIndex of the stereolink partner, or null when not stereolinked. */
+  stereoPartnerIndex: number | null
+  /**
+   * Source channels explicitly assigned to this bus (line.chM.subN = 1).
+   *
+   * For stereolinked pairs, both master and slave have the same assignedChannels
+   * (the protocol sets both subN flags when a channel is assigned to the pair).
+   */
+  assignedChannels: number[]
+}
+
+/** Result of fixed subgroup topology extraction. */
+export interface FixedSubGroupTopology {
+  buses: FixedSubGroup[]
+  /** Stereolinked bus pairs. masterIndex/slaveIndex are busIndex values. */
+  stereoPairs: Array<{ masterIndex: number; slaveIndex: number }>
+  /** Always 'high' — fully Layer A observable, no probe session required. */
+  confidence: 'high'
+}
+
+/** StudioLive III always has exactly 4 fixed hardware sub buses. */
+const FIXED_SUB_BUS_COUNT = 4
+
+/**
+ * Extract fixed hardware subgroup bus topology from a flattened state dict.
+ *
+ * @implements #85 REQ-F-FIXEDSUB-001: Fixed subgroup bus routing extraction with stereolink detection
+ * @see https://github.com/zarfld/presonus-studiolive-mcp/issues/85
+ *
+ * Fixed sub buses differ from FlexMix buses:
+ *   - Always SubGroup mode (no busmode enum; the "sub" prefix IS the type)
+ *   - line.chM.subN = 1 is always explicit user intent (no AUX auto-assignment)
+ *   - Stereolinked pairs (e.g., Sub C+D) are detected via sub.chN.link + sub.chN.linkmaster
+ *
+ * OBSERVED on StudioLive 32SC fw 3.3.0.109659 (2026-06-26 HIL capture):
+ *   sub.ch1 "Sub A" — mono; assigned ch3, ch4
+ *   sub.ch2 "Sub B" — mono; assigned ch11, ch16
+ *   sub.ch3 "Sub C" — stereo MASTER (link=1, linkmaster=1); assigned ch5, ch6, ch7, ch8
+ *   sub.ch4 "Sub D" — stereo SLAVE  (link=1, linkmaster=0); assigned ch5, ch6, ch7, ch8
+ *
+ * @param flat  Flattened dot-notation state from flattenFeatherbearState()
+ */
+export function extractFixedSubGroups(flat: Record<string, unknown>): FixedSubGroupTopology {
+  const SUB_LABELS = ['A', 'B', 'C', 'D'] as const
+
+  // ── Pre-collect source channel assignments for each sub bus ───────────────
+  // channelSets[n-1] = Set of line channel numbers with subN = 1
+  const channelSets: Array<Set<number>> = Array.from({ length: FIXED_SUB_BUS_COUNT }, () => new Set<number>())
+  const SUB_ASSIGN_RE = /^(?:line|return|fxreturn|talkback)\.ch(\d+)\.sub([1-4])$/
+  for (const [key, value] of Object.entries(flat)) {
+    const m = SUB_ASSIGN_RE.exec(key)
+    if (!m) continue
+    const srcCh = parseInt(m[1]!, 10)
+    const subN  = parseInt(m[2]!, 10)  // 1-based
+    const isAssigned = typeof value === 'boolean' ? value
+      : typeof value === 'number' ? value !== 0
+      : false
+    if (isAssigned) channelSets[subN - 1]!.add(srcCh)
+  }
+
+  // ── Build FixedSubGroup descriptors ───────────────────────────────────────
+  const buses: FixedSubGroup[] = []
+  for (let n = 1; n <= FIXED_SUB_BUS_COUNT; n++) {
+    const prefix = `sub.ch${n}`
+    const label  = SUB_LABELS[n - 1]!
+
+    // Skip if no state keys (e.g., mixer model with fewer sub buses)
+    if (flat[`${prefix}.username`] === undefined && flat[`${prefix}.chnum`] === undefined) continue
+
+    const username = (flat[`${prefix}.username`] as string | undefined) ?? `Sub ${label}`
+    const chnum    = (flat[`${prefix}.chnum`]    as string | undefined) ?? `Sb ${label}`
+
+    const rawVol = flat[`${prefix}.volume`]
+    const volume = typeof rawVol === 'number'
+      ? Math.max(0, Math.min(1, rawVol / 100))  // 0–100 raw → 0–1 normalized (same scale as aux)
+      : 0.75
+
+    const mutedRaw = flat[`${prefix}.mute`]
+    const muted = typeof mutedRaw === 'boolean' ? mutedRaw
+      : typeof mutedRaw === 'number' ? mutedRaw !== 0
+      : false
+
+    const linkRaw   = flat[`${prefix}.link`]
+    const masterRaw = flat[`${prefix}.linkmaster`]
+    const stereoLinked = typeof linkRaw === 'number' ? linkRaw !== 0
+      : typeof linkRaw === 'boolean' ? linkRaw : false
+    const isLinkMaster = stereoLinked && (
+      typeof masterRaw === 'number' ? masterRaw !== 0
+      : typeof masterRaw === 'boolean' ? masterRaw : false
+    )
+
+    buses.push({
+      busIndex: n,
+      username,
+      chnum,
+      volume,
+      muted,
+      stereoLinked,
+      isLinkMaster,
+      stereoPartnerIndex: null,  // set below after all buses are built
+      assignedChannels: Array.from(channelSets[n - 1]!).sort((a, b) => a - b),
+    })
+  }
+
+  // ── Detect stereolink pairs and set stereoPartnerIndex ────────────────────
+  const stereoPairs: FixedSubGroupTopology['stereoPairs'] = []
+  for (const master of buses) {
+    if (!master.stereoLinked || !master.isLinkMaster) continue
+    // Find the adjacent slave bus (must differ by exactly 1 index)
+    const slave = buses.find(
+      (b) => b.stereoLinked && !b.isLinkMaster && Math.abs(b.busIndex - master.busIndex) === 1,
+    )
+    if (slave) {
+      master.stereoPartnerIndex = slave.busIndex
+      slave.stereoPartnerIndex  = master.busIndex
+      stereoPairs.push({ masterIndex: master.busIndex, slaveIndex: slave.busIndex })
+    }
+  }
+
+  return { buses, stereoPairs, confidence: 'high' }
+}
