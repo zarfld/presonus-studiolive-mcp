@@ -8,7 +8,7 @@
  * @architecture #10 ADR-005: Read-only-first policy
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { PresonusClientManager, discoverMixers } from '@presonus-mcp/adapter'
+import { PresonusClientManager, discoverMixers, type DeviceConfig } from '@presonus-mcp/adapter'
 import { registerResources } from './resources.js'
 import { registerTools } from './tools.js'
 
@@ -18,6 +18,7 @@ export interface ServerConfig {
   discovery?: {
     enabled?: boolean
     timeoutMs?: number
+    fallbackDevices?: DeviceConfig[]
   }
 }
 
@@ -68,7 +69,8 @@ export async function createServer(config: ServerConfig = {}): Promise<McpServer
   // Start background discovery if enabled
   if (config.discovery?.enabled !== false) {
     const timeoutMs = config.discovery?.timeoutMs ?? 5000
-    discoverMixers({ timeoutMs })
+    const fallbackDevices = config.discovery?.fallbackDevices ?? []
+    discoverMixers({ timeoutMs, fallbackDevices })
       .then(async (result) => {
         process.stderr.write(
           `[presonus-mcp] Discovery complete: ${result.devices.length} device(s) found\n`,

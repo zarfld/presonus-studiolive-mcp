@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "presonus-studiolive": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/packages/presonus-mcp-server/dist/index.js"
+      ],
+      "env": {
+        "PRESONUS_WRITE": "1",
+        "PRESONUS_IP": "157.247.3.13",
+        "PRESONUS_SERIAL": "SD7E21010066",
+        "PRESONUS_MODE": "soundcheck_assist"
+      }
+    }
+  }
+}
