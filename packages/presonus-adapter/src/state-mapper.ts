@@ -998,17 +998,19 @@ export function extractFixedSubGroups(flat: Record<string, unknown>): FixedSubGr
   const SUB_LABELS = ['A', 'B', 'C', 'D'] as const
 
   // ── Pre-collect source channel assignments for each sub bus ───────────────
-  // channelSets[n-1] = Set of line channel numbers with subN = 1
-  const channelSets: Array<Set<number>> = Array.from({ length: FIXED_SUB_BUS_COUNT }, () => new Set<number>())
-  const SUB_ASSIGN_RE = /^(?:line|return|fxreturn|talkback)\.ch(\d+)\.sub([1-4])$/
+  // memberSets[n-1] = SubGroupMember[] with subN = 1
+  const memberSets: Array<SubGroupMember[]> = Array.from({ length: FIXED_SUB_BUS_COUNT }, () => [])
+  const SUB_ASSIGN_RE = /^(line|return|fxreturn|talkback)\.ch(\d+)\.sub([1-4])$/
   for (const [key, value] of Object.entries(flat)) {
     const m = SUB_ASSIGN_RE.exec(key)
     if (!m) continue
-    const srcCh = parseInt(m[1]!, 10)
-    const subN  = parseInt(m[2]!, 10)  // 1-based
+    const channelType = m[1]! as SubGroupMember['channelType']
+    const channelIndex = parseInt(m[2]!, 10)
+    const subN  = parseInt(m[3]!, 10)  // 1-based
     const isAssigned = typeof value === 'boolean' ? value
       : typeof value === 'number' ? value !== 0
       : false
+    if (isAssigned) memberSets[subN - 1]!.push({ channelIndex, channelType, channelId: `${channelType}.ch${channelIndex}` })
     if (isAssigned) channelSets[subN - 1]!.add(srcCh)
   }
 
