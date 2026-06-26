@@ -246,6 +246,8 @@ describe('FX send assignment extraction (REQ-F-ROUT-009 #53)', () => {
 
   it('FX sends extracted from line.chN.FXA-H uppercase keys (8 sends)', () => {
     const flat: Record<string, unknown> = {
+      // Minimal AUX key required — extractChannelSendRouting returns undefined without it
+      'line.ch1.aux1': 0, 'line.ch1.assign_aux1': true,
       'line.ch1.FXA': 0,
       'line.ch1.FXB': 0.3,
       'line.ch1.FXC': 0,
@@ -262,6 +264,7 @@ describe('FX send assignment extraction (REQ-F-ROUT-009 #53)', () => {
 
   it('FX send level FXB=0.3 is extracted correctly', () => {
     const flat: Record<string, unknown> = {
+      'line.ch1.aux1': 0, 'line.ch1.assign_aux1': true,
       'line.ch1.FXA': 0,
       'line.ch1.FXB': 0.3,
       'line.ch1.FXC': 0, 'line.ch1.FXD': 0, 'line.ch1.FXE': 0,
@@ -275,6 +278,8 @@ describe('FX send assignment extraction (REQ-F-ROUT-009 #53)', () => {
   it('FX sends on real capture fixture (all FXA-FXH present with assign_fx1-8=true)', () => {
     // Realistic fixture from real capture (2026-06-24): all 8 FX buses assigned
     const realisticFxFlat: Record<string, unknown> = {
+      // AUX send needed for presence check; real channels always have AUX keys too
+      'line.ch1.aux1': 0, 'line.ch1.assign_aux1': true,
       'line.ch1.FXA': 0, 'line.ch1.FXB': 0, 'line.ch1.FXC': 0, 'line.ch1.FXD': 0,
       'line.ch1.FXE': 0, 'line.ch1.FXF': 0, 'line.ch1.FXG': 0, 'line.ch1.FXH': 0,
       // Assignment keys use number (1-8), NOT letter (A-H) — observed in capture
