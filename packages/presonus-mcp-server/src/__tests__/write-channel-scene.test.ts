@@ -173,7 +173,7 @@ describe('prepare_channel_rename_change_set — mocked CI (REQ-F-WRITE-005a #86)
   })
 
   it('apply_change_set calls applyStringChange for username parameter', async () => {
-    const { manager, applyStringChangeMock } = makeMockManager()
+    const { manager, applyStringChangeMock, applyChangeMock: acm } = makeMockManager()
     const { server, tools: wTools } = makeMockServer()
     registerTools(server, manager, { writeEnabled: true })
 
@@ -189,7 +189,7 @@ describe('prepare_channel_rename_change_set — mocked CI (REQ-F-WRITE-005a #86)
     expect(applyStringChangeMock).toHaveBeenCalledWith(
       'serial:SD7E21010066', 'line.ch11.username', 'Samples',
     )
-    expect(applyChangeMock).not.toHaveBeenCalled()  // must NOT use numeric applyChange for string
+    expect(acm).not.toHaveBeenCalled()  // must NOT use numeric applyChange for string
   })
 })
 

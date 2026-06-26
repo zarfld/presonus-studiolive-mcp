@@ -1011,7 +1011,6 @@ export function extractFixedSubGroups(flat: Record<string, unknown>): FixedSubGr
       : typeof value === 'number' ? value !== 0
       : false
     if (isAssigned) memberSets[subN - 1]!.push({ channelIndex, channelType, channelId: `${channelType}.ch${channelIndex}` })
-    if (isAssigned) channelSets[subN - 1]!.add(srcCh)
   }
 
   // ── Build FixedSubGroup descriptors ───────────────────────────────────────

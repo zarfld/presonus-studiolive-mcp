@@ -31,10 +31,10 @@ function makeMockManager(): PresonusClientManager {
 }
 
 describe('registerTools â€” REQ-NF-002: zero write tools in default config', () => {
-  it('registers exactly 33 read-only tools when writeEnabled=false (3 core + 5 routing + 1 capabilities + 2 diagnostics + 3 input-list + 2 fat-channel + 3 monitor-layout + 1 output-patch + 2 probe)', () => {
+  it('registers exactly 34 read-only tools when writeEnabled=false (3 core + 5 routing + 1 capabilities + 2 diagnostics + 3 input-list + 2 fat-channel + 3 monitor-layout + 1 output-patch + 2 probe + 1 list_sub_groups)', () => {
     const { server, registeredTools } = makeMockServer()
     registerTools(server, makeMockManager(), { writeEnabled: false })
-    expect(registeredTools).toHaveLength(33)
+    expect(registeredTools).toHaveLength(34)
   })
 
   it('registers discover_mixers, refresh_mixer_state, validate_mixer_identity in default config', () => {
@@ -59,10 +59,10 @@ describe('registerTools â€” REQ-NF-002: zero write tools in default config'
 })
 
 describe('registerTools â€” ADR-006: write tools available when writeEnabled=true', () => {
-  it('registers exactly 40 tools when writeEnabled=true (33 read + 7 write: propose_eq + apply + prepare_mute + prepare_fader + prepare_aux_send + prepare_fat_channel + validate_change_set)', () => {
+  it('registers exactly 44 tools when writeEnabled=true (34 read + 10 write: propose_eq + apply + prepare_mute + prepare_fader + prepare_aux_send + prepare_fat_channel + validate_change_set + prepare_channel_rename + prepare_sub_group_membership + prepare_aux_assignment)', () => {
     const { server, registeredTools } = makeMockServer()
     registerTools(server, makeMockManager(), { writeEnabled: true })
-    expect(registeredTools).toHaveLength(40)
+    expect(registeredTools).toHaveLength(44)
   })
 
   it('registers propose_eq_change when writeEnabled=true', () => {

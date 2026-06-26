@@ -1950,6 +1950,9 @@ export function registerTools(
         const snap = clientManager.getSnapshot(deviceId)
         if (!snap) return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Device not connected.' }) }], isError: true }
         const usernameKey = `${channelId}.username`
+        if (!newName || newName.trim().length === 0) {
+          return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'newName must not be empty.' }) }], isError: true }
+        }
         if (!(usernameKey in snap.flatState)) {
           return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Channel '${channelId}' not found — no '${usernameKey}' key in current state.` }) }], isError: true }
         }
