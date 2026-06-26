@@ -29,13 +29,13 @@ const syntheticFlatState: Record<string, unknown> = {
   // Aux sends â€” ch1 and ch2 to aux 2
   'line.ch1.aux2': 0.3,
   'line.ch2.aux2': 0.7,
-  // Aux mix 1 master
+  // Aux mix 1 master — realistic: 80 (0-100 scale) → masterLevel = 0.80
   'aux.ch1.mute': false,
-  'aux.ch1.volume': 0.8,
+  'aux.ch1.volume': 80,
   'aux.ch1.username': 'Wedge 1',
-  // Aux mix 2 master
+  // Aux mix 2 master — realistic: 60 (0-100 scale) → masterLevel = 0.60
   'aux.ch2.mute': true,
-  'aux.ch2.volume': 0.6,
+  'aux.ch2.volume': 60,
   'aux.ch2.username': 'IEM L',
 }
 

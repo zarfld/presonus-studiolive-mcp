@@ -672,9 +672,11 @@ export type { ModelCapTable as MixerCapTable }
  * Extract all aux mix state from a flattened state dict.
  *
  * Key patterns (OBSERVED on 32SC fw 3.3.0.109659):
- *   line.chN.aux.chM  — aux send level from LINE channel N to AUX mix M (0.0–1.0)
+ *   line.chN.auxM     — aux send level from LINE channel N to AUX mix M (0.0–1.0 normalized)
  *   aux.chM.mute      — aux mix M master mute (boolean)
- *   aux.chM.volume    — aux mix M master level (0.0–1.0)
+ *   aux.chM.volume    — aux mix M master level (0–100 RAW scale from mixer protocol)
+ *                       IMPORTANT: this is NOT 0–1. Divide by 100 to get normalized 0–1.
+ *                       Observed: 51.37 (ch1 below unity), 74.8 (ch4 ≈ unity), 0 (ch11 off)
  *   aux.chM.username  — aux mix M user name (string)
  *
  * Pre/Post fader state is NOT determinable from current state keys → always 'unknown'.
@@ -695,7 +697,10 @@ export function extractAuxMixes(flat: Record<string, unknown>): AuxMix[] {
     if (masterVolMatch) {
       const m = parseInt(masterVolMatch[1]!, 10)
       const existing = auxMasterMap.get(m) ?? { mute: false, volume: 0.75, name: `Aux ${m}` }
-      auxMasterMap.set(m, { ...existing, volume: typeof value === 'number' ? value : 0.75 })
+      // OBSERVED: aux.chM.volume is a 0–100 raw scale from the mixer protocol (NOT 0–1).
+      // Divide by 100 to normalize to the 0–1 range expected by AuxMixSchema.masterLevel.
+      // e.g. 51.37 → 0.514 (below unity), 74.8 → 0.748 (≈ unity / 0 dB), 0 → 0.0 (fader down)
+      auxMasterMap.set(m, { ...existing, volume: typeof value === 'number' ? Math.max(0, Math.min(1, value / 100)) : 0.75 })
     }
     const masterNameMatch = /^aux\.ch(\d+)\.username$/.exec(key)
     if (masterNameMatch) {

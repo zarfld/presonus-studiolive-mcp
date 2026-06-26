@@ -121,12 +121,13 @@ describe('extractAuxMixes — master state', () => {
       'line.ch1.aux2': 0.5,
       'line.ch1.assign_aux2': true,
       'aux.ch2.mute': true,
-      'aux.ch2.volume': 0.9,
+      // REALISTIC: raw value 90 (0-100 scale from mixer) → masterLevel = 0.9 after /100
+      'aux.ch2.volume': 90,
       'aux.ch2.username': 'Wedge 1',
     }
     const mixes = extractAuxMixes(flat)
     expect(mixes[0]!.masterMuted).toBe(true)
-    expect(mixes[0]!.masterLevel).toBe(0.9)
+    expect(mixes[0]!.masterLevel).toBeCloseTo(0.9)
     expect(mixes[0]!.name).toBe('Wedge 1')
   })
 })
