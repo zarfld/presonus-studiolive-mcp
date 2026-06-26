@@ -104,9 +104,19 @@ export class PresonusClientManager {
       conn.connected = true
 
       // Verify serial after connect (REQ-F-002 #16)
+      // Also populate model (used by deriveCapabilities) from global.mixer_name.
+      // featherbear Discovery does not always populate device.model in the UDP packet;
+      // reading it from the state tree after connect guarantees the correct value.
       const deviceName = client.state?.get?.('global.mixer_name')
       if (deviceName) {
-        conn.identity = { ...conn.identity, name: String(deviceName) }
+        conn.identity = {
+          ...conn.identity,
+          name: String(deviceName),
+          // Use mixer name as model if model was not set by discovery.
+          // global.mixer_name returns the hardware model string (e.g. "StudioLive 32SC"),
+          // which is the key used in MODEL_CAPABILITY_TABLE inside deriveCapabilities().
+          model: conn.identity.model ?? String(deviceName),
+        }
       }
 
       // Build initial snapshot
@@ -421,7 +431,10 @@ export class PresonusClientManager {
    */
   getCapabilities(deviceId: string) {
     const conn = this.connections.get(deviceId)
-    const model = conn?.identity?.model ?? ''
+    // Use model if set (from discovery or after-connect update).
+    // Fall back to name (set from global.mixer_name after connect) since
+    // featherbear Discovery does not always include model in the UDP packet.
+    const model = conn?.identity?.model ?? conn?.identity?.name ?? ''
     const flatState = conn?.snapshot?.flatState ?? {}
     return deriveCapabilities(model, flatState)
   }
