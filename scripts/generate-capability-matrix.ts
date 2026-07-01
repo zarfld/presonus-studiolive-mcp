@@ -125,12 +125,12 @@ const TOOL_META: Record<string, ToolMeta> = {
   get_input_routing: {
     defaultAvailability: 'always', confidence: 'observed',
     safetyClass: 'diagnostic',
-    traceability: '#45 REQ-F-ROUT-011 — All 4 labels observed on StudioLive 32SC (SD7E21010066), firmware 3.3.0.109659 (2026-07-01). Labels: 0=Local, 1=Stage Box, 2=USB, 3=SD Card. Other StudioLive III models unverified.',
+    traceability: '#45 REQ-F-ROUT-011 — All 4 labels observed on StudioLive 32SC (SD7E21010066), firmware 3.4.0.111374 (2026-07-01). Labels: 0=Local, 1=Stage Box, 2=USB, 3=SD Card. Other StudioLive III models unverified.',
   },
   validate_avb_routing: {
     defaultAvailability: 'always', confidence: 'observed',
     safetyClass: 'diagnostic',
-    traceability: '#45 REQ-F-ROUT-011 — Observed on StudioLive 32SC + StudioLive 32R, firmware 3.3.0.109659 (2026-07-01). Other StudioLive III models remain unverified.',
+    traceability: '#45 REQ-F-ROUT-011 — Observed on StudioLive 32SC + StudioLive 32R, firmware 3.4.0.111374 (2026-07-01). Other StudioLive III models remain unverified.',
   },
   validate_output_routing: {
     defaultAvailability: 'always', confidence: 'probe_required',

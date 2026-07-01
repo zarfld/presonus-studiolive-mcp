@@ -63,8 +63,8 @@ These items require operator-driven probe sessions before they can be trusted.
 
 | Item | Tool | Confidence | Required probe |
 |---|---|---|---|
-| Physical input source routing | `get_input_routing` | `observed` | **HIL COMPLETED 2026-07-01 (all 4 labels)**: key `line.chN.inputsrc.value` confirmed. 0=Local, 1=Stage Box, 2=USB, 3=SD Card. Evidence: `captures/probe-idx23/`. |
-| AVB stream routing | `validate_avb_routing` | `observed` | **HIL COMPLETED 2026-07-01**: keys `stageboxsetup.avb_src_{range}.value` confirmed on 32SC+32R. Labels from `.strings` array (device-specific). |
+| Physical input source routing | `get_input_routing` | `observed` | **HIL COMPLETED 2026-07-01 (all 4 labels, fw 3.4.0.111374)**: key `line.chN.inputsrc.value` confirmed. 0=Local, 1=Stage Box, 2=USB, 3=SD Card. Evidence: `captures/probe-idx23/`. |
+| AVB stream routing | `validate_avb_routing` | `observed` | **HIL COMPLETED 2026-07-01 (fw 3.4.0.111374)**: keys `stageboxsetup.avb_src_{range}.value` confirmed on 32SC+32R. Labels from `.strings` array (device-specific). |
 | Output patch source names | `validate_output_routing`, `mixer-routing-outputs` | `probe_required` | Source index known; source name → index mapping needs `probe-routing diff --kind bus-to-output` |
 | AUX send de-normalization | `get_aux_mix`, `mixer-auxes` | `probe_required` | Run `probe-routing diff --kind channel-to-aux` while dragging AUX faders |
 | Pre/post AUX routing | `mixer-auxes` (prePost field) | `probe_required` | Probe while toggling pre/post switch in UC Surface |
@@ -73,7 +73,7 @@ These items require operator-driven probe sessions before they can be trusted.
 
 `get_input_routing` and `validate_avb_routing` were stub tools that always returned
 `status: 'not_verifiable_with_current_adapter'`. Both were promoted on 2026-07-01 after
-successful HIL probe sessions on StudioLive 32SC fw 3.3.0.109659 + StudioLive 32R.
+successful HIL probe sessions on StudioLive 32SC fw 3.4.0.111374 + StudioLive 32R.
 
 **Evidence**: `captures/probe-input-source/` and `captures/probe-avb/`.
 

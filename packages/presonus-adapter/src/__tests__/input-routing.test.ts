@@ -1,7 +1,7 @@
 /**
  * Tests for extractInputRouting() — per-channel input source routing.
  *
- * HIL Evidence: captures/probe-input-source/ + captures/probe-idx23/ (StudioLive 32SC fw 3.3.0.109659, 2026-07-01)
+ * HIL Evidence: captures/probe-input-source/ + captures/probe-idx23/ (StudioLive 32SC fw 3.4.0.111374, 2026-07-01)
  *   Key confirmed: line.chN.inputsrc.value
  *   Index 0 = 'Local'     (value 0     — observed, default state)
  *   Index 1 = 'Stage Box' (value ≈1/3  — observed, user changed Ch1 Local→Stage Box)
@@ -28,7 +28,7 @@ import { extractInputRouting } from '../state-mapper.js'
 /** Before-state: all channels at Local (index 0, value 0) */
 const beforeFlatState: Record<string, unknown> = {
   'global.mixer_serial': 'SD7E21010066',
-  'global.mixer_version': '3.3.0.109659',
+  'global.mixer_version': '3.4.0.111374',
   'line.ch1.inputsrc.value': 0,   // index 0 = Local (confirmed)
   'line.ch2.inputsrc.value': 0,
   'line.ch3.inputsrc.value': 0,
@@ -37,7 +37,7 @@ const beforeFlatState: Record<string, unknown> = {
 /** After-state: Ch1–Ch12 switched to Stage Box (index 1, value ≈ 1/3) */
 const afterFlatState: Record<string, unknown> = {
   'global.mixer_serial': 'SD7E21010066',
-  'global.mixer_version': '3.3.0.109659',
+  'global.mixer_version': '3.4.0.111374',
   'line.ch1.inputsrc.value':  0.3333333432674408,  // index 1 = Stage Box (confirmed)
   'line.ch2.inputsrc.value':  0.3333333432674408,
   'line.ch3.inputsrc.value':  0.3333333432674408,
@@ -54,7 +54,7 @@ const afterFlatState: Record<string, unknown> = {
 
 /**
  * All-four-indices fixture derived from captures/probe-idx23/baseline.json
- * (StudioLive 32SC SD7E21010066, fw 3.3.0.109659, 2026-07-01)
+ * (StudioLive 32SC SD7E21010066, fw 3.4.0.111374, 2026-07-01)
  *
  * UC Surface labels confirmed directly:
  *   Ch13 = index 0 = Local     (value 0.0000)
@@ -65,7 +65,7 @@ const afterFlatState: Record<string, unknown> = {
  */
 const allFourIndicesFlatState: Record<string, unknown> = {
   'global.mixer_serial': 'SD7E21010066',
-  'global.mixer_version': '3.3.0.109659',
+  'global.mixer_version': '3.4.0.111374',
   'line.ch13.inputsrc.value': 0,                     // index 0 = Local
   'line.ch1.inputsrc.value':  0.3333333432674408,    // index 1 = Stage Box
   'line.ch25.inputsrc.value': 0.6666666865348816,    // index 2 = USB (confirmed)
@@ -152,7 +152,7 @@ describe('extractInputRouting — REQ-F-ROUT-011 (#45)', () => {
   it('extracts mixer serial and firmware from flat state', () => {
     const result = extractInputRouting(afterFlatState)!
     expect(result.mixerSerial).toBe('SD7E21010066')
-    expect(result.firmware).toBe('3.3.0.109659')
+    expect(result.firmware).toBe('3.4.0.111374')
   })
 
   // ---------------------------------------------------------------------------

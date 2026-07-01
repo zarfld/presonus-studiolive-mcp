@@ -1,7 +1,7 @@
 /**
  * Tests for extractAvbStreamRouting() — AVB stream block source assignments.
  *
- * HIL Evidence: captures/probe-avb/ (StudioLive 32SC + StudioLive 32R, fw 3.3.0.109659, 2026-07-01)
+ * HIL Evidence: captures/probe-avb/ (StudioLive 32SC + StudioLive 32R, fw 3.4.0.111374, 2026-07-01)
  *   Keys confirmed: stageboxsetup.avb_src_{range}.value + .strings
  *   User changed two stream assignments (avb_src_9_16 ↔ avb_src_17_24 swapped)
  *   Labels fully known from stageboxsetup.avb_src_*.strings array
@@ -39,7 +39,7 @@ const LABELS_1_8 = [
 /** Before: default sequential mapping (block 1→stream 1, block 9-16→stream 2, etc.) */
 const avbBeforeFlatState: Record<string, unknown> = {
   'global.mixer_serial': 'SD7E21010066',
-  'global.mixer_version': '3.3.0.109659',
+  'global.mixer_version': '3.4.0.111374',
   'stageboxsetup.connect_status': 1,
   'stageboxsetup.selected_name': 'PreSonus StudioLive 32R',
   'stageboxsetup.avb_src_1_8.value': 0.125,    // index 1 = "PreSonus StudioLive 32R:Send 1-8"
@@ -60,7 +60,7 @@ const avbAfterFlatState: Record<string, unknown> = {
 /** Not connected: connect_status absent */
 const avbDisconnectedFlatState: Record<string, unknown> = {
   'global.mixer_serial': 'SD7E21010066',
-  'global.mixer_version': '3.3.0.109659',
+  'global.mixer_version': '3.4.0.111374',
   'stageboxsetup.connect_status': 0,
   'stageboxsetup.avb_src_1_8.value': 0,         // index 0 = "None"
   'stageboxsetup.avb_src_1_8.strings': LABELS_1_8,
@@ -161,6 +161,6 @@ describe('extractAvbStreamRouting — REQ-F-ROUT-011 (#45)', () => {
   it('extracts mixer serial and firmware from flat state', () => {
     const result = extractAvbStreamRouting(avbBeforeFlatState)!
     expect(result.mixerSerial).toBe('SD7E21010066')
-    expect(result.firmware).toBe('3.3.0.109659')
+    expect(result.firmware).toBe('3.4.0.111374')
   })
 })

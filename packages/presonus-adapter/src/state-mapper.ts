@@ -1087,20 +1087,22 @@ export function extractFixedSubGroups(flat: Record<string, unknown>): FixedSubGr
 }
 
 // ---------------------------------------------------------------------------
-// extractInputRouting � STUB (Phase 4a TDD)
-// HIL evidence: captures/probe-input-source/ (2026-07-01)
+// extractInputRouting
+// HIL evidence: captures/probe-input-source/ + captures/probe-idx23/ (2026-07-01)
 // ---------------------------------------------------------------------------
 
 /**
  * Extract per-channel input source routing from a FLAT state dict.
  *
- * KEY CONFIRMED by HIL probe 2026-07-01 (StudioLive 32SC fw 3.3.0.109659):
+ * ALL FOUR LABELS CONFIRMED by HIL probe 2026-07-01 (StudioLive 32SC fw 3.4.0.111374):
  *   line.chN.inputsrc.value - normalized float, Math.round(value x 3) = source index.
- *   Index 0 = 'Local' (observed), Index 1 = 'Stage Box' (observed), 2-3 = probe_required.
+ *   Index 0 = 'Local'     (observed), Index 1 = 'Stage Box' (observed),
+ *   Index 2 = 'USB'       (observed 2026-07-01, Ch25-28/31-32 + Ch17 diff 1.0→0.667),
+ *   Index 3 = 'SD Card'   (observed 2026-07-01, Ch17-22/24/29-30 UC Surface).
  *
  * @implements #45 REQ-F-ROUT-011 - input routing observable
  * @architecture #47 ADR-008: Layer B -> Layer A promotion
- * @see captures/probe-input-source/ for HIL evidence
+ * @see captures/probe-idx23/ for HIL evidence (all 4 labels)
  *
  * Returns undefined when no inputsrc keys are present in flat state.
  */
@@ -1138,9 +1140,9 @@ export function extractInputRouting(
     channels,
     mixerSerial,
     firmware,
-    hilEvidence: 'captures/probe-input-source/ + captures/probe-idx23/ (2026-07-01, StudioLive 32SC fw 3.3.0.109659)',
+    hilEvidence: 'captures/probe-input-source/ + captures/probe-idx23/ (2026-07-01, StudioLive 32SC fw 3.4.0.111374)',
     notes: [
-      'All 4 input source labels confirmed by HIL probe on StudioLive 32SC fw 3.3.0.109659 (2026-07-01).',
+      'All 4 input source labels confirmed by HIL probe on StudioLive 32SC fw 3.4.0.111374 (2026-07-01).',
       'Labels: 0=Local, 1=Stage Box, 2=USB, 3=SD Card.',
       'Other StudioLive III models are unverified.',
     ],
@@ -1148,14 +1150,14 @@ export function extractInputRouting(
 }
 
 // ---------------------------------------------------------------------------
-// extractAvbStreamRouting -- Phase 4b
+// extractAvbStreamRouting
 // HIL evidence: captures/probe-avb/ (2026-07-01)
 // ---------------------------------------------------------------------------
 
 /**
  * Extract AVB stream routing from a FLAT state dict.
  *
- * KEY CONFIRMED by HIL probe 2026-07-01 (StudioLive 32SC + 32R fw 3.3.0.109659):
+ * KEY CONFIRMED by HIL probe 2026-07-01 (StudioLive 32SC + 32R fw 3.4.0.111374):
  *   stageboxsetup.avb_src_{range}.value -- 8 blocks (1_8, 9_16, ..., 57_64).
  *   Math.round(value x 8) = stream index (0=None, 1-8=device send blocks).
  *   Labels from stageboxsetup.avb_src_{range}.strings.
@@ -1219,6 +1221,6 @@ export function extractAvbStreamRouting(
     streamBlocks,
     mixerSerial,
     firmware,
-    hilEvidence: 'captures/probe-avb/ (2026-07-01, StudioLive 32SC + 32R fw 3.3.0.109659)',
+    hilEvidence: 'captures/probe-avb/ (2026-07-01, StudioLive 32SC + 32R fw 3.4.0.111374)',
   }
 }

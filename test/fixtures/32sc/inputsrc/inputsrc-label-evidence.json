@@ -1,0 +1,19 @@
+{
+  "_description": "Input source routing label evidence fixture",
+  "_device": "StudioLive 32SC SD7E21010066 firmware 3.3.0.109659",
+  "_date": "2026-07-01",
+  "_evidence": "Baseline state from captures/probe-idx23/baseline.json (gitignored)",
+  "_mapping": {
+    "index0": "Local (val=0)",
+    "index1": "Stage Box (val~0.333)",
+    "index2": "USB (val~0.667)",
+    "index3": "SD Card (val=1.0)"
+  },
+  "_confirmation": "index3: Ch17 changed SD Card->USB confirmed by probe diff (1.0->0.667); UC Surface labels verified for all 4",
+  "global.mixer_serial": "SD7E21010066",
+  "global.mixer_version": "3.4.0.111374",
+  "line.ch13.inputsrc.value": 0,
+  "line.ch1.inputsrc.value": 0.3333333432674408,
+  "line.ch25.inputsrc.value": 0.6666666865348816,
+  "line.ch17.inputsrc.value": 1
+}

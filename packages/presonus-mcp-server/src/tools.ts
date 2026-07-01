@@ -995,7 +995,7 @@ export function registerTools(
   // @implements #45 REQ-F-ROUT-011
   server.tool(
     'validate_avb_routing',
-    'Returns AVB stream routing (block assignments from 32R stagebox). Confidence: observed. HIL evidence: 2026-07-01 StudioLive 32SC + 32R fw 3.3.0.109659. Falls back to probe instructions when no state is available.',
+    'Returns AVB stream routing (block assignments from 32R stagebox). Confidence: observed. HIL evidence: 2026-07-01 StudioLive 32SC + 32R fw 3.4.0.111374. Falls back to probe instructions when no state is available.',
     { deviceId: z.string(), expectedStreams: z.array(z.string()).optional() },
     async ({ deviceId, expectedStreams }) => {
       const snapshot = clientManager.getSnapshot(deviceId)

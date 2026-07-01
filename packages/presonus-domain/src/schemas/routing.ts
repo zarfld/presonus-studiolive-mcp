@@ -333,7 +333,7 @@ export const MixerRoutingGraphSchema = z.object({
 export type MixerRoutingGraph = z.infer<typeof MixerRoutingGraphSchema>
 
 // ---------------------------------------------------------------------------
-// Input source routing — HIL evidence 2026-07-01 (StudioLive 32SC fw 3.3.0.109659)
+// Input source routing — HIL evidence 2026-07-01 (StudioLive 32SC fw 3.4.0.111374)
 // Key confirmed: line.chN.inputsrc.value  probe: captures/probe-input-source/
 // Index 0='Local' (observed), Index 1='Stage Box' (observed), 2-3=probe_required
 // ---------------------------------------------------------------------------
@@ -341,7 +341,7 @@ export type MixerRoutingGraph = z.infer<typeof MixerRoutingGraphSchema>
 /**
  * Input source selection for one channel strip.
  *
- * OBSERVED on StudioLive 32SC firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * OBSERVED on StudioLive 32SC firmware 3.4.0.111374 (2026-07-01 HIL probe).
  * Index formula: Math.round(value × 3).
  *
  * @implements #45 REQ-F-ROUT-011 — input routing observable
@@ -361,7 +361,7 @@ export type InputChannelSource = z.infer<typeof InputChannelSourceSchema>
 /**
  * Full per-device input routing report returned by get_input_routing.
  *
- * OBSERVED on StudioLive 32SC firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * OBSERVED on StudioLive 32SC firmware 3.4.0.111374 (2026-07-01 HIL probe).
  */
 export const InputRoutingReportSchema = z.object({
   confidence: RoutingConfidenceSchema,
@@ -374,7 +374,7 @@ export const InputRoutingReportSchema = z.object({
 export type InputRoutingReport = z.infer<typeof InputRoutingReportSchema>
 
 // ---------------------------------------------------------------------------
-// AVB stream routing — HIL evidence 2026-07-01 (StudioLive 32SC + 32R fw 3.3.0.109659)
+// AVB stream routing — HIL evidence 2026-07-01 (StudioLive 32SC + 32R fw 3.4.0.111374)
 // Key confirmed: stageboxsetup.avb_src_{range}.value  probe: captures/probe-avb/
 // Labels from stageboxsetup.avb_src_{range}.strings array (device-specific)
 // ---------------------------------------------------------------------------
@@ -382,7 +382,7 @@ export type InputRoutingReport = z.infer<typeof InputRoutingReportSchema>
 /**
  * One 8-channel AVB stream block assignment.
  *
- * OBSERVED on StudioLive 32SC + StudioLive 32R firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * OBSERVED on StudioLive 32SC + StudioLive 32R firmware 3.4.0.111374 (2026-07-01 HIL probe).
  * Index 0 = 'None', indices 1–8 = 'DeviceName:Send X-Y'.
  * Formula: Math.round(value × 8).
  *
@@ -404,7 +404,7 @@ export type AvbStreamBlock = z.infer<typeof AvbStreamBlockSchema>
 /**
  * Full AVB stream routing report returned by validate_avb_routing.
  *
- * OBSERVED on StudioLive 32SC + StudioLive 32R firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * OBSERVED on StudioLive 32SC + StudioLive 32R firmware 3.4.0.111374 (2026-07-01 HIL probe).
  */
 export const AvbStreamRoutingSchema = z.object({
   confidence: RoutingConfidenceSchema,

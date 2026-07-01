@@ -10,7 +10,7 @@
 |---|---|
 | Mixer model | PreSonus StudioLive 32SC |
 | Serial | SD7E21010066 |
-| Firmware | 3.3.0.109659 |
+| Firmware | 3.4.0.111374 |
 | Date | 2026-07-01 |
 | IP | 157.247.3.12 |
 | Capture method | Live UC Surface observation during HIL routing probe session |
@@ -78,5 +78,5 @@ For each point:
 Then fit the taper/gain formula, update INPUT_SRC_LABELS analogue for volume,
 add golden fixture tests, and update routing-confidence-model.md.
 
-Do NOT promote general StudioLive III support beyond StudioLive 32SC fw 3.3.0.109659.
+Do NOT promote general StudioLive III support beyond StudioLive 32SC fw 3.4.0.111374.
 ```

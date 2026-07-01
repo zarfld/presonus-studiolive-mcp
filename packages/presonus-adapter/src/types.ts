@@ -192,12 +192,12 @@ export const OUTPUT_PATCH_KEY_PATTERNS = {
 } as const
 
 // ---------------------------------------------------------------------------
-// Input source routing keys — HIL probe 2026-07-01 (StudioLive 32SC fw 3.3.0.109659)
+// Input source routing keys — HIL probe 2026-07-01 (StudioLive 32SC fw 3.4.0.111374)
 // ---------------------------------------------------------------------------
 
 /**
  * Per-channel input source selection key suffixes (relative to `line.chN` prefix).
- * OBSERVED: StudioLive 32SC firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * OBSERVED: StudioLive 32SC firmware 3.4.0.111374 (2026-07-01 HIL probe).
  * Evidence: captures/probe-input-source/ (before/after diff with Ch1 Local→Stage Box).
  */
 export const KNOWN_INPUT_SRC_KEY_SUFFIXES = {
@@ -214,7 +214,7 @@ export const INPUT_SRC_RANGE_MAX = 3
 
 /**
  * Input source labels by index on StudioLive 32SC.
- * ALL FOUR LABELS OBSERVED on firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * ALL FOUR LABELS OBSERVED on firmware 3.4.0.111374 (2026-07-01 HIL probe).
  *
  * Evidence:
  *   Index 0: default state (Local) — baseline capture 2026-06-24
@@ -236,7 +236,7 @@ export const INPUT_SRC_LABELS: ReadonlyArray<string | null> = [
 
 /**
  * Stagebox setup and AVB stream routing key patterns.
- * OBSERVED: StudioLive 32SC + PreSonus StudioLive 32R (2026-07-01 HIL probe).
+ * OBSERVED: StudioLive 32SC + PreSonus StudioLive 32R (2026-07-01 HIL probe, fw 3.4.0.111374).
  * Evidence: captures/probe-avb/ (stream swap confirmed in diff).
  */
 export const KNOWN_STAGEBOX_KEY_PATTERNS = {
@@ -262,7 +262,7 @@ export const KNOWN_STAGEBOX_KEY_PATTERNS = {
 
 /**
  * The 8 channel-block range suffixes for AVB src keys on StudioLive 32SC.
- * OBSERVED on firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * OBSERVED on firmware 3.4.0.111374 (2026-07-01 HIL probe).
  * Used as: `stageboxsetup.avb_src_${range}.value`
  */
 export const AVB_SRC_BLOCK_RANGES = [
