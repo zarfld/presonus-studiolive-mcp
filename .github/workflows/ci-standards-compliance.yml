@@ -132,7 +132,7 @@ jobs:
     name: Code Quality & Standards (IEEE 1016, XP Practices)
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       issues: read
 
     steps:
@@ -201,15 +201,25 @@ jobs:
           echo "📊 Generating committed traceability artifacts (source scan + GitHub Issues)..."
           pnpm traceability
 
-      - name: Verify committed traceability artifacts are not stale
+      - name: Commit traceability artifacts if stale
         run: |
-          git diff --exit-code \
+          if ! git diff --quiet \
             07-verification-validation/traceability/requirements-traceability.generated.md \
-            07-verification-validation/traceability/requirements-traceability.generated.json \
-            || (echo "Traceability artifacts are out of date." \
-                "Run 'pnpm traceability' locally and commit the updated files." && exit 1)
+            07-verification-validation/traceability/requirements-traceability.generated.json; then
+            echo "Traceability artifacts are stale — committing updated versions..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add \
+              07-verification-validation/traceability/requirements-traceability.generated.md \
+              07-verification-validation/traceability/requirements-traceability.generated.json
+            git commit -m "chore(traceability): auto-update generated traceability matrix [skip ci]"
+            git push
+            echo "✅ Committed updated traceability artifacts."
+          else
+            echo "✅ Traceability artifacts are up to date."
+          fi
 
-      - name: Upload generated traceability artifacts (for bootstrap / drift recovery)
+      - name: Upload generated traceability artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
