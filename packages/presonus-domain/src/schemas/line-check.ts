@@ -5,7 +5,7 @@
  * The MCP server observes the mixer meters and reports signal behaviour.
  *
  * @module line-check-schemas
- * @implements REQ-F-LINECHK-001 — analyze_line_check_step tool contract
+ * @implements #74 REQ-F-LINECHK-001 — analyze_line_check_step tool contract
  * @architecture ADR-002 (#7): domain types never depend on adapter
  */
 import { z } from 'zod'

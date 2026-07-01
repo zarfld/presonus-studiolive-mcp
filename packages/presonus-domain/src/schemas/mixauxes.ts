@@ -12,7 +12,7 @@
  * (cannot be named aux.ts on Windows).
  *
  * @module mixauxes-schemas
- * @implements REQ-F-AUX-001 — aux mix state exposure and monitor requirements validation
+ * @implements #41 REQ-F-AUX-001 — aux mix state exposure and monitor requirements validation
  * @architecture ADR-002 (#7): domain types never depend on adapter
  */
 import { z } from 'zod'

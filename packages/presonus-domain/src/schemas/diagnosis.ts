@@ -6,7 +6,7 @@
  * Physical routing is explicitly NOT diagnosed (not verifiable).
  *
  * @module diagnosis-schemas
- * @implements REQ-F-DIAG-001 — diagnose_channel tool contract
+ * @implements #78 REQ-F-DIAG-001 — diagnose_channel tool contract
  * @architecture ADR-002 (#7): domain types never depend on adapter
  */
 import { z } from 'zod'

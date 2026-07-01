@@ -175,7 +175,7 @@ export function registerResources(
   )
 
   // ─── presonus://mixer/{id}/auxes ────────────────────────────────────────────
-  // @implements REQ-F-AUX-001
+  // @implements #41 REQ-F-AUX-001
   server.resource(
     'mixer-auxes',
     new ResourceTemplate('presonus://mixer/{deviceId}/auxes', { list: undefined }),
@@ -308,7 +308,7 @@ export function registerResources(
     },
   )
 
-  // ─── presonus://mixer/{id}/fat-channel/{channelId} ──────────────────────────  // @implements REQ-F-FAT-001
+  // ─── presonus://mixer/{id}/fat-channel/{channelId} ──────────────────────────  // @implements #95 REQ-F-FAT-001
   server.resource(
     'mixer-fat-channel',
     new ResourceTemplate('presonus://mixer/{deviceId}/fat-channel/{channelId}', { list: undefined }),
@@ -343,7 +343,7 @@ export function registerResources(
   )
 
   // ─── presonus://mixer/{id}/monitor-layout ─────────────────────────────────
-  // @implements REQ-F-MON-001 (Phase 4)
+  // @implements #93 REQ-F-MON-001 (Phase 4)
   server.resource(
     'mixer-monitor-layout',
     new ResourceTemplate('presonus://mixer/{deviceId}/monitor-layout', { list: undefined }),
@@ -394,7 +394,7 @@ export function registerResources(
   )
 
   // ─── presonus://mixer/{id}/output-patch/labels ────────────────────────────
-  // @implements REQ-F-ROUT-010 (Phase 5)
+  // @implements #40 REQ-F-ROUT-010 (Phase 5)
   server.resource(
     'mixer-output-patch-labels',
     new ResourceTemplate('presonus://mixer/{deviceId}/output-patch/labels', { list: undefined }),
@@ -419,7 +419,7 @@ export function registerResources(
   )
 
   // ─── presonus://mixer-graph/current ───────────────────────────────────────
-  // @implements REQ-F-GRAPH-001 (Phase 8)
+  // @implements #32 REQ-F-GRAPH-001 (Phase 8)
   server.resource(
     'mixer-graph',
     'presonus://mixer-graph/current',

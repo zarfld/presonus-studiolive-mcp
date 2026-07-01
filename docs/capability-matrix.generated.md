@@ -31,15 +31,15 @@
 |---|---|---|---|---|
 | `discover_mixers` | `always` | `observed` | `read-only` | #15 REQ-F-001 |
 | `refresh_mixer_state` | `always` | `observed` | `read-only` | #15 REQ-F-001 |
-| `validate_mixer_identity` | `always` | `observed` | `diagnostic` | missing |
+| `validate_mixer_identity` | `always` | `observed` | `diagnostic` | #16 REQ-F-002 |
 | `get_routing_graph` | `always` | `probe_required` | `read-only` | #32 REQ-F-ROUT-002 |
 | `validate_input_routing` | `always` | `not_verifiable_with_current_adapter` | `diagnostic` | #33 REQ-F-ROUT-003 |
 | `validate_stagebox_routing` | `always` | `probe_required` | `diagnostic` | #34 REQ-F-ROUT-004 |
 | `diagnose_no_signal_routing` | `always` | `inferred` | `diagnostic` | #35 REQ-F-ROUT-005 |
 | `detect_possible_patch_swap` | `always` | `inferred` | `diagnostic` | #36 REQ-F-ROUT-006 |
-| `get_mixer_capabilities` | `always` | `observed` | `read-only` | missing |
-| `analyze_line_check_step` | `always` | `observed` | `read-only` | missing |
-| `diagnose_channel` | `always` | `observed` | `diagnostic` | missing |
+| `get_mixer_capabilities` | `always` | `observed` | `read-only` | #79 REQ-F-DIAG-004 |
+| `analyze_line_check_step` | `always` | `observed` | `read-only` | #74 REQ-F-DIAG-002 |
+| `diagnose_channel` | `always` | `observed` | `diagnostic` | #78 REQ-F-DIAG-001 |
 | `get_aux_mix` | `always` | `inferred` | `read-only` | #41 REQ-F-AUX-002 |
 | `validate_monitor_requirements` | `always` | `inferred` | `diagnostic` | #42 REQ-F-AUX-003 |
 | `validate_channel_setup` | `always` | `observed` | `diagnostic` | #45 REQ-F-ROUT-011 |
@@ -82,7 +82,7 @@
 | `mixer-channels` | `presonus://mixer/{deviceId}/channels` | `observed` | #17 REQ-F-003 |
 | `mixer-meters-summary` | `presonus://mixer/{deviceId}/meters/summary` | `observed` | #18 REQ-F-004 |
 | `mixer-scene-current` | `presonus://mixer/{deviceId}/scene/current` | `observed` | #19 REQ-F-005 |
-| `mixer-raw-state` | `presonus://mixer/{deviceId}/raw/state` | `observed` | missing |
+| `mixer-raw-state` | `presonus://mixer/{deviceId}/raw/state` | `observed` | #20 REQ-F-006 |
 | `mixer-routing` | `presonus://mixer/{deviceId}/routing` | `inferred` | #32 REQ-F-ROUT-002 (parameterConfidence=inferred until AUX probe calibration) |
 | `mixer-routing-outputs` | `presonus://mixer/{deviceId}/routing/outputs` | `probe_required` | #32 REQ-F-ROUT-002 (sourceName=null until probe diff-state run) |
 | `mixer-auxes` | `presonus://mixer/{deviceId}/auxes` | `inferred` | #41 REQ-F-AUX-002 (prePost=unknown until hardware probed) |

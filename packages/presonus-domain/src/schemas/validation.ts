@@ -9,8 +9,8 @@
  *   - MCP owns: the actual mixer state and capabilities
  *
  * @module validation-schemas
- * @implements REQ-F-VAL-001 — validate_channel_setup tool contract
- * @implements REQ-F-VAL-002 — check_required_setup tool contract
+ * @implements #45 REQ-F-VAL-001 — validate_channel_setup tool contract
+ * @implements #76 REQ-F-VAL-002 — check_required_setup tool contract
  * @architecture ADR-002 (#7): domain types never depend on adapter
  */
 import { z } from 'zod'

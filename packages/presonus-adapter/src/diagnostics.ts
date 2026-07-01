@@ -10,8 +10,8 @@
  *   - Physical source routing is NEVER diagnosed (not_verifiable_with_current_adapter).
  *
  * @module diagnostics
- * @implements REQ-F-DIAG-001 — diagnose_channel tool
- * @implements REQ-F-LINECHK-001 — analyze_line_check_step tool
+ * @implements #78 REQ-F-DIAG-001 — diagnose_channel tool
+ * @implements #74 REQ-F-LINECHK-001 — analyze_line_check_step tool
  * @architecture ARC-C-002 (#12): presonus-adapter package
  */
 import type { MeterSummary } from '@presonus-mcp/domain'

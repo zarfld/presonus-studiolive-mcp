@@ -30,7 +30,7 @@
       "defaultAvailability": "always",
       "confidence": "observed",
       "safetyClass": "diagnostic",
-      "traceability": "missing"
+      "traceability": "#16 REQ-F-002"
     },
     {
       "name": "get_routing_graph",
@@ -78,7 +78,7 @@
       "defaultAvailability": "always",
       "confidence": "observed",
       "safetyClass": "read-only",
-      "traceability": "missing"
+      "traceability": "#79 REQ-F-DIAG-004"
     },
     {
       "name": "analyze_line_check_step",
@@ -86,7 +86,7 @@
       "defaultAvailability": "always",
       "confidence": "observed",
       "safetyClass": "read-only",
-      "traceability": "missing"
+      "traceability": "#74 REQ-F-DIAG-002"
     },
     {
       "name": "diagnose_channel",
@@ -94,7 +94,7 @@
       "defaultAvailability": "always",
       "confidence": "observed",
       "safetyClass": "diagnostic",
-      "traceability": "missing"
+      "traceability": "#78 REQ-F-DIAG-001"
     },
     {
       "name": "get_aux_mix",
@@ -400,7 +400,7 @@
       "safetyClass": "read-only",
       "uriTemplate": "presonus://mixer/{deviceId}/raw/state",
       "confidence": "observed",
-      "traceability": "missing"
+      "traceability": "#20 REQ-F-006"
     },
     {
       "name": "mixer-routing",

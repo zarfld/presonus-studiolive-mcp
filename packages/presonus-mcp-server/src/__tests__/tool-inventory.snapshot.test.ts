@@ -12,7 +12,7 @@
  *   RED  = inventory JSON missing or stale → run `pnpm inventory` to fix.
  *   GREEN = inventory JSON exists and names match current registrations.
  *
- * @implements REQ-CAP-INV-001 — generated inventory must not drift from source
+ * @implements #22 REQ-CAP-INV-001 — generated inventory must not drift from source
  * Traces to: #22 REQ-NF-002 (zero write tools in default config),
  *            #15 REQ-F-001 (auto-discover mixers)
  */

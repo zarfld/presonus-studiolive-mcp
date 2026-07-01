@@ -2,7 +2,7 @@
  * Write-flow domain types: ProposedChangeSet + AppliedChange.
  *
  * @module write-schemas
- * @implements ADR-006: Semi-automated write tools (propose → confirm → apply)
+ * @implements #10 ADR-006: Semi-automated write tools (propose → confirm → apply)
  * @architecture #11 ARC-C-001: presonus-domain package — Zod schemas
  *
  * These types represent the propose-and-confirm write workflow.

@@ -9,9 +9,9 @@
  * and returns grounded patch rows for the agent to present to a human.
  *
  * @module input-list-schemas
- * @implements REQ-F-INP-001 — validate_input_list_against_mixer tool contract
- * @implements REQ-F-INP-002 — validate_patch_sheet tool contract
- * @implements REQ-F-INP-003 — render_patch_sheet_data tool contract
+ * @implements #89 REQ-F-INP-001 — validate_input_list_against_mixer tool contract
+ * @implements #88 REQ-F-INP-002 — validate_patch_sheet tool contract
+ * @implements #91 REQ-F-INP-003 — render_patch_sheet_data tool contract
  */
 import { z } from 'zod'
 

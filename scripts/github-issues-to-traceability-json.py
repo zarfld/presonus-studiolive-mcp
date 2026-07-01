@@ -670,7 +670,54 @@ def main() -> int:
                     elif req_type == 'TEST':
                         requirements_with_test.add(ref_id)
 
-    # â”€â”€ Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Post-processing: augment metrics with source annotation evidence ──────
+    # @verifies source annotations are direct test evidence even when the test
+    # file does not cross-reference the requirement issue in its GitHub body.
+    for item in items:
+        if item.get('type') not in ('REQ-F', 'REQ-NF'):
+            continue
+        if item.get('verifies') or item.get('hilVerifies'):
+            requirements_with_test.add(item['id'])
+
+    # ── Transitive ADR / scenario linkage via common StR ancestors ────────────
+    # ADRs and QA-SC issues reference Stakeholder Requirements (StR) in their
+    # issue bodies. Requirements that share a common StR ancestor with an ADR or
+    # QA-SC are considered transitively linked to that artifact — the ADR or
+    # scenario governs the stakeholder need which the requirement implements.
+    str_to_adrs: dict = defaultdict(set)
+    str_to_scenarios: dict = defaultdict(set)
+
+    for item in items:
+        itype = item.get('type', 'UNKNOWN')
+        # StR issues referenced by this item's body
+        traced_strs = frozenset(
+            r for r in item.get('references', [])
+            if issue_types.get(r) == 'StR'
+        )
+        if not traced_strs:
+            continue
+        if itype in ('ADR', 'ARC-C'):
+            for s in traced_strs:
+                str_to_adrs[s].add(item['id'])
+        elif itype == 'QA-SC':
+            for s in traced_strs:
+                str_to_scenarios[s].add(item['id'])
+
+    for item in items:
+        if item.get('type') not in ('REQ-F', 'REQ-NF'):
+            continue
+        req_strs = frozenset(
+            r for r in item.get('references', [])
+            if issue_types.get(r) == 'StR'
+        )
+        issue_id = item['id']
+        for str_id in req_strs:
+            if str_to_adrs.get(str_id):
+                requirements_with_adr.add(issue_id)
+            if str_to_scenarios.get(str_id):
+                requirements_with_scenario.add(issue_id)
+
+    # ── Metrics ───────────────────────────────────────────────────────────────
     total_reqs = len(requirements)
     metrics = {
         'requirement': {

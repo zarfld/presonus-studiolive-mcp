@@ -92,11 +92,11 @@ const TOOL_META: Record<string, ToolMeta> = {
   },
   validate_mixer_identity: {
     defaultAvailability: 'always', confidence: 'observed',
-    safetyClass: 'diagnostic', traceability: 'missing',
+    safetyClass: 'diagnostic', traceability: '#16 REQ-F-002',
   },
   get_mixer_capabilities: {
     defaultAvailability: 'always', confidence: 'observed',
-    safetyClass: 'read-only', traceability: 'missing',
+    safetyClass: 'read-only', traceability: '#79 REQ-F-DIAG-004',
   },
 
   // ── Routing — Layer A (observable live state) ─────────────────────────────
@@ -190,11 +190,11 @@ const TOOL_META: Record<string, ToolMeta> = {
   // ── Channel diagnostics ───────────────────────────────────────────────────
   analyze_line_check_step: {
     defaultAvailability: 'always', confidence: 'observed',
-    safetyClass: 'read-only', traceability: 'missing',
+    safetyClass: 'read-only', traceability: '#74 REQ-F-DIAG-002',
   },
   diagnose_channel: {
     defaultAvailability: 'always', confidence: 'observed',
-    safetyClass: 'diagnostic', traceability: 'missing',
+    safetyClass: 'diagnostic', traceability: '#78 REQ-F-DIAG-001',
   },
   validate_channel_setup: {
     defaultAvailability: 'always', confidence: 'observed',
@@ -301,7 +301,7 @@ const RESOURCE_META: Record<string, ResourceMeta> = {
   },
   'mixer-raw-state': {
     uriTemplate: 'presonus://mixer/{deviceId}/raw/state',
-    confidence: 'observed', traceability: 'missing',
+    confidence: 'observed', traceability: '#20 REQ-F-006',
   },
   'mixer-routing': {
     uriTemplate: 'presonus://mixer/{deviceId}/routing',
