@@ -1011,7 +1011,7 @@ export function registerTools(
   )
 
   // ─── start_routing_probe ──────────────────────────────────────────────────
-  // @implements REQ-F-PROBE-001: Layer B promotion — capture baseline state
+  // @implements #90 REQ-F-PROBE-001: Layer B promotion — capture baseline state
   // @architecture ADR-008: Layer B probe workflow
   server.tool(
     'start_routing_probe',
@@ -1047,7 +1047,7 @@ export function registerTools(
   )
 
   // ─── complete_routing_probe ───────────────────────────────────────────────
-  // @implements REQ-F-PROBE-002: Layer B promotion — diff and return changed keys
+  // @implements #46 REQ-F-PROBE-002: Layer B promotion — diff and return changed keys
   server.tool(
     'complete_routing_probe',
     'Diff the current mixer state against a baseline captured by start_routing_probe. Returns all state keys that changed, with before/after values. Run after making a routing change in UC Surface. The changed keys identify which state key controls the routing you adjusted.',
@@ -1091,7 +1091,7 @@ export function registerTools(
   )
 
   // ─── validate_input_list_against_mixer ──────────────────────────────────
-  // @implements REQ-F-INP-001
+  // @implements #89 REQ-F-INP-001
   server.tool(
     'validate_input_list_against_mixer',
     'Validate an agent-provided input list against actual mixer channel state. Checks channel name, phantom state, and mute. Returns issues[] and printable patch rows grounded in live mixer state. The agent provides the input list (from rider); the MCP validates it.',
@@ -1187,7 +1187,7 @@ export function registerTools(
   )
 
   // ─── validate_patch_sheet ─────────────────────────────────────────────────
-  // @implements REQ-F-INP-002
+  // @implements #88 REQ-F-INP-002
   server.tool(
     'validate_patch_sheet',
     'Offline-only validation of a patch sheet: checks for duplicate channel numbers, inputs outside mixer capacity, and phantom conflicts. Does NOT require a live mixer connection — purely validates the agent-provided list for internal consistency.',
@@ -1224,7 +1224,7 @@ export function registerTools(
   )
 
   // ─── render_patch_sheet_data ──────────────────────────────────────────────
-  // @implements REQ-F-INP-003
+  // @implements #91 REQ-F-INP-003
   server.tool(
     'render_patch_sheet_data',
     'Return structured patch sheet rows grounded in mixer state, suitable for agent-side rendering as a printable human patch document. Each row includes the manual patch instruction, current mixer label, phantom state, mute state, and any warnings. The agent formats the final human-readable document.',
@@ -1270,7 +1270,7 @@ export function registerTools(
   )
 
   // ─── get_monitor_mix_layout ───────────────────────────────────────────────
-  // @implements REQ-F-MON-001
+  // @implements #93 REQ-F-MON-001
   server.tool(
     'get_monitor_mix_layout',
     'Return the monitor mix layout: all aux buses with name, type (mono/stereo-left/stereo-right/iem-stereo), and inferred stereo pairs. Stereo pair inference uses ≥80% send-channel overlap as heuristic — confidence is always "inferred" until operator-confirmed.',
@@ -1303,7 +1303,7 @@ export function registerTools(
   )
 
   // ─── validate_stereo_monitor_pair ─────────────────────────────────────────
-  // @implements REQ-F-MON-002
+  // @implements #92 REQ-F-MON-002
   server.tool(
     'validate_stereo_monitor_pair',
     'Validate that two aux buses form a consistent stereo pair (e.g. IEM L/R). Checks matching send channel assignments and reports channels present on one side but not the other.',
@@ -1349,7 +1349,7 @@ export function registerTools(
   )
 
   // ─── validate_monitor_mix_names ───────────────────────────────────────────
-  // @implements REQ-F-MON-003
+  // @implements #94 REQ-F-MON-003
   server.tool(
     'validate_monitor_mix_names',
     'Audit aux bus names against agent-provided expected names. Returns mismatches and unnamed buses. Useful for verifying that the monitor layout matches the rider/show plan.',
@@ -1383,7 +1383,7 @@ export function registerTools(
   )
 
   // ─── validate_output_patch_labels ─────────────────────────────────────────
-  // @implements REQ-F-ROUT-010 (Phase 5)
+  // @implements #40 REQ-F-ROUT-010
   server.tool(
     'validate_output_patch_labels',
     'Compare expected output patch labels against actual mixer output patch state. Source indices are known; source names are not_verifiable_with_current_adapter until probe-routing diff --kind bus-to-output is run. Returns partial validation with confidence annotation.',
@@ -1419,7 +1419,7 @@ export function registerTools(
   )
 
   // ─── get_fat_channel ──────────────────────────────────────────────────────
-  // @implements REQ-F-FAT-001
+  // @implements #95 REQ-F-FAT-001
   server.tool(
     'get_fat_channel',
     'Return the Fat Channel DSP state (EQ model, compressor, gate, limiter, HPF frequency) for a single channel. Faster than reading the full channel list when only Fat Channel data is needed for one channel. Parameter confidence is "guessed" until probe-fat-channel calibration is run.',
@@ -1442,7 +1442,7 @@ export function registerTools(
   )
 
   // ─── validate_fat_channel_for_source ──────────────────────────────────────
-  // @implements REQ-F-FAT-002
+  // @implements #96 REQ-F-FAT-002
   server.tool(
     'validate_fat_channel_for_source',
     'Check Fat Channel settings against source-type expectations (HPF engaged, gate enabled, compressor enabled, limiter enabled). Returns per-check pass/fail results with parameter confidence annotation. The agent provides the source type; the MCP checks the actual Fat Channel state.',
