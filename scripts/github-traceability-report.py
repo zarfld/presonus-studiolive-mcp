@@ -155,30 +155,24 @@ def extract_links(issue_body: str) -> Dict[str, List[int]]:
 
 def get_requirement_type(title: str, labels: List[str]) -> str:
     """Determine requirement type from issue title prefix and labels.
-    
-    This project uses title prefixes (StR-001, REQ-F-001, etc.) as the primary
-    identifier for requirement types, as seen in the issue templates.
-    
-    Args:
-        title: Issue title (e.g., "REQ-F-001: Audio Clap Detection")
-        labels: List of label names
-    
-    Returns:
-        Requirement type abbreviation (StR, REQ-F, etc.)
+
+    Extended vocabulary: StR, REQ-F, REQ-NF, ADR, ARC-C, QA-SC, TEST,
+    EPIC, HOUSEKEEPING, IMP, DOC, BUG, PROBE.
     """
-    # Extract type from title prefix (primary method)
     import re
-    match = re.match(r'^(StR|REQ-F|REQ-NF|ADR|ARC-C|QA-SC|TEST|TEST-PLAN|DES-[A-Z])', title)
+    match = re.match(
+        r'^(StR|REQ-F|REQ-NF|ADR|ARC-C|QA-SC|TEST|TEST-PLAN|DES-[A-Z]'
+        r'|EPIC|HOUSEKEEPING|IMP|DOC|BUG|PROBE)',
+        title,
+    )
     if match:
         prefix = match.group(1)
-        # Normalize design prefixes
         if prefix.startswith('DES-'):
             return 'DESIGN'
         return prefix
-    
+
     # Fallback: check labels for type information
     label_map = {
-        # Type labels (colon-separated as they exist in GitHub)
         'type:stakeholder-requirement': 'StR',
         'type:requirement:functional': 'REQ-F',
         'type:requirement:non-functional': 'REQ-NF',
@@ -187,14 +181,19 @@ def get_requirement_type(title: str, labels: List[str]) -> str:
         'type:architecture:quality-scenario': 'QA-SC',
         'type:test-case': 'TEST',
         'type:test-plan': 'TEST-PLAN',
-        # Phase labels (colon after "phase" as they exist in GitHub)
+        'type:implementation': 'IMP',
+        'type:documentation': 'DOC',
+        'type:housekeeping': 'HOUSEKEEPING',
+        'type:epic': 'EPIC',
+        'type:bug': 'BUG',
+        # Phase labels
         'phase:01-stakeholder-requirements': 'StR',
         'phase:02-requirements': 'REQ',
         'phase:03-architecture': 'ARCH',
         'phase:04-design': 'DESIGN',
         'phase:07-verification-validation': 'TEST',
     }
-    
+
     for label in labels:
         if label in label_map:
             return label_map[label]

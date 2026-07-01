@@ -500,7 +500,11 @@ def main() -> int:
     repo_name = os.environ.get('GITHUB_REPOSITORY', 'zarfld/presonus-studiolive-mcp')
 
     try:
-        g = Github(token)
+        from github import Auth
+        g = Github(auth=Auth.Token(token))
+    except ImportError:
+        g = Github(token)  # fallback for older PyGithub versions
+    try:
         repo = g.get_repo(repo_name)
     except Exception as exc:
         print(f'ERROR: Failed to connect to GitHub: {exc}', file=sys.stderr)
@@ -694,7 +698,9 @@ def main() -> int:
     ephemeral_output = {
         'source': 'github-issues',
         'repository': repo_name,
-        'generated_at': __import__('datetime').datetime.utcnow().isoformat(),
+        'generated_at': __import__('datetime').datetime.now(
+            __import__('datetime').timezone.utc
+        ).isoformat(),
         'metrics': metrics,
         'items': items,
         'forward_links': forward_links,
