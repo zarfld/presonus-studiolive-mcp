@@ -23,7 +23,7 @@ name: CI - Standards Compliance & Quality Gates
 
 on:
   push:
-    branches: [master, develop, "feature/**", "release/**"]
+    branches: [master, develop, "feature/**", "fix/**", "chore/**", "release/**"]
   pull_request:
     branches: [master, develop]
   schedule:
@@ -151,6 +151,42 @@ jobs:
           find src -name '*.cpp' -o -name '*.h' | head -10
           echo "✅ Source files found"
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: |
+          # --no-frozen-lockfile: ERR_PNPM_LOCKFILE_CONFIG_MISMATCH (patchedDependencies hash,
+          # run #28506199957) — re-enable --frozen-lockfile after running `pnpm install` locally
+          # and committing the updated lockfile.
+          pnpm install --no-frozen-lockfile
+
+      - name: Verify capability inventory is not stale
+        run: |
+          pnpm inventory
+          git diff --exit-code docs/capability-matrix.generated.md docs/generated/capability-inventory.json \
+            || (echo "Capability inventory is out of date. Run 'pnpm inventory' and commit docs/capability-matrix.generated.md and docs/generated/capability-inventory.json." && exit 1)
+
+      - name: Verify README contains no unqualified field-ready / v1.0 claims
+        run: |
+          # Allow the phrase only in a negated / release-checklist context.
+          # Fail if the pattern appears as a current product claim.
+          CLAIM_PATTERN='field-ready backend|Field-ready backend|v1\.0 backend|version 1\.0'
+          if grep -qE "$CLAIM_PATTERN" README.md; then
+            echo "README contains unqualified status claim. Remove or qualify it:"
+            grep -nE "$CLAIM_PATTERN" README.md
+            exit 1
+          fi
+          echo "README claim check passed."
+
   # Phase 05: TDD - Test-Driven Development
   unit-tests:
     name: Unit Tests (${{ matrix.os }}, ${{ matrix.config }})
@@ -216,10 +252,16 @@ jobs:
         if: runner.os == 'Windows' && (env.BUILD_SYSTEM == 'cmake' || env.BUILD_SYSTEM == 'cmake-subdir')
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
 
       - name: Build and run tests (CMake)
         if: env.BUILD_SYSTEM == 'cmake' || env.BUILD_SYSTEM == 'cmake-subdir'
@@ -267,15 +309,17 @@ jobs:
         shell: bash
         run: |
           echo "📦 Installing dependencies..."
-          npm install -g pnpm
-          # --no-frozen-lockfile: patchedDependencies hash in lockfile may differ from
-          # what pnpm computes on a fresh clone; run 'pnpm install' locally and commit
-          # the updated lockfile to restore --frozen-lockfile
+          # --no-frozen-lockfile: ERR_PNPM_LOCKFILE_CONFIG_MISMATCH (patchedDependencies hash,
+          # run #28506199957) — re-enable --frozen-lockfile after running `pnpm install` locally
+          # and committing the updated lockfile.
           pnpm install --no-frozen-lockfile
-          
+
+          echo "🔍 Typechecking..."
+          pnpm typecheck
+
           echo "🏗️ Building workspace packages..."
           pnpm run build
-          
+
           echo "🧪 Running vitest unit tests..."
           pnpm test
 
@@ -818,30 +862,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          python-version: "3.11"
+          version: 9
 
-      - name: Install PlatformIO
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
         run: |
-          pip install --upgrade platformio
-          pio upgrade --dev
+          # --no-frozen-lockfile: ERR_PNPM_LOCKFILE_CONFIG_MISMATCH (patchedDependencies hash,
+          # run #28506199957) — re-enable --frozen-lockfile after running `pnpm install` locally
+          # and committing the updated lockfile.
+          pnpm install --no-frozen-lockfile
 
-      - name: Build ESP32 firmware
+      - name: Build MCP server packages
         run: |
-          echo "🏗️ Building ESP32 firmware..."
-          pio run -e esp32dev
+          echo "🏗️ Building MCP server packages..."
+          pnpm build
 
-      - name: Upload firmware artifacts
+      - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: esp32-firmware
-          path: .pio/build/esp32dev/firmware.bin
+          name: mcp-server-dist
+          path: packages/*/dist/
           retention-days: 90
 
       - name: Report build status
         if: always()
         run: |
-          echo "📢 ESP32 Firmware Build: ${{ job.status }}"
-          echo "Phase 08: Ready for hardware deployment"
+          echo "📢 MCP Server Build: ${{ job.status }}"
+          echo "Phase 08: Ready for deployment"
