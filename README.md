@@ -85,7 +85,7 @@ By default agents **cannot** change mixer parameters. Write tools require `write
 | StudioLive 16R | Expected-compatible; requires HIL testing to confirm |
 | StudioLive 16 | Expected-compatible; requires HIL testing to confirm |
 
-See [docs/release-readiness-checklist.md](docs/release-readiness-checklist.md) for gates required before any model is claimed as "field-ready" or "fully supported".
+See [docs/release-readiness-checklist.md](docs/release-readiness-checklist.md) for gates required before any model is claimed as validated or production-ready.
 
 ---
 
