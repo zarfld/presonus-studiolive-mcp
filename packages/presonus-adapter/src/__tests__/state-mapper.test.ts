@@ -20,16 +20,16 @@ const syntheticState32SC: RawStateTree = {
   'line.ch1.name': 'Kick',
   'line.ch1.mute': false,
   'line.ch1.solo': false,
-  'line.ch1.volume': 0.675,
+  'line.ch1.volume': 73.36,  // real 0-100 scale; 73.36 = unity (0 dB), OBSERVED on 32SC
   'line.ch1.pan': 0.5,
   'line.ch1.link': false,
   'line.ch1.color': '0000ffff',
   'line.ch2.name': 'Snare',
   'line.ch2.mute': true,
-  'line.ch2.volume': 0.72,
+  'line.ch2.volume': 73.36,
   'line.ch3.name': 'Lead Vox',
   'line.ch3.mute': false,
-  'line.ch3.volume': 0.80,
+  'line.ch3.volume': 73.36,
   'line.ch3.unknown_future_key': 'some_value',  // Unknown key — must be preserved
 }
 
@@ -74,7 +74,7 @@ describe('extractLineChannels', () => {
     expect(ch1).toBeDefined()
     expect(ch1?.name).toBe('Kick')
     expect(ch1?.mute).toBe(false)
-    expect(ch1?.fader?.linear).toBeCloseTo(0.675)
+    expect(ch1?.fader?.linear).toBeCloseTo(0.7336, 3)  // 73.36 / 100
     // Pan is 0.0-1.0 range (OBSERVED on 32SC fw 3.3.0.109659)
     expect(ch1?.pan).toBeCloseTo(0.5)
   })
@@ -311,5 +311,88 @@ describe('extractFatChannelState', () => {
     expect(ch1?.rawExtra?.['line.ch1.comp.on']).toBeUndefined()
     // fatChannel should be populated instead
     expect(ch1?.fatChannel).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Fader and preamp gain calibration tests
+// HIL evidence: captures/probe-fader-preamp-cal/ (StudioLive 32SC fw 3.4.0.111374, 2026-07-01)
+// 5 fader anchor points confirmed; preamp formula: dB = value x 60 (linear, 5/5 match)
+// ---------------------------------------------------------------------------
+
+describe('fader normalization and dB conversion � HIL 2026-07-01', () => {
+  /** Calibrated flat state: volume uses real 0-100 raw scale from StudioLive */
+  const calState: Record<string, unknown> = {
+    'line.ch1.mute': false,
+    'line.ch1.volume': 0,          // raw=0 -> -84 dB (minimum stop)
+    'line.ch1.preampgain.value': 0.5333333611488342,  // -> 32 dB
+    'line.ch2.mute': false,
+    'line.ch2.volume': 100,        // raw=100 -> +10 dB (maximum)
+    'line.ch2.preampgain.value': 0.36666667461395264, // -> 22 dB
+    'line.ch3.mute': false,
+    'line.ch3.volume': 73.3590841293335,  // raw=73.36 -> 0 dB (unity)
+    'line.ch3.preampgain.value': 0.36666667461395264, // -> 22 dB
+  }
+
+  it('normalizes raw 0-100 volume to 0-1 linear (volume/100)', () => {
+    /**
+     * Verifies: fader.linear = volume / 100 (NOT Math.min(1, volume))
+     * Given: Ch2 volume=100 (max), Ch3 volume=73.36 (unity)
+     * Then:  Ch2 fader.linear=1.0, Ch3 fader.linear~0.7336
+     */
+    const chs = extractLineChannels(calState)
+    const ch2 = chs.find(c => c.id === 'line.ch2')!
+    const ch3 = chs.find(c => c.id === 'line.ch3')!
+    expect(ch2.fader?.linear).toBeCloseTo(1.0, 3)
+    expect(ch3.fader?.linear).toBeCloseTo(0.7336, 3)
+  })
+
+  it('fader.db at minimum (raw=0) = -84 dB', () => {
+    /**
+     * HIL anchor: Ch1 volume=0, UC Surface shows -84 dB (minimum stop)
+     * StudioLive 32SC fw 3.4.0.111374, 2026-07-01
+     */
+    const chs = extractLineChannels(calState)
+    const ch1 = chs.find(c => c.id === 'line.ch1')!
+    expect(ch1.fader?.db).toBe(-84)
+  })
+
+  it('fader.db at unity (raw=73.36) = 0 dB', () => {
+    /**
+     * HIL anchor: Ch3 volume=73.36, UC Surface shows 0 dB (unity)
+     */
+    const chs = extractLineChannels(calState)
+    const ch3 = chs.find(c => c.id === 'line.ch3')!
+    expect(ch3.fader?.db).toBeCloseTo(0, 1)
+  })
+
+  it('fader.db at maximum (raw=100) = +10 dB', () => {
+    /**
+     * HIL anchor: Ch2 volume=100, UC Surface shows +10 dB (maximum)
+     */
+    const chs = extractLineChannels(calState)
+    const ch2 = chs.find(c => c.id === 'line.ch2')!
+    expect(ch2.fader?.db).toBeCloseTo(10, 1)
+  })
+
+  it('preampGainDb extracted correctly from preampgain.value', () => {
+    /**
+     * HIL anchors: formula dB = value x 60 (linear, 5/5 match)
+     * Ch1: 0.5333 x 60 = 32 dB; Ch2/Ch3: 0.3667 x 60 = 22 dB
+     */
+    const chs = extractLineChannels(calState)
+    const ch1 = chs.find(c => c.id === 'line.ch1')!
+    const ch2 = chs.find(c => c.id === 'line.ch2')!
+    const ch3 = chs.find(c => c.id === 'line.ch3')!
+    expect(ch1.preampGainDb).toBeCloseTo(32, 0)
+    expect(ch2.preampGainDb).toBeCloseTo(22, 0)
+    expect(ch3.preampGainDb).toBeCloseTo(22, 0)
+  })
+
+  it('preampGainDb is undefined when preampgain key is absent', () => {
+    const noPreamp: Record<string, unknown> = { 'line.ch4.mute': false, 'line.ch4.volume': 50 }
+    const chs = extractLineChannels(noPreamp)
+    const ch4 = chs.find(c => c.id === 'line.ch4')
+    expect(ch4?.preampGainDb).toBeUndefined()
   })
 })

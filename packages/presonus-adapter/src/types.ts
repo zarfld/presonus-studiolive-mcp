@@ -192,8 +192,49 @@ export const OUTPUT_PATCH_KEY_PATTERNS = {
 } as const
 
 // ---------------------------------------------------------------------------
-// Input source routing keys — HIL probe 2026-07-01 (StudioLive 32SC fw 3.4.0.111374)
+// Preamp gain key — HIL probe 2026-07-01 (StudioLive 32SC fw 3.4.0.111374)
 // ---------------------------------------------------------------------------
+
+/**
+ * Preamp gain key suffixes (relative to `line.chN` prefix).
+ * OBSERVED: StudioLive 32SC firmware 3.4.0.111374 (2026-07-01 HIL probe).
+ * range.curve = linear; formula: dB = value × PREAMP_GAIN_RANGE_MAX.
+ */
+export const KNOWN_PREAMP_KEY_SUFFIXES = {
+  /** Normalized 0–1. Formula: dB = value × 60. Curve: linear. */
+  PREAMPGAIN_VALUE: '.preampgain.value',
+} as const
+
+/**
+ * Preamp gain range max (60 dB). From preampgain.range.max in state.
+ * OBSERVED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01).
+ */
+export const PREAMP_GAIN_RANGE_MAX = 60
+
+// ---------------------------------------------------------------------------
+// Fader (volume) calibration constants — HIL probe 2026-07-01 (32SC fw 3.4.0.111374)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fader calibration constants for line.chN.volume (0–100 raw scale).
+ *
+ * IMPORTANT: line.chN.volume is SCENE-STORED, not the live fader position.
+ * Values reflect the fader position when the scene was last saved.
+ *
+ * Formula (piecewise):
+ *   v <= 0:        FADER_MIN_DB (-84 dB)
+ *   v >= 100:      FADER_MAX_DB (+10 dB)
+ *   v in [unity, 100]: linear, (v - unity) / (100 - unity) * 10
+ *   v in (0, unity):   log10, max(-84, LOG_COEFF * log10(v / unity))
+ *
+ * Calibrated from 5 anchor points (StudioLive 32SC fw 3.4.0.111374, 2026-07-01):
+ *   0 → -84 dB, 23.77 → -28.4 dB, 59.28 → -5.36 dB, 73.36 → 0 dB, 100 → +10 dB
+ * Confidence: inferred (taper shape confirmed from 2 intermediate anchor points, max error 0.025 dB).
+ */
+export const FADER_UNITY_RAW   = 73.3591  // raw value at 0 dB (observed Ch3, scene-saved)
+export const FADER_MAX_DB      = 10        // dB at raw = 100
+export const FADER_MIN_DB      = -84       // dB at raw = 0 (minimum stop)
+export const FADER_LOG_COEFF   = 57.98     // log10 taper coefficient (fitted from anchor points)
 
 /**
  * Per-channel input source selection key suffixes (relative to `line.chN` prefix).

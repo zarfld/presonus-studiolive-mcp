@@ -34,7 +34,28 @@ import {
   normalizedToLimiterThresholdDb,
 } from '@presonus-mcp/domain'
 import type { RawStateTree } from './types.js'
-import { KNOWN_CHANNEL_KEY_SUFFIXES, KNOWN_FAT_KEY_SUFFIXES, KNOWN_GLOBAL_KEYS, KNOWN_SEND_ROUTING_KEY_SUFFIXES, OUTPUT_PATCH_KEY_PATTERNS, KNOWN_INPUT_SRC_KEY_SUFFIXES, INPUT_SRC_RANGE_MAX, INPUT_SRC_LABELS, KNOWN_STAGEBOX_KEY_PATTERNS, AVB_SRC_BLOCK_RANGES } from './types.js'
+import { KNOWN_CHANNEL_KEY_SUFFIXES, KNOWN_FAT_KEY_SUFFIXES, KNOWN_GLOBAL_KEYS, KNOWN_SEND_ROUTING_KEY_SUFFIXES, OUTPUT_PATCH_KEY_PATTERNS, KNOWN_INPUT_SRC_KEY_SUFFIXES, INPUT_SRC_RANGE_MAX, INPUT_SRC_LABELS, KNOWN_STAGEBOX_KEY_PATTERNS, AVB_SRC_BLOCK_RANGES, KNOWN_PREAMP_KEY_SUFFIXES, PREAMP_GAIN_RANGE_MAX, FADER_UNITY_RAW, FADER_MAX_DB, FADER_MIN_DB, FADER_LOG_COEFF } from './types.js'
+
+/**
+ * Convert raw volume value (0–100 scene-stored scale) to dBFS.
+ *
+ * CALIBRATED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01, 5 anchor points):
+ *   v=0     → −84 dB (minimum stop)
+ *   v=23.77 → −28.4 dB  |
+ *   v=59.28 → −5.36 dB  | fitted with LOG_COEFF = 57.98, max residual 0.025 dB
+ *   v=73.36 → 0 dB (unity)
+ *   v=100   → +10 dB (maximum)
+ *
+ * Confidence: inferred (anchor points confirmed, taper model validated against 2 intermediate points).
+ */
+function volumeRaw100ToDb(v: number): number {
+  if (v <= 0) return FADER_MIN_DB
+  if (v >= 100) return FADER_MAX_DB
+  if (v >= FADER_UNITY_RAW) {
+    return (v - FADER_UNITY_RAW) / (100 - FADER_UNITY_RAW) * FADER_MAX_DB
+  }
+  return Math.max(FADER_MIN_DB, FADER_LOG_COEFF * Math.log10(v / FADER_UNITY_RAW))
+}
 
 export interface MixerSnapshot {
   identity: MixerIdentity
@@ -501,7 +522,12 @@ export function extractLineChannels(flat: Record<string, unknown>): MixerChannel
       mute: typeof mute === 'boolean' ? mute : undefined,
       solo: typeof solo === 'boolean' ? solo : undefined,
       fader: typeof volume === 'number'
-        ? { linear: Math.max(0, Math.min(1, volume)), db: null, raw: volume }
+        ? {
+            // volume is 0–100 raw scale (scene-stored, NOT live fader position)
+            linear: Math.max(0, Math.min(1, volume / 100)),
+            db: volumeRaw100ToDb(volume),
+            raw: volume,
+          }
         : undefined,
       // Pan: 0.0 = full left, 0.5 = center, 1.0 = full right — OBSERVED 32SC fw 3.3.0.109659
       pan: typeof pan === 'number' ? Math.max(0, Math.min(1, pan)) : undefined,
@@ -509,6 +535,12 @@ export function extractLineChannels(flat: Record<string, unknown>): MixerChannel
       color: typeof color === 'string' ? color : undefined,
       compModelName: compModelResult?.normalized,
       eqModelName: eqModelResult?.normalized,
+      preampGainDb: (() => {
+        const pgRaw = flat[`${prefix}${KNOWN_PREAMP_KEY_SUFFIXES.PREAMPGAIN_VALUE}`]
+        return typeof pgRaw === 'number'
+          ? Math.max(0, Math.min(PREAMP_GAIN_RANGE_MAX, pgRaw * PREAMP_GAIN_RANGE_MAX))
+          : undefined
+      })(),
       fatChannel: extractFatChannelState(flat, prefix),
       sendRouting: extractChannelSendRouting(flat, prefix),
       rawExtra: Object.keys(rawExtra).length > 0 ? rawExtra : undefined,

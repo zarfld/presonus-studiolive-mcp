@@ -1,0 +1,79 @@
+{
+  "_description": "Fader and preamp gain calibration evidence fixture",
+  "_device": "StudioLive 32SC SD7E21010066 firmware 3.4.0.111374",
+  "_date": "2026-07-01",
+  "_evidence": "captures/probe-fader-preamp-cal/ (gitignored)",
+  "_fader_formula": "v<=0: -84dB; v>=73.36: linear 0 to +10dB; 0<v<73.36: max(-84, 57.98*log10(v/73.36))",
+  "_preamp_formula": "dB = preampgain.value * 60 (linear, range.max=60)",
+  "_fader_anchors": [
+    {
+      "raw": 0,
+      "dB": -84,
+      "channel": 1,
+      "note": "minimum stop"
+    },
+    {
+      "raw": 23.773686587810516,
+      "dB": -28.4,
+      "channel": 29,
+      "note": "intermediate anchor"
+    },
+    {
+      "raw": 59.282875061035156,
+      "dB": -5.36,
+      "channel": 21,
+      "note": "intermediate anchor"
+    },
+    {
+      "raw": 73.3590841293335,
+      "dB": 0,
+      "channel": 3,
+      "note": "unity 0dB"
+    },
+    {
+      "raw": 100,
+      "dB": 10,
+      "channel": 2,
+      "note": "maximum"
+    }
+  ],
+  "_preamp_anchors": [
+    {
+      "value": 0.5333333611488342,
+      "dB": 32,
+      "channel": 1
+    },
+    {
+      "value": 0.36666667461395264,
+      "dB": 22,
+      "channel": 2
+    },
+    {
+      "value": 0.36666667461395264,
+      "dB": 22,
+      "channel": 3
+    },
+    {
+      "value": 0,
+      "dB": 0,
+      "channel": 5
+    },
+    {
+      "value": 1,
+      "dB": 60,
+      "channel": 13
+    }
+  ],
+  "global.mixer_serial": "SD7E21010066",
+  "global.mixer_version": "3.4.0.111374",
+  "line.ch1.volume": 0,
+  "line.ch1.preampgain.value": 0.5333333611488342,
+  "line.ch2.volume": 100,
+  "line.ch2.preampgain.value": 0.36666667461395264,
+  "line.ch3.volume": 73.3590841293335,
+  "line.ch3.preampgain.value": 0.36666667461395264,
+  "line.ch5.preampgain.value": 0,
+  "line.ch13.preampgain.value": 1,
+  "line.ch21.volume": 59.282875061035156,
+  "line.ch29.volume": 23.773686587810516
+}
