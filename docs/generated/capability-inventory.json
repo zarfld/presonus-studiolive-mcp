@@ -1,0 +1,479 @@
+{
+  "generatedAt": "2026-07-01T07:55:06.163Z",
+  "generatedBy": "scripts/generate-capability-matrix.ts",
+  "note": "Auto-generated. Do not edit manually. Run `pnpm inventory` to regenerate.",
+  "summary": {
+    "totalTools": 44,
+    "alwaysAvailableTools": 34,
+    "writeGatedTools": 10,
+    "totalResources": 14
+  },
+  "tools": [
+    {
+      "name": "discover_mixers",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "#15 REQ-F-001"
+    },
+    {
+      "name": "refresh_mixer_state",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "#15 REQ-F-001"
+    },
+    {
+      "name": "validate_mixer_identity",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "missing"
+    },
+    {
+      "name": "get_routing_graph",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "probe_required",
+      "safetyClass": "read-only",
+      "traceability": "#32 REQ-F-ROUT-002"
+    },
+    {
+      "name": "validate_input_routing",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "not_verifiable_with_current_adapter",
+      "safetyClass": "diagnostic",
+      "traceability": "#33 REQ-F-ROUT-003"
+    },
+    {
+      "name": "validate_stagebox_routing",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "probe_required",
+      "safetyClass": "diagnostic",
+      "traceability": "#34 REQ-F-ROUT-004"
+    },
+    {
+      "name": "diagnose_no_signal_routing",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "inferred",
+      "safetyClass": "diagnostic",
+      "traceability": "#35 REQ-F-ROUT-005"
+    },
+    {
+      "name": "detect_possible_patch_swap",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "inferred",
+      "safetyClass": "diagnostic",
+      "traceability": "#36 REQ-F-ROUT-006"
+    },
+    {
+      "name": "get_mixer_capabilities",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "missing"
+    },
+    {
+      "name": "analyze_line_check_step",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "missing"
+    },
+    {
+      "name": "diagnose_channel",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "missing"
+    },
+    {
+      "name": "get_aux_mix",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "inferred",
+      "safetyClass": "read-only",
+      "traceability": "#41 REQ-F-AUX-002"
+    },
+    {
+      "name": "validate_monitor_requirements",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "inferred",
+      "safetyClass": "diagnostic",
+      "traceability": "#42 REQ-F-AUX-003"
+    },
+    {
+      "name": "validate_channel_setup",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "#45 REQ-F-ROUT-011"
+    },
+    {
+      "name": "check_required_setup",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "#45 REQ-F-ROUT-011"
+    },
+    {
+      "name": "find_missing_monitor_sends",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "#45 REQ-F-ROUT-011"
+    },
+    {
+      "name": "find_muted_monitor_sends",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "#43 REQ-F-AUX-004"
+    },
+    {
+      "name": "find_hot_monitor_sends",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "#44 REQ-F-AUX-005"
+    },
+    {
+      "name": "validate_aux_mix",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "#43 REQ-F-AUX-004"
+    },
+    {
+      "name": "get_input_routing",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "stub",
+      "safetyClass": "stub",
+      "traceability": "REQ-F-INP-001"
+    },
+    {
+      "name": "validate_avb_routing",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "stub",
+      "safetyClass": "stub",
+      "traceability": "REQ-F-INP-001"
+    },
+    {
+      "name": "validate_output_routing",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "probe_required",
+      "safetyClass": "diagnostic",
+      "traceability": "REQ-F-INP-002"
+    },
+    {
+      "name": "start_routing_probe",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "REQ-F-PROBE-001"
+    },
+    {
+      "name": "complete_routing_probe",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "REQ-F-PROBE-002"
+    },
+    {
+      "name": "validate_input_list_against_mixer",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "REQ-F-INP-001"
+    },
+    {
+      "name": "validate_patch_sheet",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "REQ-F-INP-002"
+    },
+    {
+      "name": "render_patch_sheet_data",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "REQ-F-INP-003"
+    },
+    {
+      "name": "get_monitor_mix_layout",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "inferred",
+      "safetyClass": "read-only",
+      "traceability": "REQ-F-MON-001"
+    },
+    {
+      "name": "validate_stereo_monitor_pair",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "inferred",
+      "safetyClass": "diagnostic",
+      "traceability": "REQ-F-MON-002"
+    },
+    {
+      "name": "validate_monitor_mix_names",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "REQ-F-MON-003"
+    },
+    {
+      "name": "validate_output_patch_labels",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "probe_required",
+      "safetyClass": "diagnostic",
+      "traceability": "REQ-F-ROUT-010"
+    },
+    {
+      "name": "get_fat_channel",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "inferred",
+      "safetyClass": "read-only",
+      "traceability": "REQ-F-FAT-001"
+    },
+    {
+      "name": "validate_fat_channel_for_source",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "inferred",
+      "safetyClass": "diagnostic",
+      "traceability": "REQ-F-FAT-002"
+    },
+    {
+      "name": "list_sub_groups",
+      "kind": "tool",
+      "defaultAvailability": "always",
+      "confidence": "observed",
+      "safetyClass": "read-only",
+      "traceability": "REQ-F-WRITE-005b #86"
+    },
+    {
+      "name": "propose_eq_change",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "inferred",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (EQ de-normalization formulas unverified — changeSetConfidence: guessed)"
+    },
+    {
+      "name": "apply_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "inferred",
+      "safetyClass": "write-applied",
+      "traceability": "ADR-006"
+    },
+    {
+      "name": "prepare_mute_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "observed",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (mute key confirmed on 32SC)"
+    },
+    {
+      "name": "prepare_fader_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "inferred",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (fader taper not probe-confirmed — changeSetConfidence: guessed)"
+    },
+    {
+      "name": "prepare_aux_send_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "inferred",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (aux send key observed; de-normalization unverified — changeSetConfidence: inferred)"
+    },
+    {
+      "name": "prepare_fat_channel_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "inferred",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (all formulas guessed — changeSetConfidence: guessed)"
+    },
+    {
+      "name": "validate_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "observed",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006"
+    },
+    {
+      "name": "prepare_channel_rename_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "observed",
+      "safetyClass": "write-proposed",
+      "traceability": "REQ-F-WRITE-005a #86 (username key confirmed)"
+    },
+    {
+      "name": "prepare_sub_group_membership_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "observed",
+      "safetyClass": "write-proposed",
+      "traceability": "REQ-F-WRITE-005c #86 (sub1-4 keys confirmed)"
+    },
+    {
+      "name": "prepare_aux_assignment_change_set",
+      "kind": "tool",
+      "defaultAvailability": "write-gated",
+      "confidence": "observed",
+      "safetyClass": "write-proposed",
+      "traceability": "REQ-F-WRITE-005d #86 (assign_auxN key confirmed)"
+    }
+  ],
+  "resources": [
+    {
+      "name": "mixers",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixers",
+      "confidence": "observed",
+      "traceability": "#17 REQ-F-003"
+    },
+    {
+      "name": "mixer-channels",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/channels",
+      "confidence": "observed",
+      "traceability": "#17 REQ-F-003"
+    },
+    {
+      "name": "mixer-meters-summary",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/meters/summary",
+      "confidence": "observed",
+      "traceability": "#18 REQ-F-004"
+    },
+    {
+      "name": "mixer-scene-current",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/scene/current",
+      "confidence": "observed",
+      "traceability": "#19 REQ-F-005"
+    },
+    {
+      "name": "mixer-raw-state",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/raw/state",
+      "confidence": "observed",
+      "traceability": "missing"
+    },
+    {
+      "name": "mixer-routing",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/routing",
+      "confidence": "inferred",
+      "traceability": "#32 REQ-F-ROUT-002 (parameterConfidence=inferred until AUX probe calibration)"
+    },
+    {
+      "name": "mixer-routing-outputs",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/routing/outputs",
+      "confidence": "probe_required",
+      "traceability": "#32 REQ-F-ROUT-002 (sourceName=null until probe diff-state run)"
+    },
+    {
+      "name": "mixer-auxes",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/auxes",
+      "confidence": "inferred",
+      "traceability": "#41 REQ-F-AUX-002 (prePost=unknown until hardware probed)"
+    },
+    {
+      "name": "mixer-fx-sends",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/fx-sends",
+      "confidence": "inferred",
+      "traceability": "ADR-008 Layer A (assign_FXA key pattern inferred)"
+    },
+    {
+      "name": "mixer-monitor-routing",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/monitor-routing",
+      "confidence": "inferred",
+      "traceability": "ADR-008 Layer A"
+    },
+    {
+      "name": "mixer-fat-channel",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/fat-channel/{channelId}",
+      "confidence": "inferred",
+      "traceability": "REQ-F-FAT-001 (parameter values guessed — parameterConfidence: guessed)"
+    },
+    {
+      "name": "mixer-monitor-layout",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/monitor-layout",
+      "confidence": "inferred",
+      "traceability": "REQ-F-MON-001 (pair inference confidence=inferred until operator-confirmed)"
+    },
+    {
+      "name": "mixer-output-patch-labels",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer/{deviceId}/output-patch/labels",
+      "confidence": "probe_required",
+      "traceability": "REQ-F-ROUT-010 (source names null until probe-routing diff --kind bus-to-output)"
+    },
+    {
+      "name": "mixer-graph",
+      "kind": "resource",
+      "safetyClass": "read-only",
+      "uriTemplate": "presonus://mixer-graph/current",
+      "confidence": "inferred",
+      "traceability": "#32 REQ-F-ROUT-002"
+    }
+  ]
+}

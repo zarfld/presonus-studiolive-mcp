@@ -41,8 +41,20 @@ describe('RoutingConfidenceSchema', () => {
     expect(RoutingConfidenceSchema.parse('not_verifiable_with_current_adapter')).toBe('not_verifiable_with_current_adapter')
   })
 
+  it('accepts stub, planned, probe_required (extended set)', () => {
+    expect(RoutingConfidenceSchema.parse('stub')).toBe('stub')
+    expect(RoutingConfidenceSchema.parse('planned')).toBe('planned')
+    expect(RoutingConfidenceSchema.parse('probe_required')).toBe('probe_required')
+  })
+
   it('rejects guessed (renamed to inferred per ADR-008)', () => {
     expect(() => RoutingConfidenceSchema.parse('guessed')).toThrow()
+  })
+
+  it('rejects unknown values', () => {
+    expect(() => RoutingConfidenceSchema.parse('ok')).toThrow()
+    expect(() => RoutingConfidenceSchema.parse('complete')).toThrow()
+    expect(() => RoutingConfidenceSchema.parse('unknown')).toThrow()
   })
 })
 

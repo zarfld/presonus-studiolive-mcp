@@ -70,6 +70,23 @@ export const ProposedChangeSchema = z.object({
 export type ProposedChange = z.infer<typeof ProposedChangeSchema>
 
 /**
+ * Confidence level for a proposed change set.
+ *
+ * Reflects the calibration confidence of the underlying de-normalization formulas:
+ *   'observed'  = state key and value mapping confirmed by probe on real hardware.
+ *   'inferred'  = key pattern observed; value mapping plausible but not probe-confirmed.
+ *   'guessed'   = best-estimate formula; run probe-fat-channel or fader probe to verify.
+ *
+ * Applied to each write-tool response so the operator knows how much to trust
+ * the proposed values before applying.
+ *
+ * This is separate from RoutingConfidence (routing.ts) — write confidence
+ * specifically addresses parameter de-normalization accuracy.
+ */
+export const ChangeSetConfidenceSchema = z.enum(['observed', 'inferred', 'guessed'])
+export type ChangeSetConfidence = z.infer<typeof ChangeSetConfidenceSchema>
+
+/**
  * A complete set of proposed changes for one channel.
  * Created by propose_eq_change and consumed by apply_change_set.
  *
@@ -84,6 +101,15 @@ export const ProposedChangeSetSchema = z.object({
   changes: z.array(ProposedChangeSchema).min(1),
   /** Human-readable description of the full proposal, e.g. "Set EQ band 1 gain on Ch.1 Kick from +1.5 dB to -3.0 dB" */
   description: z.string(),
+  /**
+   * Calibration confidence of the proposed parameter values.
+   * 'observed'  = state key + value formula confirmed by probe diff-state.
+   * 'inferred'  = key pattern confirmed; value formula plausible, needs probe.
+   * 'guessed'   = best-estimate formula; verify with probe-fat-channel / fader probe.
+   *
+   * Do not apply changes with confidence 'guessed' without operator review.
+   */
+  changeSetConfidence: ChangeSetConfidenceSchema,
 })
 export type ProposedChangeSet = z.infer<typeof ProposedChangeSetSchema>
 

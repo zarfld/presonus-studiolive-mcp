@@ -4,7 +4,9 @@ An **MCP (Model Context Protocol) server** that connects AI coding agents and as
 
 Exposes live mixer context — channel names, mute/solo/fader state, Fat Channel compressor/EQ models, meter activity, and scene information — as MCP resources and tools so that AI agents can read, reason about, and assist with live sound engineering without touching hardware autonomously.
 
-> **Current status**: Field-ready backend (v1.0). The MCP server exposes **10 resources + 33 read-only tools** (+ 7 write tools when `controlEnabled: true`). Empirically validated on StudioLive 32SC firmware 3.3.0.109659, covering v0.1–v1.0 milestones.
+> **Current status**: Experimental read-mostly backend (`v0.1.0`). Primary empirical inspection on **StudioLive 32SC firmware 3.3.0.109659**. Other StudioLive III models are expected-compatible but require additional HIL testing. Some routing and Fat Channel parameter values are confidence-tagged as `inferred` or `probe_required`. Write tools are gated and experimental.
+>
+> See [docs/capability-matrix.generated.md](docs/capability-matrix.generated.md) for the current generated MCP tool/resource inventory.
 
 ---
 
@@ -59,7 +61,7 @@ The MCP server gives an AI agent these capabilities:
 | Raw diagnostic state dump | `presonus://mixer/{id}/raw/state` resource |
 | Propose and apply an EQ change (write-enabled only) | `propose_eq_change` + `apply_change_set` tools |
 
-By default agents **cannot** change mixer parameters. Two write tools (`propose_eq_change` + `apply_change_set`) are available when `controlEnabled: true` — see ADR-006.
+By default agents **cannot** change mixer parameters. Write tools require `writeEnabled: true` and use a ProposedChangeSet workflow with 60 s TTL and operator confirmation — see ADR-006. All write tool responses include a `changeSetConfidence` field (`observed` / `inferred` / `guessed`) indicating how well-calibrated the proposed values are.
 
 ---
 
@@ -72,6 +74,18 @@ By default agents **cannot** change mixer parameters. Two write tools (`propose_
 | Protocol | TCP port **53000** (UC Surface / Studio One Remote protocol) |
 | Coexistence | UC Surface, QMix-UC, and this server can connect simultaneously |
 | Internet | Not required |
+
+### Hardware validation status
+
+| Model | Status |
+|---|---|
+| StudioLive 32SC firmware 3.3.0.109659 | Empirically inspected — state capture validated, routing and Fat Channel partially probed |
+| StudioLive 32R | Expected-compatible (same protocol); requires HIL testing to confirm |
+| StudioLive 24R | Expected-compatible; requires HIL testing to confirm |
+| StudioLive 16R | Expected-compatible; requires HIL testing to confirm |
+| StudioLive 16 | Expected-compatible; requires HIL testing to confirm |
+
+See [docs/release-readiness-checklist.md](docs/release-readiness-checklist.md) for gates required before any model is claimed as "field-ready" or "fully supported".
 
 ---
 
@@ -165,7 +179,9 @@ Probe CLI binary (`presonus-probe`) for hardware reconnaissance during developme
 
 ### `@presonus-mcp/server`
 
-MCP server that wires the adapter to the MCP SDK over stdio transport. Registers **10 resources** and **22 read-only tools** at startup (+ 2 write tools when write-enabled). Runs background mixer discovery.
+MCP server that wires the adapter to the MCP SDK over stdio transport. Registers resources and tools at startup (write tools registered only when `writeEnabled: true`). Runs background mixer discovery.
+
+See [docs/capability-matrix.generated.md](docs/capability-matrix.generated.md) for the current generated tool and resource inventory.
 
 ---
 
@@ -173,7 +189,9 @@ MCP server that wires the adapter to the MCP SDK over stdio transport. Registers
 
 ### Tools
 
-All 22 read-only tools are always registered. Two write tools (`propose_eq_change`, `apply_change_set`) are registered only when `controlEnabled: true`.
+The current tool and resource inventory is generated from source — see **[docs/capability-matrix.generated.md](docs/capability-matrix.generated.md)**.
+
+Write tools are registered only when `writeEnabled: true` (default: false). All write tools use the ProposedChangeSet workflow (propose → 60 s TTL → apply) and include a `changeSetConfidence` field so operators know how well-calibrated the proposed values are.
 
 | Group | Tools |
 |---|---|
@@ -453,7 +471,7 @@ Three-layer architecture (ADR-002):
                  │ stdio (MCP protocol)
 ┌────────────────▼────────────────────────┐
 │  @presonus-mcp/server                   │
-│  10 resources + 33 tools (read-only)    │
+│  See docs/capability-matrix.generated.md │
 └────────────────┬────────────────────────┘
                  │ internal API
 ┌────────────────▼────────────────────────┐
@@ -492,8 +510,7 @@ Key decisions:
 
 ## License
 
-[Specify your license here]
-
+MIT — see [LICENSE](LICENSE).
 
 ## 🎯 Purpose
 
@@ -945,7 +962,7 @@ This template is designed to be:
 
 ## 📄 License
 
-[Specify your license here]
+MIT — see [LICENSE](LICENSE).
 
 ## 🔗 References
 

@@ -1653,6 +1653,7 @@ export function registerTools(
             proposedDisplayValue: proposedDisplay,
           }],
           description,
+          changeSetConfidence: 'guessed' as const,
         }
 
         changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
@@ -1766,6 +1767,7 @@ export function registerTools(
             currentDisplayValue: ch.mute === true ? 'muted' : 'active',
             proposedDisplayValue: muted ? 'muted' : 'active' }],
           description: `${muted ? 'Mute' : 'Unmute'} channel ${ch.name ?? channelId}`,
+          changeSetConfidence: 'observed' as const,
         }
         changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
         return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
@@ -1799,6 +1801,7 @@ export function registerTools(
             currentDisplayValue: currentRaw !== null ? currentRaw.toFixed(3) : '(unknown)',
             proposedDisplayValue: levelLinear.toFixed(3) }],
           description: `Set fader on ${ch.name ?? channelId} to ${levelLinear.toFixed(3)} (guessed taper)`,
+          changeSetConfidence: 'guessed' as const,
         }
         changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
         return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
@@ -1834,6 +1837,7 @@ export function registerTools(
             currentDisplayValue: currentRaw !== null ? currentRaw.toFixed(3) : '(unknown)',
             proposedDisplayValue: levelLinear.toFixed(3) }],
           description: `Set ${ch.name ?? channelId} send to Aux ${auxBus} to ${levelLinear.toFixed(3)}`,
+          changeSetConfidence: 'inferred' as const,
         }
         changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
         return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
@@ -1911,6 +1915,7 @@ export function registerTools(
           expiresAt: new Date(now + CHANGESET_TTL_MS).toISOString(),
           changes,
           description: `Fat Channel changes on ${ch.name ?? channelId}: ${changes.map((c) => c.parameter).join(', ')} [CONFIDENCE: guessed — verify before applying]`,
+          changeSetConfidence: 'guessed' as const,
         }
         changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
         return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
@@ -1976,6 +1981,7 @@ export function registerTools(
             proposedDisplayValue: newName,
           }],
           description: `Rename ${channelId} from "${currentName}" to "${newName}"`,
+          changeSetConfidence: 'observed' as const,
         }
         changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
         return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
@@ -2019,6 +2025,7 @@ export function registerTools(
             proposedDisplayValue: assigned ? 'assigned' : 'unassigned',
           }],
           description: `${assigned ? 'Add' : 'Remove'} ${channelId} ${assigned ? 'to' : 'from'} ${subName}`,
+          changeSetConfidence: 'observed' as const,
         }
         changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
         return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
@@ -2060,6 +2067,7 @@ export function registerTools(
             proposedDisplayValue: assigned ? 'assigned' : 'unassigned',
           }],
           description: `${assigned ? 'Assign' : 'Unassign'} ${ch.name ?? channelId} ${assigned ? 'to' : 'from'} Aux ${auxBus}`,
+          changeSetConfidence: 'observed' as const,
         }
         changeSets.set(changeSetId, { set: changeSet, expiresAt: now + CHANGESET_TTL_MS })
         return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }

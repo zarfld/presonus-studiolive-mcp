@@ -109,11 +109,30 @@ export type ChannelSendRouting = z.infer<typeof ChannelSendRoutingSchema>
 // Output patch router — OBSERVED key structure, formula partially confirmed
 // ---------------------------------------------------------------------------
 
-/** Confidence that a source mapping is correct */
+/**
+ * Routing confidence classification.
+ *
+ * Values align with the routing-confidence-probe-promotion skill and ADR-008.
+ *
+ * | Value | Meaning |
+ * |---|---|
+ * | `observed` | Confirmed by probe diff-state on real hardware. |
+ * | `inferred` | Derived from key patterns or live state; plausible but not probe-confirmed. |
+ * | `not_verifiable_with_current_adapter` | Permanently unobservable via current adapter/protocol. |
+ * | `stub` | Tool/resource deliberately returns limited result or probe instructions. |
+ * | `planned` | Requirement exists; implementation not yet present. |
+ * | `probe_required` | Could be verified with probe diff-state; must not be trusted until run. |
+ *
+ * Promotion path: planned → stub → probe_required → inferred → observed
+ * HIL evidence is required to promote any value to `observed`.
+ */
 export const RoutingConfidenceSchema = z.enum([
-  'observed',   // confirmed by probe diff-state
+  'observed',   // confirmed by probe diff-state on real hardware
   'inferred',   // logically inferred from observed patterns; needs probe to promote to 'observed'
-  'not_verifiable_with_current_adapter',
+  'not_verifiable_with_current_adapter', // permanently unobservable (cable routing, AVB without 32R)
+  'stub',        // tool exists but deliberately returns instructions/not_verifiable; Layer B stubs
+  'planned',     // requirement exists, implementation not yet present
+  'probe_required', // must not be trusted until probe diff-state is completed
 ])
 export type RoutingConfidence = z.infer<typeof RoutingConfidenceSchema>
 
