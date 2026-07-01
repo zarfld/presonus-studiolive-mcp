@@ -1,216 +1,205 @@
-## Assessment as of 2026-07-01
+## Assessment scope
 
-I inspected the live GitHub repository and source files, but I did **not** run the MCP server or hardware-in-the-loop tests. My assessment is therefore **repository/source-level**, not a verified runtime certification.
+I rechecked the live GitHub repository and npm metadata, but I did **not** run a local `pnpm build/test` because the container environment could not clone GitHub directly. So this is a **static repository audit** based on GitHub source, docs, issues, and package metadata.
+
+## Executive verdict
+
+`presonus-studiolive-mcp` is currently **usable as an experimental, read-mostly MCP backend** for inspecting a StudioLive III mixer, especially the 32SC. It is **not yet production-ready** for real autonomous soundcheck or live-mixing agent operation. The repository itself is fairly honest about this: the README calls it an “Experimental read-mostly backend,” validated primarily against a **StudioLive 32SC firmware 3.3.0.109659**, with other StudioLive III models still requiring HIL testing. Write tools are explicitly gated and experimental. ([GitHub][1])
+
+The most important finding is that the repo does **not** mainly suffer from hidden TODO clutter. The critical issue is more structural: several user-facing capabilities exist in the tool inventory but are marked as **stub**, **inferred**, **probe_required**, or **not_verifiable_with_current_adapter**. For an MCP server, that matters because an agent may see a tool name and assume the capability is real. The repo has 44 total tools, but 10 are write-gated and several routing/Fat Channel tools are not fully verified. ([GitHub][2])
+
+---
+
+## Most critical unfinished / stub / placeholder areas
+
+| Priority | Area                        | Current state                                         | Why it matters                                                         |
+| -------: | --------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------- |
+|   **P0** | `get_input_routing`         | Explicit **Layer B stub**                             | An agent cannot reliably tell how physical inputs are actually routed. |
+|   **P0** | `validate_avb_routing`      | Explicit **Layer B stub**                             | Blocks reliable 32R/stagebox/AVB routing validation.                   |
+|   **P0** | Write tools                 | Gated, experimental, some inferred/guessed            | Unsafe for live operation until HIL-verified.                          |
+|   **P1** | Fat Channel values          | Inferred/guessed pending calibration                  | EQ/dynamics advice or writes may be wrong.                             |
+|   **P1** | Output routing/source names | `probe_required`, `sourceName: null`                  | Output patch validation cannot be trusted yet.                         |
+|   **P1** | Hardware matrix             | Mostly 32SC; 32R/24R/16R/16 unvalidated               | Claims about StudioLive III compatibility need HIL evidence.           |
+|   **P2** | Dependency / CI hygiene     | Mostly functional, but some stale/mismatched versions | Not the main blocker, but should be cleaned before release.            |
+|   **P2** | Issue hygiene               | Many “completed” issues still open                    | Confuses project state and release readiness.                          |
+
+---
+
+## Concrete stub / placeholder findings
+
+### 1. `get_input_routing` is the most critical explicit stub
+
+The capability matrix marks `get_input_routing` as **stub**. The implementation description says it is a “Layer B stub” that returns a structured `not_verifiable` response and probe instructions rather than confirmed routing data. ([GitHub][2])
+
+This is critical because real sound-engineer agents need to answer questions like:
+
+* “Is channel 1 really receiving local input 1?”
+* “Is the kick mic patched to the expected preamp?”
+* “Is the stagebox source selected or local input selected?”
+* “Why is this channel silent?”
+
+Without verified input routing, the MCP can only support **diagnostic hints**, not reliable routing decisions.
+
+### 2. `validate_avb_routing` is also an explicit stub
+
+`validate_avb_routing` is also marked as **stub**. The raw tool source describes it as a Layer B stub for AVB / StudioLive 32R routing validation that returns `not_verifiable_with_current_adapter`. ([GitHub][2])
+
+This is especially critical for your use case because your real setup includes StudioLive 32SC + 32R. If the MCP cannot validate AVB routing, then a soundcheck agent cannot reliably confirm that the stagebox is mapped correctly.
+
+### 3. There are real placeholder-like probe commands
+
+The raw tool code contains probe instructions with visibly incomplete command strings such as device placeholders not being filled in. The source around the stub tools shows probe commands with empty `--device` values and empty string entries inside probe steps. ([GitHub][3])
+
+This is not necessarily a runtime blocker, but it is a usability blocker. A user or agent following those instructions may get unusable commands. These should be fixed even before the full Layer B implementation exists.
+
+### 4. `validate_output_routing` is only partial
+
+The capability matrix marks `validate_output_routing` as `probe_required`, and the resource matrix says output routing has `sourceName: null` until probing confirms the source-index mapping. ([GitHub][2])
+
+This means the MCP may know something like “output source index X,” but not confidently map that to “Main L,” “Mix 1,” “AVB send,” etc. For live use, that is not enough.
+
+### 5. Fat Channel support is not yet trustworthy enough for autonomous operation
+
+The tool inventory marks `get_fat_channel` and `validate_fat_channel_for_source` as **inferred**. Write-related Fat Channel helpers are also inferred, and the capability matrix states that formulas are guessed. ([GitHub][2])
+
+The release-readiness checklist is even clearer: Fat Channel calibration has not been run, and current values are still guessed pending `probe-fat-channel` calibration. ([GitHub][4])
+
+For a read-only assistant, this is tolerable if confidence metadata is exposed clearly. For an agent proposing or applying EQ, gate, compressor, or HPF changes, it is a serious blocker.
+
+---
+
+## Usability by functional area
+
+| Area                               |     Current usability | Assessment                                                                                               |
+| ---------------------------------- | --------------------: | -------------------------------------------------------------------------------------------------------- |
+| Install / project structure        |          **Moderate** | Monorepo is organized into domain, adapter, server, inspector packages. README has quick-start commands. |
+| Read-only mixer state              |  **Moderate to good** | Best-supported part of the repo. Suitable for inspection and diagnostics, especially on 32SC.            |
+| Metering / channel summaries       |          **Moderate** | Useful for agent context, but still should be HIL-smoke-tested with real mixer sessions.                 |
+| Routing graph                      |   **Low to moderate** | Some graph structure exists, but key routing data is inferred or probe-required.                         |
+| Input routing                      |               **Low** | Explicit stub. Needs real probe-backed implementation.                                                   |
+| AVB / stagebox routing             |               **Low** | Explicit stub. Critical gap for 32SC + 32R workflows.                                                    |
+| Output patch validation            |   **Low to moderate** | Partial source-index support, but incomplete source-name mapping.                                        |
+| Fat Channel read                   |   **Low to moderate** | Exists, but parameter values/confidence need calibration.                                                |
+| Fat Channel write                  |               **Low** | Guessed formulas; should stay disabled for live use.                                                     |
+| Mute/fader/aux write changes       |      **Experimental** | Some write preparation tools exist, but HIL and safety review are still pending.                         |
+| Multi-model StudioLive III support | **Not yet validated** | 32SC has empirical inspection; 32R/24R/16R/16 still require HIL validation.                              |
+
+---
+
+## Up-to-date / dependency assessment
+
+The repository looks **recently worked on**, but not all dependencies and validation assets are release-ready.
+
+### Acceptable / not urgent
+
+The root package requires **Node >=20** and **pnpm >=9**, which is reasonable for a current TypeScript MCP project. The package scripts include build, test, HIL, probe, inventory, and traceability commands, which is a good sign structurally. ([GitHub][5])
+
+### Needs review
+
+| Dependency / area                      | Current repo state                          | Current external state              | Assessment                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@modelcontextprotocol/sdk`            | `^1.0.0`                                    | npm latest shown as `1.29.0`        | Because of caret semver, it may float to a modern 1.x, but MCP SDK API drift should be smoke-tested and probably pinned after validation. ([GitHub][6]) |
+| `zod`                                  | `^3.23.8`                                   | Zod 4 is current                    | Not urgent if stable, but a future migration plan is needed. Zod 4 may require deliberate compatibility work. ([GitHub][6])                             |
+| `commander`                            | `^12.0.0`                                   | Commander 15 exists and is ESM-only | Inspector CLI can stay on 12 for now; upgrading may force ESM-related work. ([GitHub][7])                                                               |
+| `vitest` / coverage plugin             | Vitest `^3.2.6`, coverage-v8 `^2.0.0`       | Major versions mismatch             | This is a likely CI/coverage fragility. Align these before treating coverage as a release gate. ([GitHub][5])                                           |
+| `@featherbear/presonus-studiolive-api` | pinned `1.8.0` plus local patch assumptions | unofficial API library              | This is a core maintenance risk. The adapter depends on an unofficial library and patched UBJSON support. ([GitHub][8])                                 |
+
+The most important dependency risk is not “old package version” alone. It is the combination of **unofficial mixer API**, **patched behavior**, and **unverified routing/Fat Channel models**.
+
+---
+
+## Issue tracker hygiene
+
+The issue tracker currently weakens the project’s trust signal. Several issues are open while labelled or described as completed, including recent ones around routing, inventory, and validation work. ([GitHub][9])
+
+That does not necessarily mean the code is unfinished. It means the repo state is hard to interpret. For release readiness, these should be split into:
+
+1. **Closed / completed**
+2. **Implemented but awaiting HIL evidence**
+3. **Backlog**
+4. **Known limitation / intentionally unsupported**
+
+Right now, an outside user or agent may incorrectly treat open issues as active blockers or, worse, miss real blockers among “completed” open issues.
+
+---
+
+## Critical rework order
+
+### 1. Keep all write tools gated
+
+Do not expose write tools as default MCP capabilities for field use. The repo already gates them, which is correct. Keep that strict until mute, fader, aux-send, and Fat Channel writes have HIL evidence and rollback/safety semantics. The release checklist explicitly says write-tool HIL and safety review are still pending. ([GitHub][4])
+
+### 2. Fix the two explicit routing stubs
+
+Highest-priority implementation gaps:
+
+* `get_input_routing`
+* `validate_avb_routing`
+
+At minimum, these tools should either:
+
+* be fully implemented with probe-backed confidence, or
+* remain clearly marked as unavailable and excluded from “normal” capability claims.
+
+Currently they are visible as tools but return non-verifiable stub responses. That is acceptable for development, but not for a sound-engineer agent expected to make routing decisions.
+
+### 3. Replace placeholder probe instructions with executable commands
+
+The stub responses should not emit incomplete probe commands. Fix the command generation so `deviceId` is interpolated or omitted deliberately, and remove blank probe-step entries.
+
+This is small but high-value because it turns “stub” into a useful guided diagnostic path.
+
+### 4. Run and archive HIL probes
+
+The release checklist lists several missing HIL gates: AUX send de-normalization, output patch source names, fader taper, Fat Channel calibration, and model validation beyond the 32SC. ([GitHub][4])
+
+Minimum HIL evidence set:
+
+* 32SC local input routing
+* 32SC + 32R AVB stagebox routing
+* output patch source-name mapping
+* aux send pre/post behavior
+* fader taper mapping
+* mute/fader write round-trip
+* Fat Channel parameter calibration
+
+### 5. Promote confidence-tagged capabilities only after evidence
+
+The capability vocabulary is good: `observed`, `inferred`, `probe_required`, `stub`, `not_verifiable`, `planned`. Keep that model. But the user-facing tool descriptions and README should avoid sounding more complete than the confidence tags justify. ([GitHub][2])
+
+### 6. Clean dependency and CI friction
+
+Before a release tag beyond `0.1.x`:
+
+* align Vitest and coverage plugin major versions;
+* decide whether to pin or float MCP SDK;
+* document why Zod 3 remains intentional or migrate to Zod 4;
+* keep Commander 12 unless ESM migration is planned;
+* document the exact local patch to `@featherbear/presonus-studiolive-api`.
+
+---
 
 ## Bottom line
 
-`presonus-studiolive-mcp` is **usable as an experimental/read-mostly StudioLive III MCP backend**, especially for a **StudioLive 32SC on firmware 3.3.0.109659**, but the repository currently **overstates completeness** in several places. The most critical problem is not that functionality is missing; it is that the README, issue taxonomy, and implementation status are **out of sync**, which can mislead both users and coding agents. The README claims “Field-ready backend (v1.0)” with “10 resources + 33 read-only tools (+7 write tools),” but the package versions are still `0.1.0`, and another README section says the MCP server registers “10 resources and 22 read-only tools (+2 write tools).” ([GitHub][1])
+The repository is **not empty or fake**; it has a real MCP/server/domain/adapter structure and a useful read-mostly base. But for your stated goal — a real sound-engineer agent operating against StudioLive 32SC/32R — the most critical unfinished work is:
 
-The implementation is not empty or superficial. It has a pnpm monorepo with separate packages for `presonus-adapter`, `presonus-domain`, `presonus-inspector`, and `presonus-mcp-server`; there are server, adapter, and domain tests, including HIL-oriented tests. ([GitHub][2])
+1. **Input routing implementation**
+2. **AVB/stagebox routing validation**
+3. **Fat Channel calibration**
+4. **Write-tool HIL and safety validation**
+5. **Output patch source-name mapping**
+6. **Issue/claim cleanup so agents do not over-trust incomplete tools**
 
----
+The repo is currently best described as:
 
-## What is actually usable now
-
-| Area                             |                               Current usability | Assessment                                                                                                                                                                                   |
-| -------------------------------- | ----------------------------------------------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mixer discovery / identity       |                                        **Good** | Discovery exists, deduplicates by serial, and normalizes port handling to StudioLive TCP `53000`. ([GitHub][3])                                                                              |
-| Read-only mixer state            |                          **Good, with caveats** | The adapter maps raw featherbear state into normalized snapshots and explicitly documents that mapping was verified against a 32SC firmware state dump. ([GitHub][4])                        |
-| Line-check / channel diagnostics |                                      **Useful** | Tools exist for line-check analysis, channel diagnostics, patch-swap detection, and required channel setup checks. ([GitHub][5])                                                             |
-| AUX / monitor send analysis      |                            **Partially useful** | AUX send extraction exists and tests appear to cover monitor/AUX decoding, but pre/post state and some parameter confidence are still not fully verified. ([GitHub][4])                      |
-| FlexMix bus topology             |  **More implemented than the backlog suggests** | Source comments say FlexMix topology is now observable from Layer A and implemented for issue #84, while issue #84 still appears open/backlog. That is a traceability problem. ([GitHub][6]) |
-| Routing graph                    |                                     **Caution** | There are routing tools, but some are explicit `not_verifiable` or partial: input routing and AVB routing are not verifiable; output routing lacks confirmed source names. ([GitHub][5])     |
-| Fat Channel model handling       |                  **Promising, but overclaimed** | README says all compressor and EQ models are covered with exact schemas, but source comments still mark Fat Channel value interpretation as guessed until probe calibration. ([GitHub][1])   |
-| Write/control tools              | **Limited / should be treated as experimental** | README has conflicting counts: `+7 write tools` in the status line versus `+2 write tools` later. Known gaps say extended write sets are planned. ([GitHub][1])                              |
-
----
-
-## Most critical “complete” claims to fix
-
-### 1. **“Field-ready backend (v1.0)”**
-
-This is the most dangerous claim. The repository contains useful backend work, but “field-ready” implies stable live-sound reliability. The repo itself lists unresolved gaps for routing probes, output patch source names, stereo IEM pairing, show input schemas, inaccessible scene file content, and HIL coverage. ([GitHub][1])
-
-Recommended replacement:
-
-> Current status: experimental read-mostly backend, validated primarily on StudioLive 32SC firmware 3.3.0.109659. Some routing and write features remain probe-dependent or unverified.
-
-### 2. **Tool-count completeness**
-
-The README simultaneously claims:
-
-* **10 resources + 33 read-only tools + 7 write tools**
-* **10 resources + 22 read-only tools + 2 write tools**
-
-That is a high-signal documentation defect because MCP clients and future agents will use these numbers as capability truth. ([GitHub][1])
-
-Recommended fix: generate the tool/resource inventory from `tools.ts` and `resources.ts` during CI, then inject it into README or publish it as `docs/capability-matrix.generated.md`.
-
-### 3. **Routing completeness**
-
-The README lists routing capabilities, but the implementation still exposes some routing functions as `not_verifiable` or partial. At the same time, FlexMix topology appears to have advanced beyond the issue tracker state. ([GitHub][5])
-
-This is critical because routing is not cosmetic. For a real sound engineer agent, incorrect routing truth can lead to wrong patching, wrong monitor sends, or wrong FOH/stagebox assumptions.
-
-### 4. **Hardware support across StudioLive III**
-
-The README lists StudioLive III 16, 16R, 24R, 32SC, and 32R as supported hardware, but the empirical validation claim is specifically for StudioLive 32SC firmware 3.3.0.109659. ([GitHub][1])
-
-Recommended replacement:
-
-| Model                                 | Status                         |
-| ------------------------------------- | ------------------------------ |
-| StudioLive 32SC firmware 3.3.0.109659 | empirically tested             |
-| StudioLive 32R                        | expected compatible, needs HIL |
-| StudioLive 24R                        | expected compatible, needs HIL |
-| StudioLive 16R                        | expected compatible, needs HIL |
-| StudioLive 16                         | expected compatible, needs HIL |
-
-### 5. **“Complete lifecycle framework” / standards-compliant template text**
-
-The README still contains broad template-derived claims such as “Complete lifecycle framework” and “standards-compliant software lifecycle management.” This appears inherited from the process template and is not specific evidence of this MCP server’s maturity. ([GitHub][1])
-
-This is less runtime-dangerous than routing or writes, but it damages credibility. Remove or move it to a separate `PROCESS.md`.
-
-### 6. **License**
-
-The README still says “Specify your license here.” That blocks reuse by other engineers and should be treated as a release blocker. ([GitHub][1])
-
----
-
-## Where YAGNI likely caused damage
-
-YAGNI was partly correct here: for live audio gear, it is better to avoid unverified write/control features than to hallucinate mixer control. The repository made a good call by marking some routing functions as `not_verifiable` and by keeping writes gated behind `controlEnabled`. ([GitHub][5])
-
-The problem is that YAGNI seems to have combined badly with agent-driven “completion” language. Several things appear to have been deferred or stubbed, but the README still speaks as if the backend is broadly complete. The clearest examples are Layer B physical/AVB routing, output source naming, full bus extraction beyond line channels, scene file access, and extended write operations. The source even has TODOs for AUX, FX, SUB, and MAIN channel extraction. ([GitHub][4])
-
-So the issue is not “YAGNI is wrong.” The issue is:
-
-> YAGNI deferred uncertain functionality, but the documentation and issue state did not consistently preserve the uncertainty.
-
-That is exactly the kind of failure that causes future agents to delete, skip, or fail to reintroduce important functionality.
-
----
-
-## Update / rework priority
-
-### P0 — Release-blocking
-
-1. **Replace broad status claims**
-
-   * Remove “field-ready backend v1.0” unless you have repeated HIL tests and live-show validation.
-   * Replace with hardware-specific, confidence-tagged status.
-
-2. **Fix tool/resource inventory**
-
-   * One canonical inventory.
-   * No manual contradictory counts.
-   * Generate from implementation.
-
-3. **Fix license**
-
-   * Add an actual license or mark the repository private/internal until decided.
-
-4. **Resolve issue/code traceability**
-
-   * Issue #84 appears open/backlog while code says it implements the FlexMix topology requirement. That must be reconciled. ([GitHub][6])
-   * Issue #72 already identifies the process defect: REQ issues are carrying implementation progress and should be split from IMP/TEST tasks. ([GitHub][7])
-
-### P1 — Functional correctness
-
-5. **Routing confidence model**
-
-   * Separate:
-
-     * observed Layer A routing
-     * inferred routing
-     * probe-required routing
-     * not-accessible routing
-   * MCP tools should expose this explicitly.
-
-6. **FlexMix / subgroup / matrix extraction**
-
-   * Issue #84 and #85 are central for real monitor and routing work. Open issues show FlexMix classification and fixed subgroup extraction still tracked as backlog. ([GitHub][8])
-
-7. **Output routing source names**
-
-   * Source index without confirmed source name is not enough for a sound engineer agent.
-   * Keep this as partial until probe-confirmed.
-
-8. **Fat Channel parameter calibration**
-
-   * Model identity may be good, but parameter values need confidence metadata until normalized-to-dB/Q/Hz conversions are verified.
-
-### P2 — Agent usability
-
-9. **Capability matrix for sound-engineer agents**
-
-   * Add a table like:
-
-| Task                        |                Supported | Confidence                   |
-| --------------------------- | -----------------------: | ---------------------------- |
-| Discover mixer              |                      yes | high                         |
-| Read channel names          |                      yes | high                         |
-| Read fader levels           |                  partial | medium/low depending mapping |
-| Diagnose missing input      |                      yes | medium                       |
-| Validate AUX monitor send   |                  partial | medium                       |
-| Validate AVB stagebox patch |      no / probe required | low                          |
-| Rename channels             |                  backlog | no                           |
-| Apply EQ                    |              gated write | experimental                 |
-| Build input list from rider | agent task, not MCP task | requires external input      |
-
-10. **Separate MCP responsibility from sound-engineer-agent responsibility**
-
-* MCP should expose facts and safe operations.
-* The sound-engineer agent should interpret riders, plan soundcheck, decide patch lists, and propose changes.
-
-### P3 — Repository hygiene
-
-11. **Move template/process text out of README**
-
-* Keep README for product truth.
-* Put process-conform material in `PROCESS.md`, `CONTRIBUTING.md`, or `.github/copilot-instructions.md`.
-
-12. **CI clarity**
-
-* Workflows exist for standards, docs, issue validation, labels, traceability, and dependency tooling, but the visible workflow list does not obviously show a conventional build/test workflow name. Clarify this or add a plain `ci-build-test.yml`. ([GitHub][9])
-
----
-
-## Recommended concrete next commits
-
-1. `docs: replace field-ready v1.0 claim with hardware-specific experimental status`
-2. `docs: add generated MCP tool/resource capability matrix`
-3. `docs: add hardware validation matrix for StudioLive III models`
-4. `docs: remove template lifecycle claims from README`
-5. `chore: add explicit license`
-6. `test: add inventory snapshot test for registered MCP tools/resources`
-7. `fix: reconcile FlexMix topology issue state with implemented extractor`
-8. `docs: document routing confidence levels`
-9. `feat: expose routingConfidence per MCP routing result`
-10. `ci: add plain build/typecheck/test workflow`
-
----
-
-## Overall verdict
-
-The repository is **worth continuing**. It has enough real implementation to be useful for your StudioLive MCP direction. But it is not yet a clean “complete backend.” The highest-value work now is not adding more features; it is **truth maintenance**:
-
-* align README with actual code,
-* align issues with implemented state,
-* distinguish verified vs inferred vs stubbed mixer data,
-* remove broad completion language,
-* and make generated capability documentation the source of truth.
-
-That will also reduce the chance that future agents apply YAGNI destructively and silently remove functionality that is actually required for real sound-engineer operation.
+> **Experimental read-mostly MCP backend with useful inspection tooling, but routing, AVB, Fat Channel, and write-control paths are not yet sufficiently verified for live autonomous operation.**
 
 [1]: https://github.com/zarfld/presonus-studiolive-mcp "GitHub - zarfld/presonus-studiolive-mcp: MCP server using featherbear / presonus-studiolive-ap · GitHub"
-[2]: https://github.com/zarfld/presonus-studiolive-mcp/tree/master/packages "presonus-studiolive-mcp/packages at master · zarfld/presonus-studiolive-mcp · GitHub"
-[3]: https://raw.githubusercontent.com/zarfld/presonus-studiolive-mcp/master/packages/presonus-adapter/src/discovery.ts "raw.githubusercontent.com"
-[4]: https://raw.githubusercontent.com/zarfld/presonus-studiolive-mcp/master/packages/presonus-adapter/src/state-mapper.ts "raw.githubusercontent.com"
-[5]: https://raw.githubusercontent.com/zarfld/presonus-studiolive-mcp/master/packages/presonus-mcp-server/src/tools.ts "raw.githubusercontent.com"
-[6]: https://github.com/zarfld/presonus-studiolive-mcp/issues/84 "REQ-F-FLEXMIX-001: FlexMix bus mode classification and per-channel routing extraction (Layer B routing — real) · Issue #84 · zarfld/presonus-studiolive-mcp · GitHub"
-[7]: https://github.com/zarfld/presonus-studiolive-mcp/issues/72 "HOUSEKEEPING-004: Split requirements from implementation tasks · Issue #72 · zarfld/presonus-studiolive-mcp · GitHub"
-[8]: https://github.com/zarfld/presonus-studiolive-mcp/issues "Issues · zarfld/presonus-studiolive-mcp · GitHub"
-[9]: https://github.com/zarfld/presonus-studiolive-mcp/tree/master/.github/workflows "presonus-studiolive-mcp/.github/workflows at master · zarfld/presonus-studiolive-mcp · GitHub"
-  
+[2]: https://github.com/zarfld/presonus-studiolive-mcp/blob/master/docs/capability-matrix.generated.md "presonus-studiolive-mcp/docs/capability-matrix.generated.md at master · zarfld/presonus-studiolive-mcp · GitHub"
+[3]: https://github.com/zarfld/presonus-studiolive-mcp/raw/refs/heads/master/packages/presonus-mcp-server/src/tools.ts "raw.githubusercontent.com"
+[4]: https://github.com/zarfld/presonus-studiolive-mcp/blob/master/docs/release-readiness-checklist.md "presonus-studiolive-mcp/docs/release-readiness-checklist.md at master · zarfld/presonus-studiolive-mcp · GitHub"
+[5]: https://github.com/zarfld/presonus-studiolive-mcp/blob/master/package.json "presonus-studiolive-mcp/package.json at master · zarfld/presonus-studiolive-mcp · GitHub"
+[6]: https://github.com/zarfld/presonus-studiolive-mcp/blob/master/packages/presonus-mcp-server/package.json "presonus-studiolive-mcp/packages/presonus-mcp-server/package.json at master · zarfld/presonus-studiolive-mcp · GitHub"
+[7]: https://github.com/zarfld/presonus-studiolive-mcp/blob/master/packages/presonus-inspector/package.json "presonus-studiolive-mcp/packages/presonus-inspector/package.json at master · zarfld/presonus-studiolive-mcp · GitHub"
+[8]: https://github.com/zarfld/presonus-studiolive-mcp/blob/master/packages/presonus-adapter/package.json "presonus-studiolive-mcp/packages/presonus-adapter/package.json at master · zarfld/presonus-studiolive-mcp · GitHub"
+[9]: https://github.com/zarfld/presonus-studiolive-mcp/issues "Issues · zarfld/presonus-studiolive-mcp · GitHub"

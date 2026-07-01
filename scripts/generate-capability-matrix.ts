@@ -123,9 +123,9 @@ const TOOL_META: Record<string, ToolMeta> = {
 
   // ── Routing — Layer A implementations (HIL evidence 2026-07-01) ───────────
   get_input_routing: {
-    defaultAvailability: 'always', confidence: 'inferred',
+    defaultAvailability: 'always', confidence: 'observed',
     safetyClass: 'diagnostic',
-    traceability: '#45 REQ-F-ROUT-011 — Observed on StudioLive 32SC (SD7E21010066), firmware 3.3.0.109659 (2026-07-01). Indices 0=Local, 1=Stage Box confirmed. Indices 2–3 labels probe_required. Other StudioLive III models unverified.',
+    traceability: '#45 REQ-F-ROUT-011 — All 4 labels observed on StudioLive 32SC (SD7E21010066), firmware 3.3.0.109659 (2026-07-01). Labels: 0=Local, 1=Stage Box, 2=USB, 3=SD Card. Other StudioLive III models unverified.',
   },
   validate_avb_routing: {
     defaultAvailability: 'always', confidence: 'observed',

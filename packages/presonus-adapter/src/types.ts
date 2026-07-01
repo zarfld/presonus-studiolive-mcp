@@ -214,14 +214,20 @@ export const INPUT_SRC_RANGE_MAX = 3
 
 /**
  * Input source labels by index on StudioLive 32SC.
- * OBSERVED on firmware 3.3.0.109659 (2026-07-01 HIL probe).
- * null = probe_required (label not yet confirmed from hardware).
+ * ALL FOUR LABELS OBSERVED on firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ *
+ * Evidence:
+ *   Index 0: default state (Local) — baseline capture 2026-06-24
+ *   Index 1: Ch1 changed Local→Stage Box — probe diff 2026-07-01
+ *   Index 2: Ch25-28/31-32 confirmed USB via UC Surface display + Ch17 diff (1.0→0.667)
+ *   Index 3: Ch17-22/24/29-30 confirmed SD Card via UC Surface display
+ *   All confirmed: captures/probe-idx23/baseline.json + after-ch17-usb.json
  */
 export const INPUT_SRC_LABELS: ReadonlyArray<string | null> = [
-  'Local',      // index 0 — observed: default state before change
-  'Stage Box',  // index 1 — observed: user changed Ch1 Local→Stage Box (2026-07-01)
-  null,         // index 2 — probe_required
-  null,         // index 3 — probe_required
+  'Local',     // index 0 — observed
+  'Stage Box', // index 1 — observed
+  'USB',       // index 2 — observed 2026-07-01 (was probe_required)
+  'SD Card',   // index 3 — observed 2026-07-01 (was probe_required)
 ] as const
 
 // ---------------------------------------------------------------------------

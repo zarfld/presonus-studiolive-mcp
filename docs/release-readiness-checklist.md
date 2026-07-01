@@ -43,9 +43,9 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
 
 - [x] **Input source routing probe**: `probe-routing diff --kind input-source` run on
   StudioLive 32SC fw 3.3.0.109659 (2026-07-01). Key `line.chN.inputsrc.value` confirmed.
-  Indices 0=Local, 1=Stage Box observed. Indices 2–3 label still probe_required.
-  Evidence: `captures/probe-input-source/`.  
-  _Status: ✅ Completed 2026-07-01 — `get_input_routing` promoted to `inferred`_
+  All 4 labels observed: 0=Local, 1=Stage Box, 2=USB, 3=SD Card.
+  Evidence: `captures/probe-input-source/` + `captures/probe-idx23/`.
+  _Status: ✅ Completed 2026-07-01 — `get_input_routing` promoted to `observed`_
 
 - [x] **AVB stream routing probe**: `probe-routing diff --kind avb-stream` run on
   32SC + 32R fw 3.3.0.109659 (2026-07-01). Keys `stageboxsetup.avb_src_{range}.value` confirmed.

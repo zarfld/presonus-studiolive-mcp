@@ -164,9 +164,9 @@
       "name": "get_input_routing",
       "kind": "tool",
       "defaultAvailability": "always",
-      "confidence": "inferred",
+      "confidence": "observed",
       "safetyClass": "diagnostic",
-      "traceability": "#45 REQ-F-ROUT-011 — Observed on StudioLive 32SC (SD7E21010066), firmware 3.3.0.109659 (2026-07-01). Indices 0=Local, 1=Stage Box confirmed. Indices 2–3 labels probe_required. Other StudioLive III models unverified."
+      "traceability": "#45 REQ-F-ROUT-011 — All 4 labels observed on StudioLive 32SC (SD7E21010066), firmware 3.3.0.109659 (2026-07-01). Labels: 0=Local, 1=Stage Box, 2=USB, 3=SD Card. Other StudioLive III models unverified."
     },
     {
       "name": "validate_avb_routing",

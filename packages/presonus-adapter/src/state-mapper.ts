@@ -1138,10 +1138,11 @@ export function extractInputRouting(
     channels,
     mixerSerial,
     firmware,
-    hilEvidence: 'captures/probe-input-source/ (2026-07-01, StudioLive 32SC fw 3.3.0.109659)',
+    hilEvidence: 'captures/probe-input-source/ + captures/probe-idx23/ (2026-07-01, StudioLive 32SC fw 3.3.0.109659)',
     notes: [
-      'Input source indices 0 (Local) and 1 (Stage Box) confirmed by HIL probe.',
-      'Indices 2-3 labels are probe_required — additional probing needed.',
+      'All 4 input source labels confirmed by HIL probe on StudioLive 32SC fw 3.3.0.109659 (2026-07-01).',
+      'Labels: 0=Local, 1=Stage Box, 2=USB, 3=SD Card.',
+      'Other StudioLive III models are unverified.',
     ],
   }
 }
@@ -1221,23 +1222,3 @@ export function extractAvbStreamRouting(
     hilEvidence: 'captures/probe-avb/ (2026-07-01, StudioLive 32SC + 32R fw 3.3.0.109659)',
   }
 }
-
-// ---------------------------------------------------------------------------
-// extractInputRouting � STUB (Phase 4a TDD)
-// HIL evidence: captures/probe-input-source/ (2026-07-01)
-// ---------------------------------------------------------------------------
-
-/**
- * Extract per-channel input source routing from a FLAT state dict.
- *
- * KEY CONFIRMED by HIL probe 2026-07-01 (StudioLive 32SC fw 3.3.0.109659):
- *   line.chN.inputsrc.value - normalized float, Math.round(value x 3) = source index.
- *   Index 0 = 'Local' (observed), Index 1 = 'Stage Box' (observed), 2-3 = probe_required.
- *
- * @implements #45 REQ-F-ROUT-011 - input routing observable
- * @architecture #47 ADR-008: Layer B -> Layer A promotion
- * @see captures/probe-input-source/ for HIL evidence
- *
- * Returns undefined when no inputsrc keys are present in flat state.
- * STUB: returns undefined -- TDD Red state.
- */

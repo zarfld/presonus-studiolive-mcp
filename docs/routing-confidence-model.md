@@ -63,7 +63,7 @@ These items require operator-driven probe sessions before they can be trusted.
 
 | Item | Tool | Confidence | Required probe |
 |---|---|---|---|
-| Physical input source routing | `get_input_routing` | `inferred` | **HIL COMPLETED 2026-07-01**: key `line.chN.inputsrc.value` confirmed. Index 0=Local, 1=Stage Box (observed). Indices 2–3 labels still probe_required. |
+| Physical input source routing | `get_input_routing` | `observed` | **HIL COMPLETED 2026-07-01 (all 4 labels)**: key `line.chN.inputsrc.value` confirmed. 0=Local, 1=Stage Box, 2=USB, 3=SD Card. Evidence: `captures/probe-idx23/`. |
 | AVB stream routing | `validate_avb_routing` | `observed` | **HIL COMPLETED 2026-07-01**: keys `stageboxsetup.avb_src_{range}.value` confirmed on 32SC+32R. Labels from `.strings` array (device-specific). |
 | Output patch source names | `validate_output_routing`, `mixer-routing-outputs` | `probe_required` | Source index known; source name → index mapping needs `probe-routing diff --kind bus-to-output` |
 | AUX send de-normalization | `get_aux_mix`, `mixer-auxes` | `probe_required` | Run `probe-routing diff --kind channel-to-aux` while dragging AUX faders |
