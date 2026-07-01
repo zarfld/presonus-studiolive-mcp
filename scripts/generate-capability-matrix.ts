@@ -392,7 +392,6 @@ function run(): void {
   })
 
   const inventory = {
-    generatedAt: new Date().toISOString(),
     generatedBy: 'scripts/generate-capability-matrix.ts',
     note: 'Auto-generated. Do not edit manually. Run `pnpm inventory` to regenerate.',
     summary: {
@@ -429,7 +428,7 @@ function run(): void {
 // ---------------------------------------------------------------------------
 
 function buildMarkdown(inventory: ReturnType<typeof buildInventory>): string {
-  const { generatedAt, summary, tools, resources } = inventory
+  const { summary, tools, resources } = inventory
 
   const toolRows = tools.map((t) => {
     const avail = t.defaultAvailability === 'write-gated' ? '`write-gated`' : '`always`'
@@ -442,8 +441,7 @@ function buildMarkdown(inventory: ReturnType<typeof buildInventory>): string {
 
   return `# MCP Capability Matrix
 
-> **Auto-generated** by \`pnpm inventory\` on ${generatedAt}
-> Do not edit manually — run \`pnpm inventory\` to regenerate.
+> **Auto-generated** by \`pnpm inventory\`. Do not edit manually — run \`pnpm inventory\` to regenerate.
 
 ## Summary
 
@@ -484,7 +482,7 @@ ${resourceRows.join('\n')}
 
 // Type hack to allow reuse
 function buildInventory(inventory: {
-  generatedAt: string; summary: Record<string, number>;
+  generatedBy: string; note: string; summary: Record<string, number>;
   tools: Array<{ name: string; defaultAvailability: string; confidence: string; safetyClass: string; traceability: string }>
   resources: Array<{ name: string; uriTemplate: string; confidence: string; traceability: string }>
 }) { return inventory }

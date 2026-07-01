@@ -1,7 +1,6 @@
 # MCP Capability Matrix
 
-> **Auto-generated** by `pnpm inventory` on 2026-07-01T07:55:06.163Z
-> Do not edit manually — run `pnpm inventory` to regenerate.
+> **Auto-generated** by `pnpm inventory`. Do not edit manually — run `pnpm inventory` to regenerate.
 
 ## Summary
 

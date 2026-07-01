@@ -1,4 +1,4 @@
-﻿# presonus-studiolive-mcp
+# presonus-studiolive-mcp
 
 An **MCP (Model Context Protocol) server** that connects AI coding agents and assistants to **PreSonus StudioLive III** series mixers over the local network.
 

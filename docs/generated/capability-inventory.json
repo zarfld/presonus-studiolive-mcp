@@ -1,5 +1,4 @@
 {
-  "generatedAt": "2026-07-01T07:55:06.163Z",
   "generatedBy": "scripts/generate-capability-matrix.ts",
   "note": "Auto-generated. Do not edit manually. Run `pnpm inventory` to regenerate.",
   "summary": {
