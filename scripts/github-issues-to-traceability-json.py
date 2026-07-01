@@ -250,6 +250,77 @@ def extract_issue_links(body: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Type classifier (extended vocabulary)
+# ---------------------------------------------------------------------------
+
+def get_requirement_type(title: str, labels: list) -> str:
+    """Determine requirement type from title prefix then labels.
+
+    Extended to recognize IMP, DOC, HOUSEKEEPING, EPIC, BUG, PROBE.
+    Returns 'UNKNOWN' only when no classification matches.
+    """
+    match = re.match(
+        r'^(StR|REQ-F|REQ-NF|ADR|ARC-C|QA-SC|TEST|IMP|DOC|HOUSEKEEPING|EPIC|BUG|PROBE)',
+        title, re.IGNORECASE,
+    )
+    if match:
+        t = match.group(1).upper()
+        if t == 'STR':
+            t = 'StR'
+        return t
+
+    label_map = {
+        # Colon-separated (current project standard)
+        'type:stakeholder-requirement': 'StR',
+        'type:requirement:functional': 'REQ-F',
+        'type:requirement:non-functional': 'REQ-NF',
+        'type:architecture:decision': 'ADR',
+        'type:architecture:component': 'ARC-C',
+        'type:architecture:quality-scenario': 'QA-SC',
+        'type:test-case': 'TEST',
+        'type:test-plan': 'TEST',
+        'type:implementation': 'IMP',
+        'type:documentation': 'DOC',
+        'type:housekeeping': 'HOUSEKEEPING',
+        'type:epic': 'EPIC',
+        'type:bug': 'BUG',
+        # Legacy hyphenated labels
+        'stakeholder-requirement': 'StR',
+        'functional-requirement': 'REQ-F',
+        'non-functional': 'REQ-NF',
+        'architecture-decision': 'ADR',
+        'architecture-component': 'ARC-C',
+        'quality-scenario': 'QA-SC',
+        'test-case': 'TEST',
+        'test-plan': 'TEST',
+    }
+    for label in labels:
+        if label in label_map:
+            return label_map[label]
+        ll = label.lower()
+        if 'stakeholder' in ll:
+            return 'StR'
+        if 'non-functional' in ll or 'non_functional' in ll:
+            return 'REQ-NF'
+        if 'functional' in ll and 'non' not in ll:
+            return 'REQ-F'
+        if 'decision' in ll:
+            return 'ADR'
+        if 'component' in ll and 'architecture' in ll:
+            return 'ARC-C'
+        if ('quality' in ll and 'scenario' in ll) or ll == 'quality-scenario':
+            return 'QA-SC'
+        if 'housekeeping' in ll:
+            return 'HOUSEKEEPING'
+        if ll == 'epic' or ll.startswith('type:epic'):
+            return 'EPIC'
+        if ll == 'bug' or ll.startswith('type:bug'):
+            return 'BUG'
+
+    return 'UNKNOWN'
+
+
+# ---------------------------------------------------------------------------
 # Markdown generator
 # ---------------------------------------------------------------------------
 
