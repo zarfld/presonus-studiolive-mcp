@@ -9,8 +9,8 @@
 
 | Status | Count |
 |---|---|
-| `complete` | 44 |
-| `implemented_not_verified` | 29 |
+| `complete` | 45 |
+| `implemented_not_verified` | 28 |
 | `manual_review_required` | 5 |
 | `planned` | 3 |
 | `probe_blocked` | 4 |
@@ -45,7 +45,7 @@
 | [#42](https://github.com/zarfld/presonus-studiolive-mcp/issues/42) | REQ-F | REQ-F-AUX-003: find_muted_monitor_sends tool (muted sen | âœ… | `validate_monitor_requirements` | `inferred` | `complete` | 2 | 1 | 0 | - |
 | [#43](https://github.com/zarfld/presonus-studiolive-mcp/issues/43) | REQ-F | REQ-F-AUX-004: find_hot_monitor_sends tool (configurabl | âœ… | `find_muted_monitor_sends` | `observed` | `complete` | 2 | 1 | 0 | - |
 | [#44](https://github.com/zarfld/presonus-studiolive-mcp/issues/44) | REQ-F | REQ-F-AUX-005: validate_aux_mix tool (zero-expectation  | âœ… | `find_hot_monitor_sends` | `observed` | `complete` | 2 | 1 | 0 | - |
-| [#45](https://github.com/zarfld/presonus-studiolive-mcp/issues/45) | REQ-F | REQ-F-ROUT-011: Layer B routing stubs (get_input_routin | âœ… | `validate_channel_setup` | `observed` | `implemented_not_verified` | 4 | 0 | 0 | no @verifies annotation found in tests |
+| [#45](https://github.com/zarfld/presonus-studiolive-mcp/issues/45) | REQ-F | REQ-F-ROUT-011: Layer B routing stubs (get_input_routin | âœ… | `validate_channel_setup` | `observed` | `complete` | 11 | 2 | 0 | - |
 | [#46](https://github.com/zarfld/presonus-studiolive-mcp/issues/46) | REQ-F | REQ-F-PROBE-002: probe-routing CLI command with --kind  | âœ… | `complete_routing_probe` | `observed` | `complete` | 3 | 1 | 0 | - |
 | [#74](https://github.com/zarfld/presonus-studiolive-mcp/issues/74) | REQ-F | REQ-F-DIAG-002: analyze_line_check_step — active channe | âœ… | `analyze_line_check_step` | `observed` | `implemented_not_verified` | 2 | 0 | 0 | no @verifies annotation found in tests |
 | [#76](https://github.com/zarfld/presonus-studiolive-mcp/issues/76) | REQ-F | REQ-F-DIAG-003: check_required_setup — rider capacity v | âœ… | - | - | `implemented_not_verified` | 1 | 0 | 0 | no @verifies annotation found in tests; no MCP capability mapped to this requirement |
@@ -55,7 +55,7 @@
 | [#85](https://github.com/zarfld/presonus-studiolive-mcp/issues/85) | REQ-F | REQ-F-FIXEDSUB-001: Fixed subgroup bus routing extracti | âœ… | - | - | `complete` | 1 | 1 | 0 | no MCP capability mapped to this requirement |
 | [#86](https://github.com/zarfld/presonus-studiolive-mcp/issues/86) | REQ-F | REQ-F-WRITE-005: Channel rename and group membership ma | ðŸ”µ | `list_sub_groups` | `observed` | `implemented_not_verified` | 5 | 0 | 0 | no @verifies annotation found in tests |
 | [#88](https://github.com/zarfld/presonus-studiolive-mcp/issues/88) | REQ-F | REQ-F-INP-002: Validate patch sheet for conflicts and r | ðŸ”µ | `validate_output_routing` | `probe_required` | `probe_blocked` | 2 | 0 | 0 | no @verifies annotation found in tests; HIL test with @verifies required (probe_required capability); cannot verify in CI |
-| [#89](https://github.com/zarfld/presonus-studiolive-mcp/issues/89) | REQ-F | REQ-F-INP-001: Validate agent-provided input list again | ðŸ”µ | `get_input_routing` | `stub` | `complete` | 3 | 1 | 0 | - |
+| [#89](https://github.com/zarfld/presonus-studiolive-mcp/issues/89) | REQ-F | REQ-F-INP-001: Validate agent-provided input list again | ðŸ”µ | `validate_input_list_against_mixer` | `observed` | `complete` | 3 | 1 | 0 | - |
 | [#90](https://github.com/zarfld/presonus-studiolive-mcp/issues/90) | REQ-F | REQ-F-PROBE-001: Layer B promotion — capture baseline s | ðŸ”µ | `start_routing_probe` | `observed` | `implemented_not_verified` | 1 | 0 | 0 | no @verifies annotation found in tests |
 | [#91](https://github.com/zarfld/presonus-studiolive-mcp/issues/91) | REQ-F | REQ-F-INP-003: Render printable patch sheet data from m | ðŸ”µ | `render_patch_sheet_data` | `observed` | `implemented_not_verified` | 2 | 0 | 0 | no @verifies annotation found in tests |
 | [#92](https://github.com/zarfld/presonus-studiolive-mcp/issues/92) | REQ-F | REQ-F-MON-002: Validate stereo monitor pair consistency | ðŸ”µ | `validate_stereo_monitor_pair` | `inferred` | `implemented_not_verified` | 1 | 0 | 0 | no @verifies annotation found in tests |
