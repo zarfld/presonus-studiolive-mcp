@@ -209,6 +209,16 @@ jobs:
             || (echo "Traceability artifacts are out of date." \
                 "Run 'pnpm traceability' locally and commit the updated files." && exit 1)
 
+      - name: Upload generated traceability artifacts (for bootstrap / drift recovery)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traceability-generated-artifacts
+          path: |
+            07-verification-validation/traceability/requirements-traceability.generated.md
+            07-verification-validation/traceability/requirements-traceability.generated.json
+          retention-days: 14
+
   # Phase 05: TDD - Test-Driven Development
   unit-tests:
     name: Unit Tests (${{ matrix.os }}, ${{ matrix.config }})
