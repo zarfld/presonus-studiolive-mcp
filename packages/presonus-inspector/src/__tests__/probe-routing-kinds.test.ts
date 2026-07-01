@@ -4,6 +4,7 @@
  * @implements REQ-F-PROBE-002 (#46) — probe-routing CLI with --kind filter
  * @implements TEST-PROBE-002 (#60)  — kind filter patterns and VALID_KINDS completeness
  * @implements QA-SC-PROBE-001 (#50) — invalid --kind → helpful error guidance
+ * @verifies #46 REQ-F-PROBE-002 — probe-routing --kind filter patterns
  * Traces to: EPIC-PROBE-HIL (#68)
  *
  * These tests verify the CLI-side kind filtering logic without requiring hardware.

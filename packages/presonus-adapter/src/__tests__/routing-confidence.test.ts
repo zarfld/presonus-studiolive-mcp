@@ -14,6 +14,8 @@
  * @implements REQ-F-ROUT-007 (#37) — Output patch router extraction
  * @implements QA-SC-ROUT-001 (#49) — Confidence never misrepresented
  * @implements TEST-ROUT-007 (#51) — Output patch router extraction test
+ * @verifies #37 REQ-F-ROUT-007 — output patch router extraction and confidence fields
+ * @verifies #49 QA-SC-ROUT-001 — routing confidence never misrepresented as observed
  * Traces to: #3 (StR: Soundcheck assistance)
  */
 import { describe, it, expect } from 'vitest'

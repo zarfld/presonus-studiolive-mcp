@@ -14,6 +14,10 @@
  * @implements REQ-F-AUX-003 (#56) — find_muted_monitor_sends
  * @implements REQ-F-AUX-004 (#57) — find_hot_monitor_sends
  * @implements REQ-F-AUX-005 (#58) — validate_aux_mix combined audit
+ * @verifies #55 REQ-F-AUX-002 — find_missing_monitor_sends
+ * @verifies #56 REQ-F-AUX-003 — find_muted_monitor_sends
+ * @verifies #57 REQ-F-AUX-004 — find_hot_monitor_sends
+ * @verifies #58 REQ-F-AUX-005 — validate_aux_mix combined audit
  * Traces to: #3 (StR: Soundcheck assistance)
  */
 import { describe, it, expect } from 'vitest'

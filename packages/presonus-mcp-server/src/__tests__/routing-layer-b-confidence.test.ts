@@ -10,7 +10,8 @@
  *   RED  = stub tools return observed/inferred by mistake.
  *   GREEN = stub tools always return stub / not_verifiable_with_current_adapter.
  *
- * @implements REQ-F-INP-001 — Layer B stub always returns not_verifiable
+ * @implements #89 REQ-F-INP-001 — Layer B stub always returns not_verifiable
+ * @verifies #89 REQ-F-INP-001 — validate_input_list_against_mixer stub never returns observed/inferred
  * @architecture #47 ADR-008: Layer A/B separation
  * Traces to: #33 REQ-F-ROUT-003, #34 REQ-F-ROUT-004
  */
