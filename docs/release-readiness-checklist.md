@@ -41,6 +41,17 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
 
 ### P1 — Routing confidence (required for routing claims)
 
+- [x] **Input source routing probe**: `probe-routing diff --kind input-source` run on
+  StudioLive 32SC fw 3.3.0.109659 (2026-07-01). Key `line.chN.inputsrc.value` confirmed.
+  Indices 0=Local, 1=Stage Box observed. Indices 2–3 label still probe_required.
+  Evidence: `captures/probe-input-source/`.  
+  _Status: ✅ Completed 2026-07-01 — `get_input_routing` promoted to `inferred`_
+
+- [x] **AVB stream routing probe**: `probe-routing diff --kind avb-stream` run on
+  32SC + 32R fw 3.3.0.109659 (2026-07-01). Keys `stageboxsetup.avb_src_{range}.value` confirmed.
+  Labels from `.strings` array (device-specific). Evidence: `captures/probe-avb/`.  
+  _Status: ✅ Completed 2026-07-01 — `validate_avb_routing` promoted to `observed`_
+
 - [ ] **AUX send de-normalization probe**: At least one hardware probe session confirms the
   AUX send level formula. Evidence in `captures/` with required metadata.  
   _Status: ⬜ Not yet run — current confidence: `probe_required`_
@@ -52,12 +63,12 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
 - [ ] **Fader taper probe**: Fader movement probe confirms log law.  
   _Status: ⬜ Not yet run — current confidence: `guessed`_
 
-- [ ] **Routing confidence model reviewed**: `docs/routing-confidence-model.md` reviewed and
+- [x] **Routing confidence model reviewed**: `docs/routing-confidence-model.md` reviewed and
   accuracy confirmed against current codebase.  
-  _Status: ✅ Created (2026-07-01) — requires review_
+  _Status: ✅ Updated (2026-07-01) — reflects HIL promotions_
 
-- [ ] **Layer B invariant test passes**: `routing-layer-b-confidence.test.ts` passes in CI.  
-  _Status: ✅ Test added (2026-07-01)_
+- [x] **Layer B invariant test passes**: `routing-layer-b-confidence.test.ts` passes in CI.  
+  _Status: ✅ All 10 tests pass (2026-07-01)_
 
 ### P1 — Fat Channel (required for Fat Channel claims)
 

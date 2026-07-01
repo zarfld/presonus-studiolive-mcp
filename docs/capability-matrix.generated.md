@@ -48,8 +48,8 @@
 | `find_muted_monitor_sends` | `always` | `observed` | `diagnostic` | #43 REQ-F-AUX-004 |
 | `find_hot_monitor_sends` | `always` | `observed` | `diagnostic` | #44 REQ-F-AUX-005 |
 | `validate_aux_mix` | `always` | `observed` | `diagnostic` | #43 REQ-F-AUX-004 |
-| `get_input_routing` | `always` | `stub` | `stub` | REQ-F-INP-001 |
-| `validate_avb_routing` | `always` | `stub` | `stub` | REQ-F-INP-001 |
+| `get_input_routing` | `always` | `inferred` | `diagnostic` | #45 REQ-F-ROUT-011 |
+| `validate_avb_routing` | `always` | `observed` | `diagnostic` | #45 REQ-F-ROUT-011 |
 | `validate_output_routing` | `always` | `probe_required` | `diagnostic` | REQ-F-INP-002 |
 | `start_routing_probe` | `always` | `observed` | `read-only` | REQ-F-PROBE-001 |
 | `complete_routing_probe` | `always` | `observed` | `read-only` | REQ-F-PROBE-002 |

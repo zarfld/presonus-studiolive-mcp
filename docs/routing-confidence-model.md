@@ -17,7 +17,7 @@ from uncertain to verified.
 | `observed` | Directly read from live mixer state keys; confirmed by hardware probe | Layer A facts confirmed on 32SC fw 3.3.0.109659 |
 | `inferred` | Derived from key patterns or normalized mappings; plausible but not probe-confirmed | AUX send levels, FX assignment patterns |
 | `probe_required` | Must not be trusted until a probe diff-state session is run | Output patch source names, AUX de-normalization |
-| `stub` | Tool deliberately returns probe instructions only; Layer B placeholder | `get_input_routing`, `validate_avb_routing` |
+| `stub` | Tool deliberately returns probe instructions only; Layer B placeholder | (no current tools — both promoted 2026-07-01) |
 | `not_verifiable_with_current_adapter` | Permanently unobservable via current protocol/adapter | Physical cable routing, AVB stream mapping |
 | `planned` | Requirement exists; implementation not yet present | AUX/FX/SUB/MAIN channel extraction (see below) |
 
@@ -63,19 +63,24 @@ These items require operator-driven probe sessions before they can be trusted.
 
 | Item | Tool | Confidence | Required probe |
 |---|---|---|---|
-| Physical input source routing | `validate_input_routing`, `get_input_routing` | `not_verifiable_with_current_adapter` | Cannot be verified by software — cable connections are physical |
-| AVB stream routing | `validate_avb_routing`, `validate_stagebox_routing` | `not_verifiable_with_current_adapter` | Requires 32R hardware + separate probe session |
+| Physical input source routing | `get_input_routing` | `inferred` | **HIL COMPLETED 2026-07-01**: key `line.chN.inputsrc.value` confirmed. Index 0=Local, 1=Stage Box (observed). Indices 2–3 labels still probe_required. |
+| AVB stream routing | `validate_avb_routing` | `observed` | **HIL COMPLETED 2026-07-01**: keys `stageboxsetup.avb_src_{range}.value` confirmed on 32SC+32R. Labels from `.strings` array (device-specific). |
 | Output patch source names | `validate_output_routing`, `mixer-routing-outputs` | `probe_required` | Source index known; source name → index mapping needs `probe-routing diff --kind bus-to-output` |
 | AUX send de-normalization | `get_aux_mix`, `mixer-auxes` | `probe_required` | Run `probe-routing diff --kind channel-to-aux` while dragging AUX faders |
 | Pre/post AUX routing | `mixer-auxes` (prePost field) | `probe_required` | Probe while toggling pre/post switch in UC Surface |
 
-### Layer B stub tools
+### Layer B stub tools — PROMOTED (2026-07-01)
 
-`get_input_routing` and `validate_avb_routing` are **stub tools**: they always return
-`status: 'not_verifiable_with_current_adapter'` plus probe instructions. They intentionally
-never return `observed` or `inferred` confidence.
+`get_input_routing` and `validate_avb_routing` were stub tools that always returned
+`status: 'not_verifiable_with_current_adapter'`. Both were promoted on 2026-07-01 after
+successful HIL probe sessions on StudioLive 32SC fw 3.3.0.109659 + StudioLive 32R.
 
-An invariant test (`routing-layer-b-confidence.test.ts`) enforces this guarantee.
+**Evidence**: `captures/probe-input-source/` and `captures/probe-avb/`.
+
+- `get_input_routing` — now returns `status: 'inferred'` with per-channel `inputSourceIndex` / `inputSourceLabel`.
+  Confidence: `inferred` (key + indices 0,1 confirmed; indices 2,3 still `probe_required`).
+- `validate_avb_routing` — now returns `status: 'observed'` with full stream block assignments and device-specific labels.
+  Confidence: `observed` (key + value mapping + labels all confirmed from hardware).
 
 ---
 
