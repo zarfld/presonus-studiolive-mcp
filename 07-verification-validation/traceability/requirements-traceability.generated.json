@@ -1,0 +1,15 @@
+{
+  "generatedBy": "scripts/github-issues-to-traceability-json.py",
+  "note": "Auto-generated. Do not edit manually. Run `pnpm traceability` to regenerate.",
+  "_bootstrap": "Placeholder. Run `pnpm traceability` with GITHUB_TOKEN set to generate real data.",
+  "repository": "zarfld/presonus-studiolive-mcp",
+  "metrics": {},
+  "items": [],
+  "orphanAnnotations": {
+    "implements": [],
+    "verifies": []
+  },
+  "capabilitiesWithoutTraceability": [],
+  "forward_links": {},
+  "backward_links": {}
+}

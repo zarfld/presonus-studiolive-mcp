@@ -119,3 +119,108 @@ requirement issue exists. Priority order:
 | 11 orphan @implements refs | Needs corresponding GitHub issues |
 | @verifies coverage | 2/40+ test files — poor coverage, needs remediation |
 | Issue #72 (split requirements) | Open — use as template for future splits |
+
+---
+
+## 6. UNKNOWN type classification — ~11 issues
+
+The CI report shows ~11 `UNKNOWN` type issues. These are issues caught by phase labels
+(e.g., `phase:05-implementation`) but whose title prefix does not match the recognized
+vocabulary (`StR`, `REQ-F`, `REQ-NF`, `ADR`, `ARC-C`, `QA-SC`, `TEST`).
+
+The extended type vocabulary now recognizes: `IMP`, `DOC`, `HOUSEKEEPING`, `EPIC`, `BUG`, `PROBE`.
+
+**Expected sources of UNKNOWN items:**
+
+| Likely prefix | Issue type | Action |
+|---|---|---|
+| `EPIC-` | Epic tracking issue | Rename to `EPIC-NNN:` title or add `type:epic` label |
+| `HOUSEKEEPING-` | Repo maintenance | Now recognized. No action needed if title starts with `HOUSEKEEPING`. |
+| `BUG-` | Defect | Now recognized. No action needed if title starts with `BUG`. |
+| `IMP-` | Implementation task | Now recognized. No action needed if title starts with `IMP`. |
+| `DOC-` | Documentation task | Now recognized. No action needed if title starts with `DOC`. |
+| Other | Unknown | Check the `requirements-traceability.generated.md` UNKNOWN table after running `pnpm traceability` |
+
+**Action**: After running `pnpm traceability`, review the generated
+`07-verification-validation/traceability/requirements-traceability.generated.md`
+UNKNOWN section, then either:
+1. Rename the issue title to add a recognized prefix, or
+2. Add the correct `type:*` label (e.g., `type:housekeeping`, `type:epic`)
+
+---
+
+## 7. github-orphan-check.py label taxonomy fix
+
+**Problem**: `scripts/github-orphan-check.py` was using legacy hyphenated labels
+(`functional-requirement`, `non-functional`, etc.) which no longer exist in this repository.
+The actual labels use colon-separated format (`type:requirement:functional`, etc.).
+This caused the orphan check to silently find zero issues (all issues appeared to have no
+requirement labels), making the check ineffective.
+
+**Fix applied**: `REQUIREMENT_LABELS` in `github-orphan-check.py` updated to use current
+colon-separated taxonomy as primary, with hyphenated labels retained as fallback.
+
+---
+
+## 8. Additional orphan @implements annotations found in domain and resource files
+
+Beyond the `tools.ts` annotations listed in section 3, these additional files have
+REQ-ID-only `@implements` annotations (no GitHub issue number):
+
+| File | REQ-IDs |
+|---|---|
+| `packages/presonus-adapter/src/diagnostics.ts` | `REQ-F-DIAG-001`, `REQ-F-LINECHK-001` |
+| `packages/presonus-mcp-server/src/resources.ts` | `REQ-F-FAT-001`, `REQ-F-MON-001` |
+| `packages/presonus-domain/src/schemas/input-list.ts` | `REQ-F-INP-001`, `REQ-F-INP-002`, `REQ-F-INP-003` |
+| `packages/presonus-domain/src/schemas/diagnosis.ts` | `REQ-F-DIAG-001` |
+| `packages/presonus-domain/src/schemas/line-check.ts` | `REQ-F-LINECHK-001` |
+| `scripts/generate-capability-matrix.ts` | `REQ-CAP-INV-001` |
+
+**Action**: Same as section 3 — create GitHub issues and back-fill `#N` in each annotation.
+`REQ-CAP-INV-001` is special: it is the capability inventory requirement and likely maps to
+`#22 REQ-NF-002` or needs its own issue. Check the generated traceability matrix after running
+`pnpm traceability`.
+
+---
+
+## 9. Capabilities without traceability (from capability inventory)
+
+The following MCP tools/resources have `traceability: "missing"` in the capability inventory:
+
+| Name | Kind | Required action |
+|---|---|---|
+| `validate_mixer_identity` | tool | Add `@implements #N REQ-ID` near the tool registration in `tools.ts`, or update `TOOL_META` in `generate-capability-matrix.ts` |
+| `get_mixer_capabilities` | tool | Same as above |
+| `analyze_line_check_step` | tool | Same as above (maps to `REQ-F-LINECHK-001`) |
+| `diagnose_channel` | tool | Same as above (maps to `REQ-F-DIAG-001`) |
+| `mixer-raw-state` | resource | Add traceability to `RESOURCE_META` in `generate-capability-matrix.ts` |
+
+After adding traceability refs: run `pnpm inventory` and commit updated capability files,
+then run `pnpm traceability` and commit updated traceability files.
+
+---
+
+## 10. How to run pnpm traceability
+
+The `pnpm traceability` command generates committed traceability artifacts. It requires
+`GITHUB_TOKEN` with `issues: read` permission.
+
+```bash
+# Local development
+export GITHUB_TOKEN=ghp_your_token
+export GITHUB_REPOSITORY=zarfld/presonus-studiolive-mcp
+pnpm traceability
+
+# Review the generated files
+git diff 07-verification-validation/traceability/requirements-traceability.generated.*
+
+# Commit when satisfied
+git add 07-verification-validation/traceability/requirements-traceability.generated.*
+git commit -m "chore(traceability): regenerate traceability matrix"
+```
+
+In CI (`ci-standards-compliance.yml`, `code-quality` job), the script runs automatically
+with `GITHUB_TOKEN` from the workflow. If the committed artifacts differ from what the script
+generates, the `git diff --exit-code` step fails — the developer must regenerate locally
+and commit.
+

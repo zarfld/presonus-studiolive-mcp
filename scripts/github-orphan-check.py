@@ -32,13 +32,22 @@ else:
 
 API_BASE = f'https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}'
 
+# Uses current colon-separated label taxonomy (matches type:* labels in this repo)
 REQUIREMENT_LABELS = [
+    'type:requirement:functional',
+    'type:requirement:non-functional',
+    'type:architecture:decision',
+    'type:architecture:component',
+    'type:architecture:quality-scenario',
+    'type:test-case',
+    'type:test-plan',
+    # Legacy hyphenated labels kept as fallback
     'functional-requirement',
     'non-functional',
     'architecture-decision',
     'architecture-component',
     'quality-scenario',
-    'test-case'
+    'test-case',
 ]
 
 def get_headers() -> Dict[str, str]:

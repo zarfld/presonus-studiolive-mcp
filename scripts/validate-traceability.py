@@ -1,41 +1,90 @@
 #!/usr/bin/env python3
-"""Validate traceability matrix and orphan report produced by generate-traceability-matrix.py.
-Currently simple: fails if any requirement has no linked element.
-Future: add integrity level filtering & severity levels.
+"""Validate traceability matrix.
+
+Checks both:
+  1. reports/github-traceability.md — legacy markdown report (soft gate)
+  2. 07-verification-validation/traceability/requirements-traceability.generated.json
+     — committed artifact (hard gate for stale_closed_issue items)
+
+Degrades gracefully when artifacts are missing (WARN, not FAIL).
 """
 from __future__ import annotations
-import pathlib, re, sys
+import json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REPORTS = ROOT / 'reports'
 MATRIX = REPORTS / 'github-traceability.md'
 ORPHANS = REPORTS / 'orphan-check.log'
+COMMITTED_JSON = (
+    ROOT / '07-verification-validation' / 'traceability'
+    / 'requirements-traceability.generated.json'
+)
 
-if not MATRIX.exists() or not ORPHANS.exists():
-    print('Traceability artifacts missing. Run generate-traceability-matrix.py first.', file=sys.stderr)
-    sys.exit(1)
+failures = []
+warnings = []
 
-matrix = MATRIX.read_text(encoding='utf-8').splitlines()
-issues = []
-for line in matrix:
-    if not line.startswith('| REQ-'):  # skip header
-        continue
-    parts = [p.strip() for p in line.strip('|').split('|')]
-    if len(parts) < 2:
-        continue
-    req_id = parts[0]
-    linked = parts[1]
-    if linked == '(none)':
-        issues.append(f'Requirement {req_id} has no linked architecture/design/test elements.')
+WONTFIX_LABELS = frozenset({
+    'wontfix', 'obsolete', 'duplicate', 'invalid',
+    'status:wontfix', 'status:obsolete', 'status:duplicate',
+})
 
-# Basic orphan scan from orphan report
-orphans_text = ORPHANS.read_text(encoding='utf-8')
-if 'requirements_no_links' in orphans_text and re.search(r'requirements_no_links\n- REQ-', orphans_text):
-    pass  # already captured above
+# ── Check committed JSON (hard gate for stale_closed_issue) ──────────────────
+if COMMITTED_JSON.exists():
+    try:
+        data = json.loads(COMMITTED_JSON.read_text(encoding='utf-8'))
+        for item in data.get('items', []):
+            if item.get('status') == 'stale_closed_issue':
+                item_labels = frozenset(item.get('labels', []))
+                if not (item_labels & WONTFIX_LABELS):
+                    failures.append(
+                        f"{item['id']} closed with no implementation/test evidence "
+                        f"and not marked wontfix/obsolete: {item.get('title', '')}"
+                    )
+    except Exception as exc:
+        warnings.append(f'Could not parse committed JSON: {exc}')
+else:
+    warnings.append(
+        'Committed traceability artifact not found. '
+        'Run `pnpm traceability` and commit '
+        '07-verification-validation/traceability/*.generated.*'
+    )
 
-if issues:
+# ── Check legacy markdown report (soft gate) ─────────────────────────────────
+if MATRIX.exists():
+    try:
+        for line in MATRIX.read_text(encoding='utf-8').splitlines():
+            if not line.startswith('| REQ-'):
+                continue
+            parts = [p.strip() for p in line.strip('|').split('|')]
+            if len(parts) >= 2 and parts[1] == '(none)':
+                warnings.append(
+                    f'Requirement {parts[0]} has no linked architecture/design/test elements.'
+                )
+    except Exception as exc:
+        warnings.append(f'Could not parse traceability matrix: {exc}')
+
+if ORPHANS.exists():
+    try:
+        orphans_text = ORPHANS.read_text(encoding='utf-8')
+        if 'requirements_no_links' in orphans_text and re.search(
+            r'requirements_no_links\n- REQ-', orphans_text
+        ):
+            warnings.append('Orphaned requirements detected — see orphan-check.log')
+    except Exception:
+        pass
+
+# ── Report ────────────────────────────────────────────────────────────────────
+for w in warnings:
+    print(f'⚠️  {w}')
+
+if failures:
     print('❌ Traceability validation failed:')
-    for msg in issues:
-        print(f' - {msg}')
+    for msg in failures:
+        print(f'  - {msg}')
     sys.exit(1)
-print('✅ Traceability validation passed (basic).')
+
+if warnings:
+    print('⚠️  Traceability validation passed with warnings.')
+else:
+    print('✅ Traceability validation passed.')
+

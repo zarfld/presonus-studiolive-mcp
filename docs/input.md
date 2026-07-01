@@ -213,3 +213,4 @@ That will also reduce the chance that future agents apply YAGNI destructively an
 [7]: https://github.com/zarfld/presonus-studiolive-mcp/issues/72 "HOUSEKEEPING-004: Split requirements from implementation tasks · Issue #72 · zarfld/presonus-studiolive-mcp · GitHub"
 [8]: https://github.com/zarfld/presonus-studiolive-mcp/issues "Issues · zarfld/presonus-studiolive-mcp · GitHub"
 [9]: https://github.com/zarfld/presonus-studiolive-mcp/tree/master/.github/workflows "presonus-studiolive-mcp/.github/workflows at master · zarfld/presonus-studiolive-mcp · GitHub"
+  

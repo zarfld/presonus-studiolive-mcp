@@ -131,6 +131,9 @@ jobs:
     needs: [github-issues-generation]
     name: Code Quality & Standards (IEEE 1016, XP Practices)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
 
     steps:
       - name: Checkout code
@@ -186,6 +189,25 @@ jobs:
             exit 1
           fi
           echo "README claim check passed."
+
+      - name: Install Python traceability dependencies
+        run: pip install requests PyGithub
+
+      - name: Generate committed traceability artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "📊 Generating committed traceability artifacts (source scan + GitHub Issues)..."
+          pnpm traceability
+
+      - name: Verify committed traceability artifacts are not stale
+        run: |
+          git diff --exit-code \
+            07-verification-validation/traceability/requirements-traceability.generated.md \
+            07-verification-validation/traceability/requirements-traceability.generated.json \
+            || (echo "Traceability artifacts are out of date." \
+                "Run 'pnpm traceability' locally and commit the updated files." && exit 1)
 
   # Phase 05: TDD - Test-Driven Development
   unit-tests:

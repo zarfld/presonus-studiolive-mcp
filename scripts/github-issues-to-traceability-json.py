@@ -1,24 +1,23 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Convert GitHub Issues to traceability.json format
 
-Fetches requirements from GitHub Issues and generates the same traceability.json
-format that build_trace_json.py produces from markdown specs.
+Fetches requirements from GitHub Issues and generates:
+  1. build/traceability.json                               â€” ephemeral CI artifact
+     (backward-compatible format for validate-trace-coverage.py)
+  2. 07-verification-validation/traceability/
+       requirements-traceability.generated.json            â€” committed, deterministic
+  3. 07-verification-validation/traceability/
+       requirements-traceability.generated.md              â€” committed, human-readable
 
-This ensures compatibility with validate-trace-coverage.py and other tools
-that expect the build/traceability.json format.
+Source annotations (@implements, @verifies) in packages/**/*.ts are scanned locally
+and joined with GitHub issue data.
 
-Output format:
-{
-    "metrics": {
-        "requirement": {"coverage_pct": 82.0, "total": 50, "linked": 41},
-        "requirement_to_ADR": {"coverage_pct": 75.0},
-        "requirement_to_scenario": {"coverage_pct": 60.0},
-        "requirement_to_test": {"coverage_pct": 40.0}
-    },
-    "items": [...],
-    "forward_links": {...},
-    "backward_links": {...}
-}
+HIL test FILE EXISTENCE is noted, but HIL tests are NOT executed â€” they require
+real hardware that is not available on GitHub-hosted runners.
+
+Usage:
+    GITHUB_TOKEN=ghp_xxx GITHUB_REPOSITORY=owner/repo python scripts/github-issues-to-traceability-json.py
+    pnpm traceability  (same, via package.json script)
 """
 import os
 import sys
@@ -29,237 +28,431 @@ from collections import defaultdict
 from github import Github
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'build' / 'traceability.json'
+OUT_EPHEMERAL = ROOT / 'build' / 'traceability.json'
+TRACEABILITY_DIR = ROOT / '07-verification-validation' / 'traceability'
+OUT_JSON = TRACEABILITY_DIR / 'requirements-traceability.generated.json'
+OUT_MD = TRACEABILITY_DIR / 'requirements-traceability.generated.md'
+
+# Labels that exempt a closed issue from stale_closed_issue status
+WONTFIX_LABELS = frozenset({
+    'wontfix', 'obsolete', 'duplicate', 'invalid',
+    'status:wontfix', 'status:obsolete', 'status:duplicate', 'status:invalid',
+})
+
+# Types that have full traceability requirements (REQ â†’ impl â†’ verif)
+CANONICAL_REQUIREMENT_TYPES = frozenset({'REQ-F', 'REQ-NF'})
+# Types tracked but not requiring full impl+verif chains
+NON_REQ_TYPES = frozenset({'IMP', 'DOC', 'HOUSEKEEPING', 'EPIC', 'BUG', 'PROBE'})
+
+# Annotation regex â€” supports all observed forms:
+#   @implements #N REQ-ID
+#   @implements REQ-ID (#N)
+#   @implements REQ-ID
+#   @implements #N
+ANNOTATION_RE = re.compile(
+    r'@(implements|verifies)\s+'
+    r'(?:#(\d+)\s*)?'                   # optional issue# first
+    r'(REQ-[A-Za-z0-9_/-]+|StR-[A-Za-z0-9_-]+|ADR-[A-Za-z0-9_-]+'
+    r'|ARC-C-[A-Za-z0-9_-]+|QA-SC-[A-Za-z0-9_-]+|TEST-[A-Za-z0-9_-]+)?'
+    r'(?:\s*\(#(\d+)\))?',              # optional (#N) after REQ-ID
+    re.IGNORECASE,
+)
+
+
+# ---------------------------------------------------------------------------
+# Source annotation scanner
+# ---------------------------------------------------------------------------
+
+def scan_source_annotations(root: Path):
+    """Scan packages/**/*.ts for @implements and @verifies annotations.
+
+    Returns:
+        (by_issue, by_req_id, orphan_implements, orphan_verifies)
+
+        by_issue      : {issue_number: {'implements': [...], 'verifies': [...], 'hilVerifies': [...]}}
+        by_req_id     : {req_id: {'implements': [...], 'verifies': [...], 'hilVerifies': [...]}}
+        orphan_implements : annotations with REQ-ID only (no issue#)
+        orphan_verifies   : annotations with REQ-ID only (no issue#)
+    """
+    def _mk():
+        return {'implements': [], 'verifies': [], 'hilVerifies': []}
+
+    by_issue = defaultdict(_mk)
+    by_req_id = defaultdict(_mk)
+    orphan_implements = []
+    orphan_verifies = []
+
+    packages_dir = root / 'packages'
+    if not packages_dir.exists():
+        return dict(by_issue), dict(by_req_id), orphan_implements, orphan_verifies
+
+    for ts_file in sorted(packages_dir.rglob('*.ts')):
+        if 'node_modules' in ts_file.parts or 'dist' in ts_file.parts:
+            continue
+
+        is_hil = ts_file.name.endswith('.hil.test.ts')
+        rel_path = str(ts_file.relative_to(root)).replace('\\', '/')
+
+        try:
+            content = ts_file.read_text(encoding='utf-8', errors='replace')
+        except Exception:
+            continue
+
+        for lineno, line in enumerate(content.splitlines(), start=1):
+            for m in ANNOTATION_RE.finditer(line):
+                ann_type = m.group(1).lower()
+                issue_a = int(m.group(2)) if m.group(2) else None
+                req_id = m.group(3).upper() if m.group(3) else None
+                issue_b = int(m.group(4)) if m.group(4) else None
+
+                issue_num = issue_a or issue_b
+                entry = {'file': rel_path, 'line': lineno}
+                kind = 'hilVerifies' if (is_hil and ann_type == 'verifies') else ann_type
+
+                if issue_num:
+                    by_issue[issue_num][kind].append(entry)
+                    if req_id:
+                        by_req_id[req_id][kind].append(entry)
+                elif req_id:
+                    by_req_id[req_id][kind].append(entry)
+                    orphan = {'file': rel_path, 'line': lineno, 'reqId': req_id, 'issueNumber': None}
+                    if ann_type == 'implements':
+                        orphan_implements.append(orphan)
+                    else:
+                        orphan_verifies.append(orphan)
+
+    return (
+        {k: dict(v) for k, v in by_issue.items()},
+        {k: dict(v) for k, v in by_req_id.items()},
+        orphan_implements,
+        orphan_verifies,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Capability inventory loader
+# ---------------------------------------------------------------------------
+
+def load_capability_inventory(root: Path) -> dict:
+    """Load capability-inventory.json and build lookup maps."""
+    inv_path = root / 'docs' / 'generated' / 'capability-inventory.json'
+    if not inv_path.exists():
+        print(f'Warning: capability inventory not found at {inv_path}', file=sys.stderr)
+        return {'by_issue': {}, 'by_req_id': {}, 'missing': []}
+    try:
+        inv = json.loads(inv_path.read_text(encoding='utf-8'))
+    except Exception as exc:
+        print(f'Warning: failed to parse capability inventory: {exc}', file=sys.stderr)
+        return {'by_issue': {}, 'by_req_id': {}, 'missing': []}
+
+    by_issue: dict = defaultdict(list)
+    by_req_id: dict = defaultdict(list)
+    missing = []
+
+    for entry in inv.get('tools', []) + inv.get('resources', []):
+        name = entry.get('name', '')
+        kind = entry.get('kind', 'tool')
+        confidence = entry.get('confidence', 'unknown')
+        safety_class = entry.get('safetyClass', '')
+        traceability = entry.get('traceability', '') or ''
+        hil_required = confidence == 'probe_required'
+
+        cap = {'name': name, 'kind': kind, 'confidence': confidence,
+               'safetyClass': safety_class, 'hilRequired': hil_required}
+
+        if not traceability or traceability == 'missing':
+            missing.append({'name': name, 'kind': kind, 'reason': 'traceability: missing'})
+            continue
+
+        issue_nums = [int(n) for n in re.findall(r'#(\d+)', traceability)]
+        req_ids = [r.upper() for r in re.findall(
+            r'(REQ-[A-Za-z0-9_/-]+|StR-[A-Za-z0-9_-]+|ADR-[A-Za-z0-9_-]+)',
+            traceability, re.IGNORECASE)]
+
+        for num in issue_nums:
+            by_issue[num].append(cap)
+        for rid in req_ids:
+            by_req_id[rid].append(cap)
+        if not issue_nums and not req_ids:
+            missing.append({'name': name, 'kind': kind,
+                            'reason': f'traceability ref unparseable: {traceability!r}'})
+
+    return {'by_issue': dict(by_issue), 'by_req_id': dict(by_req_id), 'missing': missing}
+
+
+# ---------------------------------------------------------------------------
+# Status computation
+# ---------------------------------------------------------------------------
+
+def compute_status(item: dict) -> str:
+    """Compute traceability status. hil_blocked/probe_blocked are WARN-only in CI."""
+    req_type = item.get('type', 'UNKNOWN')
+    state = item.get('state', 'open')
+    implements = item.get('implements', [])
+    verifies = item.get('verifies', [])
+    hil_verifies = item.get('hilVerifies', [])
+    hil_required = item.get('hilRequired', False)
+    capability_confidence = item.get('confidence') or ''
+    item_labels = frozenset(item.get('labels', []))
+
+    if req_type == 'UNKNOWN':
+        return 'unknown_type'
+    if req_type in NON_REQ_TYPES:
+        return 'manual_review_required'
+
+    # probe/HIL â€” warn only (no hardware on GitHub-hosted runners)
+    if capability_confidence == 'probe_required':
+        return 'probe_blocked'
+    if hil_required and not hil_verifies:
+        return 'hil_blocked'
+
+    # Non-requirement tracked types (ADR, ARC-C, QA-SC, TEST, StR)
+    if req_type not in CANONICAL_REQUIREMENT_TYPES:
+        return 'complete' if state == 'closed' else 'planned'
+
+    # REQ-F / REQ-NF full chain
+    if state == 'closed' and not implements and not verifies:
+        if not (item_labels & WONTFIX_LABELS):
+            return 'stale_closed_issue'
+    if not implements:
+        return 'requirement_without_implementation'
+    if not verifies:
+        return 'implemented_not_verified'
+    return 'complete'
+
+
+def compute_gaps(item: dict) -> list:
+    """Generate human-readable gap descriptions."""
+    gaps = []
+    if item.get('type') not in CANONICAL_REQUIREMENT_TYPES:
+        return gaps
+    if not item.get('implements'):
+        gaps.append('no @implements annotation found in source')
+    if not item.get('verifies') and not item.get('hilVerifies'):
+        gaps.append('no @verifies annotation found in tests')
+    if item.get('hilRequired') and not item.get('hilVerifies'):
+        gaps.append('HIL test with @verifies required (probe_required capability); cannot verify in CI')
+    if not item.get('capability'):
+        gaps.append('no MCP capability mapped to this requirement')
+    return gaps
+
+
+# ---------------------------------------------------------------------------
+# Issue body link extractor (backward compat â€” unchanged logic)
+# ---------------------------------------------------------------------------
 
 def extract_issue_links(body: str) -> dict:
-    """Extract ALL issue references from body text.
-    
-    Trusts GitHub's infrastructure: any #N reference is a link.
-    Ignores markdown patterns - they're unreliable across issues.
-    
-    Returns all found references in 'traces_to' for generic linkage.
-    """
+    """Extract ALL #N issue references from body text."""
     if not body:
         return {'traces_to': []}
-    
-    # Simple approach: Extract ALL #N references from body
-    # Trust GitHub's infrastructure - any #N is a link
     all_refs = re.findall(r'#(\d+)', body)
-    unique_refs = sorted(set(int(ref) for ref in all_refs))
-    
-    return {'traces_to': unique_refs}
+    return {'traces_to': sorted(set(int(r) for r in all_refs))}
 
-def extract_issue_links_OLD_COMPLEX(body: str) -> dict:
-    """OLD COMPLEX VERSION - keeping for reference but not used"""
-    links = defaultdict(list)
-    
-    # Pattern 1: Bold inline format (with or without markdown **)
-    # Matches: Traces to:  #123 or Traces to: #123 or **Parent**: #1 (Description)
-    patterns_OLD = {
-        'traces_to': [
-            r'\*\*(?:Traces?\s+to|Parent|Traces-to)\*\*:\s*#(\d+)',  # Traces to:  #N
-            r'(?:^|\n)(?:Traces?\s+to|Parent|Traces-to):\s*#(\d+)',  # Traces to: #N (no bold)
-        ],
-        'depends_on': [
-            r'\*\*(?:Depends?\s+on|Depends-on)\*\*:\s*#(\d+)',
-            r'(?:^|\n)(?:Depends?\s+on|Depends-on):\s*#(\d+)',
-        ],
-        'verified_by': [
-            r'\*\*(?:Verified\s+by|Test|Verified-by|Verifies\s+Requirements?)\*\*:\s*#(\d+)',
-            r'(?:^|\n)(?:Verified\s+by|Test|Verified-by|Verifies\s+Requirements?):\s*#(\d+)',
-        ],
-        'implemented_by': [
-            r'\*\*(?:Implemented\s+by|Implements?|Implemented-by)\*\*:\s*#(\d+)',
-            r'(?:^|\n)(?:Implemented\s+by|Implements?|Implemented-by):\s*#(\d+)',
-        ],
-    }
-    
-    # Pattern 2: Multi-word section labels with lists
-    # Matches: **Implements Requirements**:\n- #2 (REQ-F-001)
-    section_patterns = {
-        'traces_to': r'\*\*(?:Traces?\s+to|Parent|Satisfies|Addresses)(?:\s+Requirements?)?\*\*:[^#]*?(?:^|\n)\s*-?\s*#(\d+)',
-        'depends_on': r'\*\*(?:Depends?\s+on|Dependencies|Required)\*\*:[^#]*?(?:^|\n)\s*-?\s*#(\d+)',
-        'verified_by': r'\*\*(?:Verified\s+by|Test|Validates?|Verifies)(?:\s+Requirements?)?\*\*:[^#]*?(?:^|\n)\s*-?\s*#(\d+)',
-        'implemented_by': r'\*\*(?:Implemented\s+by|Implements?)(?:\s+Requirements?)?\*\*:[^#]*?(?:^|\n)\s*-?\s*#(\d+)',
-    }
-    
-    # Additional patterns for architecture issues - find sections then extract all #N
-    architecture_section_labels = {
-        'traces_to': [
-            'Addresses Requirements?',
-            'Satisfies Requirements?',
-            'Requirements? Satisfied',
-        ],
-        'implemented_by': [
-            'Components? Affected',
-            'Architecture Decisions?',
-        ],
-        'verified_by': [
-            'Quality Scenarios?',
-            'Requirements? Verified',
-        ],
-    }
-    
-    # Extract all patterns
-    for link_type, pattern_list in patterns.items():
-        for pattern in pattern_list:
-            matches = re.findall(pattern, body, re.IGNORECASE | re.MULTILINE)
-            links[link_type].extend(int(m) for m in matches)
-    
-    for link_type, pattern in section_patterns.items():
-        matches = re.findall(pattern, body, re.IGNORECASE | re.MULTILINE | re.DOTALL)
-        links[link_type].extend(int(m) for m in matches)
-    
-    # For architecture patterns, find the labeled section and extract ALL #N references
-    for link_type, label_list in architecture_section_labels.items():
-        for label in label_list:
-            # Find sections with this label, extract up to next bold label or end
-            section_pattern = rf'\*\*(?:{label})\*\*:(.*?)(?=\*\*|\n##|\Z)'
-            sections = re.findall(section_pattern, body, re.IGNORECASE | re.MULTILINE | re.DOTALL)
-            for section in sections:
-                # Extract all #N references from this section
-                all_refs = re.findall(r'#(\d+)', section)
-                links[link_type].extend(int(ref) for ref in all_refs)
-    
-    # Generic pattern: find all issue references in traceability sections
-    # Look for various traceability section headers and extract all #N references
-    
-    # For ## headers (level 2), match until next ## header (not ###)
-    level2_headers = [
-        r'##\s+(?:Traceability|Traces\s+To)',           # ## Traceability
-        r'##\s+(?:Requirements?\s+Satisfied)',          # ## Requirements Satisfied
-    ]
-    
-    for header_pattern in level2_headers:
-        sections = re.findall(
-            rf'{header_pattern}.*?(?=\n##[^#]|$)',
-            body,
-            re.IGNORECASE | re.MULTILINE | re.DOTALL
-        )
-        
-        if sections:
-            print(f"Debug extract_issue_links: Found {len(sections)} level2 sections matching {header_pattern[:30]}...", file=sys.stderr)
-            for section in sections[:1]:  # Show first section preview
-                preview = section[:500].replace('\n', '\\n')
-                print(f"  Section (500 chars): {preview}", file=sys.stderr)
-                refs_found = re.findall(r'#(\d+)', section)
-                print(f"  Issue refs in section: {refs_found[:20]}", file=sys.stderr)
-        
-        for section in sections:
-            # Extract all #N references from the section (including subsections)
-            all_refs = re.findall(r'#(\d+)', section)
-            # Add to traces_to if not already captured
-            for ref in all_refs:
-                ref_int = int(ref)
-                if ref_int not in links['traces_to']:
-                    links['traces_to'].append(ref_int)
-    
-    # For ### headers (level 3), match until next ### or ## header
-    level3_headers = [
-        r'###\s+(?:Functional\s+Requirements?)',        # ### Functional Requirements
-        r'###\s+(?:Non-Functional\s+Requirements?)',    # ### Non-Functional Requirements
-        r'###\s+(?:Stakeholder\s+Needs?)',              # ### Stakeholder Need
-    ]
-    
-    for header_pattern in level3_headers:
-        sections = re.findall(
-            rf'{header_pattern}.*?(?=\n###|\n##|$)',
-            body,
-            re.IGNORECASE | re.MULTILINE | re.DOTALL
-        )
-        
-        for section in sections:
-            # Extract all #N references from the section
-            all_refs = re.findall(r'#(\d+)', section)
-            # Add to traces_to if not already captured
-            for ref in all_refs:
-                ref_int = int(ref)
-                if ref_int not in links['traces_to']:
-                    links['traces_to'].append(ref_int)
-    
-    # Remove duplicates while preserving order
-    for key in links:
-        links[key] = list(dict.fromkeys(links[key]))
-    
-    return dict(links)
 
-def get_requirement_type(title: str, labels: list) -> str:
-    """Determine requirement type from title and labels.
-    
-    Prioritizes title prefix, then checks labels (including colon-separated variants).
-    """
-    # Extract from title prefix (most reliable)
-    match = re.match(r'^(StR|REQ-F|REQ-NF|ADR|ARC-C|QA-SC|TEST)', title, re.IGNORECASE)
-    if match:
-        return match.group(1).upper()
-    
-    # Fallback to labels (handle both hyphen and colon separators)
-    label_map = {
-        # Colon-separated (current project standard)
-        'type:stakeholder-requirement': 'StR',
-        'type:requirement:functional': 'REQ-F',
-        'type:requirement:non-functional': 'REQ-NF',
-        'type:architecture:decision': 'ADR',
-        'type:architecture:component': 'ARC-C',
-        'type:architecture:quality-scenario': 'QA-SC',
-        'type:test-case': 'TEST',
-        'type:test-plan': 'TEST',
-        
-        # Hyphen-separated (legacy/alternative)
-        'stakeholder-requirement': 'StR',
-        'functional-requirement': 'REQ-F',
-        'non-functional': 'REQ-NF',
-        'architecture-decision': 'ADR',
-        'architecture-component': 'ARC-C',
-        'quality-scenario': 'QA-SC',
-        'test-case': 'TEST',
-        'test-plan': 'TEST',
-    }
-    
-    for label in labels:
-        # Check exact match first
-        if label in label_map:
-            return label_map[label]
-        
-        # Check if label contains any key as substring (partial match)
-        label_lower = label.lower()
-        if 'stakeholder' in label_lower:
-            return 'StR'
-        elif 'functional' in label_lower and 'non' not in label_lower:
-            return 'REQ-F'
-        elif 'non-functional' in label_lower:
-            return 'REQ-NF'
-        elif 'decision' in label_lower:
-            return 'ADR'
-        elif 'component' in label_lower:
-            return 'ARC-C'
-        elif 'quality' in label_lower or 'scenario' in label_lower:
-            return 'QA-SC'
-        elif 'test' in label_lower:
-            return 'TEST'
-    
-    return 'UNKNOWN'
+# ---------------------------------------------------------------------------
+# Markdown generator
+# ---------------------------------------------------------------------------
+
+def generate_markdown(
+    items: list,
+    orphan_implements: list,
+    orphan_verifies: list,
+    caps_without_traceability: list,
+    repo_name: str,
+) -> str:
+    lines = [
+        '# Requirements Traceability Matrix',
+        '',
+        '> **Auto-generated** by `pnpm traceability`. Do not edit manually.',
+        f'> **Repository**: `{repo_name}`',
+        '> **Standard**: ISO/IEC/IEEE 29148:2018',
+        '> **Note**: HIL tests exist as files but are NOT run in CI â€” real hardware required.',
+        '',
+    ]
+
+    status_counts: dict = defaultdict(int)
+    for it in items:
+        status_counts[it.get('status', 'unknown')] += 1
+
+    lines += ['## Summary', '', '| Status | Count |', '|---|---|']
+    for status in sorted(status_counts):
+        lines.append(f'| `{status}` | {status_counts[status]} |')
+    lines += ['']
+
+    # Unknown type items
+    unknown_items = [it for it in items if it.get('status') == 'unknown_type']
+    if unknown_items:
+        lines += [
+            '## UNKNOWN Type Items â€” Require Remediation',
+            '',
+            '> Each item below has an unrecognized type prefix. Fix by renaming the issue title',
+            '> (add a recognized prefix) or by adding the correct `type:*` label.',
+            '',
+            '| Issue | Title | Labels | Recommended fix |',
+            '|---|---|---|---|',
+        ]
+        for it in unknown_items:
+            num = it['id']
+            title = it['title'][:70].replace('|', '\\|')
+            labs = ', '.join(it.get('labels', [])[:4])
+            lines.append(
+                f"| [{num}]({it['url']}) | {title} | `{labs}` |"
+                ' Add recognized prefix (StR/REQ-F/REQ-NF/ADR/ARC-C/QA-SC/TEST/IMP/DOC/HOUSEKEEPING/EPIC/BUG) |'
+            )
+        lines += ['']
+
+    # Main requirement matrix
+    req_items = [it for it in items if it.get('type') in CANONICAL_REQUIREMENT_TYPES]
+    lines += [
+        '## Requirement Matrix (REQ-F / REQ-NF)',
+        '',
+        '| Issue | Type | Title | State | Capability | Confidence | Status |'
+        ' @implements | @verifies | HIL tests | Gaps |',
+        '|---|---|---|---|---|---|---|---|---|---|---|',
+    ]
+    for it in req_items:
+        num = it['id']
+        typ = it.get('type', '?')
+        title = it.get('title', '')[:55].replace('|', '\\|')
+        state_icon = 'âœ…' if it.get('state') == 'closed' else 'ðŸ”µ'
+        cap = f"`{it['capability']}`" if it.get('capability') else '-'
+        conf = f"`{it['confidence']}`" if it.get('confidence') else '-'
+        status = f"`{it.get('status', '?')}`"
+        impl_n = len(it.get('implements', []))
+        ver_n = len(it.get('verifies', []))
+        hil_n = len(it.get('hilVerifies', []))
+        gaps = '; '.join(it.get('gaps', [])) or '-'
+        lines.append(
+            f'| [{num}]({it["url"]}) | {typ} | {title} | {state_icon}'
+            f' | {cap} | {conf} | {status} | {impl_n} | {ver_n} | {hil_n} | {gaps} |'
+        )
+    lines += ['']
+
+    # Probe/HIL-blocked section
+    blocked = [it for it in items if it.get('status') in ('probe_blocked', 'hil_blocked')]
+    if blocked:
+        lines += [
+            '## Probe/HIL-Blocked Requirements',
+            '',
+            '> These requirements map to `probe_required` capabilities or need HIL evidence.',
+            '> They cannot be fully verified in CI. Hardware validation is required.',
+            '',
+            '| Issue | Type | Title | Status | Capability |',
+            '|---|---|---|---|---|',
+        ]
+        for it in blocked:
+            cap = it.get('capability') or '-'
+            lines.append(
+                f"| [{it['id']}]({it['url']}) | {it.get('type','?')}"
+                f" | {it.get('title','')[:60].replace('|', chr(92)+'|')} | `{it.get('status','?')}` | `{cap}` |"
+            )
+        lines += ['']
+
+    # Architecture/Decision items
+    arch_items = [it for it in items if it.get('type') in ('ADR', 'ARC-C', 'QA-SC', 'TEST', 'StR')]
+    if arch_items:
+        lines += [
+            '## Architecture / Test / StR Items',
+            '',
+            '| Issue | Type | Title | State | Status |',
+            '|---|---|---|---|---|',
+        ]
+        for it in arch_items:
+            state_icon = 'âœ…' if it.get('state') == 'closed' else 'ðŸ”µ'
+            lines.append(
+                f"| [{it['id']}]({it['url']}) | {it.get('type','?')}"
+                f" | {it.get('title','')[:60].replace('|', chr(92)+'|')} | {state_icon} | `{it.get('status','?')}` |"
+            )
+        lines += ['']
+
+    # Orphan @implements
+    if orphan_implements:
+        lines += [
+            '## Orphan @implements Annotations (no GitHub issue number)',
+            '',
+            '> Create a GitHub issue for each REQ-ID and back-fill `#N` in the annotation.',
+            '',
+            '| File | Line | REQ-ID |',
+            '|---|---|---|',
+        ]
+        for ann in orphan_implements:
+            lines.append(f"| `{ann['file']}` | {ann['line']} | `{ann['reqId']}` |")
+        lines += ['']
+
+    # Orphan @verifies
+    if orphan_verifies:
+        lines += [
+            '## Orphan @verifies Annotations (no GitHub issue number)',
+            '',
+            '| File | Line | REQ-ID |',
+            '|---|---|---|',
+        ]
+        for ann in orphan_verifies:
+            lines.append(f"| `{ann['file']}` | {ann['line']} | `{ann['reqId']}` |")
+        lines += ['']
+
+    # Capabilities without traceability
+    if caps_without_traceability:
+        lines += [
+            '## MCP Capabilities Without Requirement Traceability',
+            '',
+            '> Each MCP tool/resource should trace to at least one requirement.',
+            '',
+            '| Name | Kind | Reason |',
+            '|---|---|---|',
+        ]
+        for cap in caps_without_traceability:
+            lines.append(f"| `{cap['name']}` | {cap['kind']} | {cap['reason']} |")
+        lines += ['']
+
+    lines += [
+        '---',
+        '',
+        '*Generated by `pnpm traceability` / `scripts/github-issues-to-traceability-json.py`*',
+        '*HIL tests exist as source files but require real PreSonus hardware to execute.*',
+        '',
+    ]
+    return '\n'.join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main() -> int:
     token = os.environ.get('GITHUB_TOKEN')
     if not token:
         print('ERROR: GITHUB_TOKEN environment variable required', file=sys.stderr)
+        print('Usage: GITHUB_TOKEN=ghp_xxx pnpm traceability', file=sys.stderr)
         return 1
-    
-    repo_name = os.environ.get('GITHUB_REPOSITORY', 'zarfld/copilot-instructions-template')
-    
+
+    repo_name = os.environ.get('GITHUB_REPOSITORY', 'zarfld/presonus-studiolive-mcp')
+
     try:
         g = Github(token)
         repo = g.get_repo(repo_name)
-    except Exception as e:
-        print(f'ERROR: Failed to connect to GitHub: {e}', file=sys.stderr)
+    except Exception as exc:
+        print(f'ERROR: Failed to connect to GitHub: {exc}', file=sys.stderr)
         return 1
-    
-    print(f"Fetching issues from {repo_name}...")
-    
-    # Fetch all requirement issues
+
+    # â”€â”€ Local source annotation scan (no token needed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print('Scanning source annotations (@implements, @verifies)...', flush=True)
+    ann_by_issue, ann_by_req_id, orphan_implements, orphan_verifies = scan_source_annotations(ROOT)
+    print(f'  Issues with annotations : {len(ann_by_issue)}')
+    print(f'  REQ-IDs only (no #N)    : {len(ann_by_req_id)}')
+    print(f'  Orphan @implements       : {len(orphan_implements)}')
+    print(f'  Orphan @verifies         : {len(orphan_verifies)}')
+
+    # â”€â”€ Capability inventory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print('Loading capability inventory...', flush=True)
+    cap_inv = load_capability_inventory(ROOT)
+    caps_without_traceability = sorted(cap_inv['missing'], key=lambda x: x['name'])
+    print(f'  Capabilities without traceability: {len(caps_without_traceability)}')
+
+    # â”€â”€ Fetch GitHub Issues â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print(f'Fetching issues from {repo_name}...', flush=True)
+
     requirement_labels = [
-        # Primary labels (colon-separated)
         'type:stakeholder-requirement',
         'type:requirement:functional',
         'type:requirement:non-functional',
@@ -268,195 +461,245 @@ def main() -> int:
         'type:architecture:quality-scenario',
         'type:test-case',
         'type:test-plan',
-        
-        # Phase labels (to catch issues tagged by phase)
         'phase:01-stakeholder-requirements',
         'phase:02-requirements',
         'phase:03-architecture',
+        'phase:04-design',
+        'phase:05-implementation',
         'phase:07-verification-validation',
     ]
-    
+
     all_issues = []
-    seen_numbers = set()  # Avoid duplicates
-    
+    seen_numbers: set = set()
+
     for label in requirement_labels:
         try:
-            issues = list(repo.get_issues(labels=[label], state='all'))
-            for issue in issues:
+            for issue in repo.get_issues(labels=[label], state='all'):
                 if issue.number not in seen_numbers:
                     all_issues.append(issue)
                     seen_numbers.add(issue.number)
-        except Exception as e:
-            print(f"Warning: Could not fetch label {label}: {e}", file=sys.stderr)
-    
-    # If no labeled issues found, try fetching all open issues and filter by title prefix
+        except Exception as exc:
+            print(f'  Warning: could not fetch label {label!r}: {exc}', file=sys.stderr)
+
     if not all_issues:
-        print("Warning: No issues found with requirement labels, trying title-based detection...", file=sys.stderr)
+        print('  Warning: no labeled issues found; trying title-based detection...', file=sys.stderr)
         try:
-            all_open_issues = list(repo.get_issues(state='all'))
-            for issue in all_open_issues:
-                if re.match(r'^(StR|REQ-F|REQ-NF|ADR|ARC-C|QA-SC|TEST)', issue.title, re.IGNORECASE):
+            for issue in repo.get_issues(state='all'):
+                if re.match(
+                    r'^(StR|REQ-F|REQ-NF|ADR|ARC-C|QA-SC|TEST|IMP|DOC|HOUSEKEEPING|EPIC|BUG|PROBE)',
+                    issue.title, re.IGNORECASE,
+                ):
                     if issue.number not in seen_numbers:
                         all_issues.append(issue)
                         seen_numbers.add(issue.number)
-        except Exception as e:
-            print(f"Warning: Could not fetch all issues: {e}", file=sys.stderr)
-    
-    print(f"Found {len(all_issues)} requirement issues")
-    
-    # Build traceability structure
+        except Exception as exc:
+            print(f'  Warning: could not fetch all issues: {exc}', file=sys.stderr)
+
+    print(f'  Found {len(all_issues)} issues', flush=True)
+
+    # â”€â”€ First pass: collect types for backward linkage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    issue_types: dict = {}
+    for iss in all_issues:
+        issue_types[f'#{iss.number}'] = get_requirement_type(
+            iss.title, [l.name for l in iss.labels]
+        )
+
+    # â”€â”€ Build items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     items = []
-    forward_links = {}
-    backward_links = defaultdict(list)
-    
-    # Track requirements by type for metrics
-    requirements = []  # REQ-F, REQ-NF
-    requirements_with_adr = set()
-    requirements_with_scenario = set()
-    requirements_with_test = set()
-    requirements_with_any_link = set()
-    
-    # First pass: collect all issue types
-    issue_types = {}  # issue_id -> type
-    for issue in all_issues:
-        issue_id = f"#{issue.number}"
-        labels = [l.name for l in issue.labels]
+    forward_links: dict = {}
+    backward_links: dict = defaultdict(list)
+
+    requirements = []
+    requirements_with_adr: set = set()
+    requirements_with_scenario: set = set()
+    requirements_with_test: set = set()
+    requirements_with_any_link: set = set()
+
+    for issue in sorted(all_issues, key=lambda x: x.number):
+        issue_id = f'#{issue.number}'
+        labels = sorted(l.name for l in issue.labels)
         req_type = get_requirement_type(issue.title, labels)
-        issue_types[issue_id] = req_type
-    
-    for issue in all_issues:
-        issue_id = f"#{issue.number}"
-        labels = [l.name for l in issue.labels]
-        req_type = get_requirement_type(issue.title, labels)
-        
-        links = extract_issue_links(issue.body or "")
-        
-        # Build item entry
+        links = extract_issue_links(issue.body or '')
+
+        # Source annotations: match by issue number
+        ann = ann_by_issue.get(issue.number, {'implements': [], 'verifies': [], 'hilVerifies': []})
+
+        # Also match by REQ-ID extracted from issue title (e.g. "REQ-F-ROUT-001: ...")
+        req_id_m = re.match(r'^([A-Za-z][A-Za-z0-9_-]*?-\d{3}[a-z]?)', issue.title)
+        req_id_from_title = req_id_m.group(1).upper() if req_id_m else None
+        if req_id_from_title:
+            extra = ann_by_req_id.get(req_id_from_title, {})
+            for k in ('implements', 'verifies', 'hilVerifies'):
+                seen_entries = {(e['file'], e['line']) for e in ann[k]}
+                ann[k] = ann[k] + [e for e in extra.get(k, [])
+                                    if (e['file'], e['line']) not in seen_entries]
+
+        # Capability mapping: match by issue number, then by REQ-ID
+        cap_list = (
+            cap_inv['by_issue'].get(issue.number) or
+            (cap_inv['by_req_id'].get(req_id_from_title) if req_id_from_title else None) or
+            []
+        )
+        primary_cap = cap_list[0] if cap_list else None
+
         item = {
             'id': issue_id,
+            'issue': issue.number,
             'type': req_type,
             'title': issue.title,
             'state': issue.state,
             'url': issue.html_url,
-            'labels': labels,  # Include labels for debugging
-            'references': [],
-            'link_details': {}  # Categorized links for debugging
+            'labels': labels,
+            'references': sorted(
+                {f'#{n}' for n in links['traces_to']},
+                key=lambda x: int(x[1:]),
+            ),
+            'implements': sorted(ann['implements'], key=lambda e: (e['file'], e['line'])),
+            'verifies': sorted(ann['verifies'], key=lambda e: (e['file'], e['line'])),
+            'hilVerifies': sorted(ann['hilVerifies'], key=lambda e: (e['file'], e['line'])),
+            'capability': primary_cap['name'] if primary_cap else None,
+            'confidence': primary_cap['confidence'] if primary_cap else None,
+            'hilRequired': primary_cap['hilRequired'] if primary_cap else False,
         }
-        
-        # Collect all referenced issues
-        all_refs = set()
-        for link_type, link_list in links.items():
-            all_refs.update(f"#{n}" for n in link_list)
-            if link_list:
-                item['link_details'][link_type] = [f"#{n}" for n in link_list]
-        
-        item['references'] = sorted(all_refs, key=lambda x: int(x[1:]))  # Sort numerically
-        
+        item['status'] = compute_status(item)
+        item['gaps'] = compute_gaps(item)
+
         items.append(item)
         forward_links[issue_id] = item['references']
-        
-        # Build backward links
         for ref in item['references']:
             backward_links[ref].append(issue_id)
-        
-        # Track metrics for requirements
-        if req_type in ['REQ-F', 'REQ-NF']:
+
+        # Metrics tracking
+        if req_type in ('REQ-F', 'REQ-NF'):
             requirements.append(issue_id)
-            
             if item['references']:
                 requirements_with_any_link.add(issue_id)
-            
-            # Forward linkage: Check what this requirement links to
-            all_linked_issues = set()
-            for link_list in links.values():
-                all_linked_issues.update(link_list)
-            
-            for ref_num in all_linked_issues:
-                ref_id = f"#{ref_num}"
+            for ref_num in links['traces_to']:
+                ref_id = f'#{ref_num}'
                 ref_type = issue_types.get(ref_id, 'UNKNOWN')
-                
-                # Track linkage to ADRs
-                if ref_type == 'ADR' or ref_type == 'ARC-C':
+                if ref_type in ('ADR', 'ARC-C'):
                     requirements_with_adr.add(issue_id)
-                # Track linkage to Quality Scenarios
                 elif ref_type == 'QA-SC':
                     requirements_with_scenario.add(issue_id)
-                # Track linkage to Tests
                 elif ref_type == 'TEST':
                     requirements_with_test.add(issue_id)
-        
-        # Backward linkage: If this is an ADR/ARC-C/QA-SC/TEST linking to requirements
-        elif req_type in ['ADR', 'ARC-C', 'QA-SC', 'TEST']:
-            # Check what this artifact links to
-            all_linked_issues = set()
-            for link_list in links.values():
-                all_linked_issues.update(link_list)
-            
-            for ref_num in all_linked_issues:
-                ref_id = f"#{ref_num}"
+        elif req_type in ('ADR', 'ARC-C', 'QA-SC', 'TEST'):
+            for ref_num in links['traces_to']:
+                ref_id = f'#{ref_num}'
                 ref_type = issue_types.get(ref_id, 'UNKNOWN')
-                
-                # If linking to a requirement, count reverse linkage
-                if ref_type in ['REQ-F', 'REQ-NF']:
-                    if req_type in ['ADR', 'ARC-C']:
+                if ref_type in ('REQ-F', 'REQ-NF'):
+                    if req_type in ('ADR', 'ARC-C'):
                         requirements_with_adr.add(ref_id)
                     elif req_type == 'QA-SC':
                         requirements_with_scenario.add(ref_id)
                     elif req_type == 'TEST':
                         requirements_with_test.add(ref_id)
-    
-    # Calculate metrics
+
+    # â”€â”€ Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     total_reqs = len(requirements)
     metrics = {
         'requirement': {
-            'coverage_pct': (len(requirements_with_any_link) / total_reqs * 100) if total_reqs else 0,
+            'coverage_pct': (len(requirements_with_any_link) / total_reqs * 100)
+                            if total_reqs else 0.0,
             'total': total_reqs,
-            'linked': len(requirements_with_any_link)
+            'linked': len(requirements_with_any_link),
         }
     }
-    
     if total_reqs > 0:
         metrics['requirement_to_ADR'] = {
             'coverage_pct': len(requirements_with_adr) / total_reqs * 100,
-            'total': total_reqs,
-            'linked': len(requirements_with_adr)
+            'total': total_reqs, 'linked': len(requirements_with_adr),
         }
         metrics['requirement_to_scenario'] = {
             'coverage_pct': len(requirements_with_scenario) / total_reqs * 100,
-            'total': total_reqs,
-            'linked': len(requirements_with_scenario)
+            'total': total_reqs, 'linked': len(requirements_with_scenario),
         }
         metrics['requirement_to_test'] = {
             'coverage_pct': len(requirements_with_test) / total_reqs * 100,
-            'total': total_reqs,
-            'linked': len(requirements_with_test)
+            'total': total_reqs, 'linked': len(requirements_with_test),
         }
-    
-    # Build output
-    output = {
+
+    # â”€â”€ Write ephemeral artifact (backward compat for validate-trace-coverage.py) â”€â”€
+    ephemeral_output = {
         'source': 'github-issues',
         'repository': repo_name,
         'generated_at': __import__('datetime').datetime.utcnow().isoformat(),
         'metrics': metrics,
         'items': items,
         'forward_links': forward_links,
-        'backward_links': {k: list(v) for k, v in backward_links.items()}
+        'backward_links': {k: sorted(v) for k, v in backward_links.items()},
     }
-    
-    # Write output
-    OUT.parent.mkdir(exist_ok=True)
-    OUT.write_text(json.dumps(output, indent=2), encoding='utf-8')
-    
-    print(f"\n✅ Generated {OUT}")
-    print(f"   Total items: {len(items)}")
-    print(f"   Requirements: {total_reqs}")
+    OUT_EPHEMERAL.parent.mkdir(exist_ok=True)
+    OUT_EPHEMERAL.write_text(json.dumps(ephemeral_output, indent=2), encoding='utf-8')
+    print(f'\nâœ… Wrote ephemeral artifact : {OUT_EPHEMERAL}')
+
+    # â”€â”€ Write committed JSON (deterministic â€” no timestamps) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    committed_output = {
+        'generatedBy': 'scripts/github-issues-to-traceability-json.py',
+        'note': 'Auto-generated. Do not edit manually. Run `pnpm traceability` to regenerate.',
+        'repository': repo_name,
+        'metrics': metrics,
+        'items': items,
+        'orphanAnnotations': {
+            'implements': sorted(orphan_implements, key=lambda x: (x['file'], x['line'])),
+            'verifies':   sorted(orphan_verifies,   key=lambda x: (x['file'], x['line'])),
+        },
+        'capabilitiesWithoutTraceability': caps_without_traceability,
+        'forward_links': forward_links,
+        'backward_links': {k: sorted(v) for k, v in backward_links.items()},
+    }
+    TRACEABILITY_DIR.mkdir(parents=True, exist_ok=True)
+    OUT_JSON.write_text(json.dumps(committed_output, indent=2), encoding='utf-8')
+    print(f'âœ… Wrote committed JSON    : {OUT_JSON}')
+
+    # â”€â”€ Write committed Markdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    md_content = generate_markdown(
+        items=items,
+        orphan_implements=orphan_implements,
+        orphan_verifies=orphan_verifies,
+        caps_without_traceability=caps_without_traceability,
+        repo_name=repo_name,
+    )
+    OUT_MD.write_text(md_content, encoding='utf-8')
+    print(f'âœ… Wrote committed Markdown: {OUT_MD}')
+
+    # â”€â”€ Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    unknown_items = [it for it in items if it.get('status') == 'unknown_type']
+    stale = [it for it in items if it.get('status') == 'stale_closed_issue']
+    print(f'\nSummary:')
+    print(f'  Total items              : {len(items)}')
+    print(f'  Requirements (REQ-F/NF)  : {total_reqs}')
     if total_reqs > 0:
-        print(f"   Overall coverage: {metrics['requirement']['coverage_pct']:.1f}%")
-        print(f"   ADR linkage: {metrics.get('requirement_to_ADR', {}).get('coverage_pct', 0):.1f}%")
-        print(f"   Scenario linkage: {metrics.get('requirement_to_scenario', {}).get('coverage_pct', 0):.1f}%")
-        print(f"   Test linkage: {metrics.get('requirement_to_test', {}).get('coverage_pct', 0):.1f}%")
-    
+        print(f'  Overall issue linkage    : {metrics["requirement"]["coverage_pct"]:.1f}%')
+    print(f'  UNKNOWN type             : {len(unknown_items)}')
+    print(f'  Stale closed issues      : {len(stale)}')
+    print(f'  Orphan @implements       : {len(orphan_implements)}')
+    print(f'  Orphan @verifies         : {len(orphan_verifies)}')
+    print(f'  Capabilities w/o trace   : {len(caps_without_traceability)}')
+
+    # Emit GitHub Actions warning annotations (non-blocking)
+    if unknown_items:
+        ids = ', '.join(it['id'] for it in unknown_items)
+        print(f'::warning title=Unknown Issue Types::'
+              f'{len(unknown_items)} issues have unrecognized type ({ids}). '
+              f'See requirements-traceability.generated.md for remediation guidance.')
+    if orphan_implements:
+        print(f'::warning title=Orphan @implements::'
+              f'{len(orphan_implements)} @implements annotations have no GitHub issue number. '
+              f'See docs/issue-traceability-reconciliation.md.')
+    if orphan_verifies:
+        print(f'::warning title=Orphan @verifies::'
+              f'{len(orphan_verifies)} @verifies annotations have no GitHub issue number.')
+    if caps_without_traceability:
+        names = ', '.join(c['name'] for c in caps_without_traceability[:5])
+        extra = '...' if len(caps_without_traceability) > 5 else ''
+        print(f'::warning title=Capabilities Without Traceability::'
+              f'{len(caps_without_traceability)} MCP capabilities lack requirement traceability '
+              f'({names}{extra}).')
+
     return 0
+
 
 if __name__ == '__main__':
     raise SystemExit(main())
+
