@@ -1,8 +1,7 @@
 # Fader / Preamp Calibration Notes
 
-> **Status**: Raw observations captured. Not yet converted into a calibration formula.
-> This file is committed evidence for the next calibration task.
-> Do **not** fabricate continuity — use only the raw values below.
+> **Status**: Calibration COMPLETE. Formulas implemented and tested.
+> Evidence committed: `test/fixtures/32sc/fader-preamp/fader-preamp-calibration.json`
 
 ## Device
 
@@ -13,7 +12,7 @@
 | Firmware | 3.4.0.111374 |
 | Date | 2026-07-01 |
 | IP | 157.247.3.12 |
-| Capture method | Live UC Surface observation during HIL routing probe session |
+| Capture method | Live HIL probe: `captures/probe-fader-preamp-cal/` (gitignored) |
 
 ## Captured channels
 
@@ -22,43 +21,55 @@ HIL session of 2026-07-01. These are UI-level values as displayed in UC Surface;
 the corresponding raw state-key values need to be read by a `probe-routing dump`
 at each position to establish the calibration mapping.
 
-## Raw observations
+## Confirmed formulas
 
-| Channel | UI fader (dB) | UI preamp gain (dB) | Notes |
+### Preamp gain (OBSERVED, 5/5 anchor points match)
+
+| Parameter | Value |
+|---|---|
+| State key | `line.chN.preampgain.value` |
+| Scale | Normalized 0–1 |
+| Formula | `dB = value × 60` (linear) |
+| Range | 0–60 dB |
+| Confidence | `observed` (all 5 anchor points match exactly) |
+| Evidence | `test/fixtures/32sc/fader-preamp/fader-preamp-calibration.json` |
+
+### Fader level (inferred, 5 anchor points, max residual 0.025 dB)
+
+| Parameter | Value |
+|---|---|
+| State key | `line.chN.volume` |
+| Scale | Raw 0–100 (NOT 0–1) |
+| Behavior | SCENE-STORED — reflects last saved scene, not live fader position |
+| Formula (below unity) | `max(-84, 57.98 × log10(v / 73.36))` |
+| Formula (at/above unity) | `(v - 73.36) / 26.64 × 10` |
+| Unity raw value | 73.36 (= 0 dB) |
+| Min/max dB | -84 dB (v=0) / +10 dB (v=100) |
+| Confidence | `inferred` (taper shape confirmed from 2 intermediate anchor points) |
+| Evidence | `test/fixtures/32sc/fader-preamp/fader-preamp-calibration.json` |
+
+## Anchor points (fader)
+
+| Channel | Raw value | UI dB | Notes |
 |---|---:|---:|---|
-| Ch 1 | −84 (min) | 32 | Fader at minimum stop |
-| Ch 2 | +10 (max) | 22 | Fader at maximum stop |
-| Ch 3 | 0 (unity) | 22 | Fader at 0 dB / unity gain |
-| Ch 5 | — | 0 (min) | Overhead — preamp at minimum stop |
-| Ch 13 | — | 60 (max) | Preamp at maximum stop |
+| Ch 1 | 0 | −84 | Minimum stop (floor) |
+| Ch 29 | 23.77 | −28.4 | Intermediate |
+| Ch 21 | 59.28 | −5.36 | Intermediate |
+| Ch 3 | 73.36 | 0 | Unity gain |
+| Ch 2 | 100 | +10 | Maximum |
 
-> **Note**: "—" means the fader or preamp position was not explicitly recorded for
-> that channel at the time of capture.
+## State key mapping
 
-## State key mapping (still required)
-
-To convert the UI values above into raw normalized adapter values, run:
-
-```bash
-# Set Ch1 fader to each calibration point in UC Surface, then:
-pnpm probe:dev probe-routing dump --device 157.247.3.12 --out captures/probe-fader-cal/ch1-min.json
-# Repeat for ch1-unity, ch1-max, ch2-max, ch3-unity
-
-# Similarly for preamp gain:
-pnpm probe:dev probe-routing dump --device 157.247.3.12 --out captures/probe-preamp-cal/ch5-min.json
-# Repeat for ch13-max
-```
-
-Expected state keys (to be confirmed by diff):
-- Fader: `line.chN.volume` (normalized 0–1, formula suspected log law)
-- Preamp gain: `line.chN.preamp.gain` or similar (key pattern unconfirmed)
+Both keys confirmed:
+- Fader: `line.chN.volume` (0–100 raw scale, scene-stored)
+- Preamp gain: `line.chN.preampgain.value` (0–1 normalized, linear formula)
 
 ## Calibration formula status
 
 | Parameter | Key | Formula | Status |
 |---|---|---|---|
-| Fader level | `line.chN.volume` (suspected) | Unknown log taper | `probe_required` |
-| Preamp gain | Unknown key pattern | Unknown linear/log | `probe_required` |
+| Fader level | `line.chN.volume` | Piecewise: log10 below unity, linear above | `inferred` (5 anchor points) |
+| Preamp gain | `line.chN.preampgain.value` | `dB = value × 60` | `observed` (5 exact matches) |
 
 ## Next task scope
 

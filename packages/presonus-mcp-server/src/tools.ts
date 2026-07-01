@@ -403,18 +403,21 @@ export function registerTools(
       }
 
       // Check 3: Fader
+      // AGENT CAUTION: fader.linear is derived from scene-stored line.chN.volume.
+      // This may not reflect the current live motor/fader position.
       const faderLevel = ch?.fader?.linear ?? null
+      const faderSource = ch?.fader?.source ?? 'sceneStored'
       const faderResult = faderLevel === null ? 'unknown'
         : faderLevel < 0.01 ? 'zero'
         : faderLevel < 0.2  ? 'low'
         : 'active'
-      checks.push({ check: 'fader', result: faderResult, detail: faderLevel !== null ? `linear=${faderLevel.toFixed(3)}` : undefined })
+      checks.push({ check: 'fader', result: faderResult, detail: faderLevel !== null ? `linear=${faderLevel.toFixed(3)} source=${faderSource}` : undefined })
       if (faderResult === 'zero') {
-        likelyCauses.push('Channel fader is at minimum (zero)')
-        safeNextSteps.push(`Raise the channel fader on ${channelId}`)
+        likelyCauses.push('Channel fader appears at minimum in last saved scene (scene-stored; verify live position)')
+        safeNextSteps.push(`Check and raise the channel fader on ${channelId} — note: reading is scene-stored, not guaranteed live`)
       } else if (faderResult === 'low') {
-        likelyCauses.push('Channel fader is very low')
-        safeNextSteps.push(`Check channel fader level on ${channelId}`)
+        likelyCauses.push('Channel fader is very low in last saved scene (scene-stored; verify live position)')
+        safeNextSteps.push(`Check channel fader level on ${channelId} — note: reading is scene-stored, not guaranteed live`)
       }
 
       // Check 4: Gate/expander
@@ -1720,21 +1723,23 @@ export function registerTools(
     // ─── apply_change_set ──────────────────────────────────────────────────────
     server.tool(
       'apply_change_set',
-      'Apply a previously proposed change set to the mixer. Requires the changeSetId returned by propose_eq_change and a confirmation note from the operator. ChangeSetId expires after 60 seconds.',
+      'Apply a previously proposed change set to the mixer. Set dryRun:true to preview full resolution without writing. ChangeSetId expires after 60 seconds and is consumed on real apply.',
       {
         deviceId: z.string().describe('Device ID — must match the one in the proposed change set'),
-        changeSetId: z.string().uuid().describe('UUID returned by propose_eq_change'),
+        changeSetId: z.string().uuid().describe('UUID returned by a prepare_*_change_set or propose_eq_change tool'),
         confirmationNote: z.string()
           .min(3)
           .describe('Operator confirmation note, e.g. "Kick drum EQ adjustment approved by engineer"'),
+        dryRun: z.boolean().optional().default(false)
+          .describe('When true: return full resolution (what keys would change to what values) without sending to mixer. ChangeSet remains valid after dry-run.'),
       },
-      async ({ deviceId, changeSetId, confirmationNote }) => {
+      async ({ deviceId, changeSetId, confirmationNote, dryRun }) => {
         pruneExpiredChangeSets()
 
         const entry = changeSets.get(changeSetId)
         if (!entry) {
           return {
-            content: [{ type: 'text' as const, text: JSON.stringify({ error: `changeSetId '${changeSetId}' not found or expired (TTL: 60 s). Regenerate with propose_eq_change.` }) }],
+            content: [{ type: 'text' as const, text: JSON.stringify({ error: `changeSetId '${changeSetId}' not found or expired (TTL: 60 s). Use a prepare_*_change_set tool to create a new one.` }) }],
             isError: true,
           }
         }
@@ -1745,6 +1750,35 @@ export function registerTools(
           }
         }
 
+        // ── Dry-run path ─────────────────────────────────────────────────────
+        if (dryRun) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: JSON.stringify({
+                dryRun: true,
+                changeSetId,
+                deviceId: entry.set.deviceId,
+                channelId: entry.set.channelId,
+                description: entry.set.description,
+                changeSetConfidence: entry.set.changeSetConfidence,
+                expiresAt: entry.set.expiresAt,
+                resolution: entry.set.changes.map((c) => ({
+                  parameter: c.parameter,
+                  rawKeyPath: c.rawKeyPath,
+                  currentRawValue: c.currentRawValue,
+                  proposedRawValue: c.proposedRawValue,
+                  proposedStringValue: c.proposedStringValue ?? undefined,
+                  currentDisplayValue: c.currentDisplayValue,
+                  proposedDisplayValue: c.proposedDisplayValue,
+                })),
+                note: 'dryRun=true: no changes sent to mixer. changeSetId still valid.',
+              }, null, 2),
+            }],
+          }
+        }
+
+        // ── Real apply path ──────────────────────────────────────────────────
         const errors: string[] = []
         for (const change of entry.set.changes) {
           try {
@@ -1760,6 +1794,32 @@ export function registerTools(
             errors.push(`Failed to apply ${change.parameter}: ${String(err)}`)
           }
         }
+
+        // Post-write verification — reads from optimistically updated local flatState.
+        // For live confirmation, wait for mixer echo and compare with rawKeyPath.
+        const snapAfter = clientManager.getSnapshot(deviceId)
+        const postWriteVerification: Record<string, { expected: unknown; actual: unknown; match: boolean }> = {}
+        if (snapAfter) {
+          for (const change of entry.set.changes) {
+            const actual = snapAfter.flatState[change.rawKeyPath]
+            const expected = change.parameter === 'username' && change.proposedStringValue != null
+              ? change.proposedStringValue
+              : change.proposedRawValue
+            postWriteVerification[change.rawKeyPath] = {
+              expected,
+              actual,
+              match: actual === expected,
+            }
+          }
+        }
+
+        // Rollback hint — original values that can be used to restore state
+        const rollbackHint = entry.set.changes.map((c) => ({
+          parameter: c.parameter,
+          rawKeyPath: c.rawKeyPath,
+          currentDisplayValue: c.currentDisplayValue,
+          hint: `Was: ${c.currentDisplayValue}. To restore: prepare a new change set targeting ${c.rawKeyPath} with the original value.`,
+        }))
 
         changeSets.delete(changeSetId)  // consume the changeSet
 
@@ -1784,6 +1844,9 @@ export function registerTools(
               success: errors.length === 0,
               appliedAt,
               description: entry.set.description,
+              changeSetConfidence: entry.set.changeSetConfidence,
+              postWriteVerification: Object.keys(postWriteVerification).length > 0 ? postWriteVerification : undefined,
+              rollbackHint,
               errors: errors.length > 0 ? errors : undefined,
             }, null, 2),
           }],

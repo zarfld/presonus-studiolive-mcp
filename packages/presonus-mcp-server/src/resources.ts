@@ -46,7 +46,7 @@ export function registerResources(
   server.resource(
     'mixer-channels',
     new ResourceTemplate('presonus://mixer/{deviceId}/channels', { list: undefined }),
-    { description: 'Normalized channel list for a connected mixer (mute, name, fader, pan, color)' },
+    { description: 'Normalized channel list for a connected mixer (mute, name, fader, pan, color). fader.db is derived from scene-stored line.chN.volume and may not reflect current live motor/fader position (source: sceneStored, confidence: calibrated_inferred).' },
     async (_uri, { deviceId }) => {
       const snapshot = clientManager.getSnapshot(String(deviceId))
       const channels = snapshot?.channels ?? []

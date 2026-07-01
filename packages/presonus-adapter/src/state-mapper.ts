@@ -519,14 +519,20 @@ export function extractLineChannels(flat: Record<string, unknown>): MixerChannel
       id: prefix,
       selector: { type: 'LINE', channel: n },
       name: resolvedName,
-      mute: typeof mute === 'boolean' ? mute : undefined,
-      solo: typeof solo === 'boolean' ? solo : undefined,
+      mute: typeof mute === 'boolean' ? mute
+           : typeof mute === 'number'  ? mute !== 0
+           : undefined,
+      solo: typeof solo === 'boolean' ? solo
+           : typeof solo === 'number'  ? solo !== 0
+           : undefined,
       fader: typeof volume === 'number'
         ? {
             // volume is 0–100 raw scale (scene-stored, NOT live fader position)
             linear: Math.max(0, Math.min(1, volume / 100)),
             db: volumeRaw100ToDb(volume),
             raw: volume,
+            source: 'sceneStored' as const,
+            confidence: 'calibrated_inferred' as const,
           }
         : undefined,
       // Pan: 0.0 = full left, 0.5 = center, 1.0 = full right — OBSERVED 32SC fw 3.3.0.109659

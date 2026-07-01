@@ -429,3 +429,171 @@ describe.skipIf(!HIL)(
     })
   },
 )
+
+// ---------------------------------------------------------------------------
+// T9: Mute roundtrip � dry-run, apply, post-write verify, rollback
+// Safety semantics HIL validation (REQ-F-WRITE-005)
+// Uses line.ch11 (Klick � low-risk, can be muted briefly without affecting
+// the live mix if soundcheck is not active).
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!HIL)(
+  'T9 HIL � mute roundtrip safety semantics (prepare_mute_change_set + apply_change_set)',
+  () => {
+    const SAFE_CH = 'line.ch11'   // Klick channel � same safe channel as T1/T2
+    let hilTools: Map<string, (a: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>>
+    let devId: string
+
+    beforeAll(() => {
+      assertFreshSnapshot()
+      devId = identity.deviceId
+      const { server, tools } = makeMockServer()
+      registerTools(server, manager, { writeEnabled: true })
+      hilTools = tools
+    })
+
+    it('T9.1: dry-run returns resolution without writing to mixer', async () => {
+      assertFreshSnapshot()
+      const snap = manager.getSnapshot(devId)!
+      const ch = snap.channels.find((c) => c.id === SAFE_CH)!
+      const originalMute = ch.mute ?? false
+
+      // Prepare � toggle from current state
+      const prep = JSON.parse((await callTool(hilTools, 'prepare_mute_change_set', {
+        deviceId: devId, channelId: SAFE_CH, muted: !originalMute,
+      })).content[0]!.text) as Record<string, unknown>
+      expect(prep.changeSetId, 'changeSetId missing').toBeTruthy()
+      expect(prep.changeSetConfidence).toBe('observed')
+
+      // Dry-run
+      const dryResult = JSON.parse((await callTool(hilTools, 'apply_change_set', {
+        deviceId: devId,
+        changeSetId: prep.changeSetId,
+        confirmationNote: 'T9.1 dry-run HIL',
+        dryRun: true,
+      })).content[0]!.text) as Record<string, unknown>
+
+      expect(dryResult.dryRun).toBe(true)
+      expect(Array.isArray(dryResult.resolution)).toBe(true)
+
+      // Mixer state must be unchanged after dry-run
+      await new Promise((r) => setTimeout(r, 600))
+      const snapAfterDry = manager.getSnapshot(devId)!
+      const chAfterDry = snapAfterDry.channels.find((c) => c.id === SAFE_CH)!
+      expect(chAfterDry.mute, 'Mute changed after dry-run � dry-run must not write').toBe(originalMute)
+
+      // ChangeSet still valid (not consumed)
+      const v = JSON.parse((await callTool(hilTools, 'validate_change_set', {
+        deviceId: devId, changeSetId: prep.changeSetId,
+      })).content[0]!.text) as Record<string, unknown>
+      expect(v.valid, 'ChangeSet must remain valid after dry-run').toBe(true)
+    }, 20_000)
+
+    it('T9.2: real mute apply — post-write verification and rollback', async () => {
+      assertFreshSnapshot()
+      const snap = manager.getSnapshot(devId)!
+      const ch = snap.channels.find((c) => c.id === SAFE_CH)!
+      const originalMute = ch.mute ?? false
+      const flatKey = `${SAFE_CH}.mute`
+
+      // Step 1: Preflight — prepare mute change set
+      const prep = JSON.parse((await callTool(hilTools, 'prepare_mute_change_set', {
+        deviceId: devId, channelId: SAFE_CH, muted: !originalMute,
+      })).content[0]!.text) as Record<string, unknown>
+      expect(prep.changeSetId, 'changeSetId missing').toBeTruthy()
+
+      // Step 2: Proposed change summary must be present
+      const changes = (prep.changes as Array<{ currentDisplayValue: string; proposedDisplayValue: string }>)
+      expect(changes[0].currentDisplayValue).toBeDefined()
+      expect(changes[0].proposedDisplayValue).toBeDefined()
+
+      // Step 3: Apply (real write)
+      const applyResult = JSON.parse((await callTool(hilTools, 'apply_change_set', {
+        deviceId: devId,
+        changeSetId: prep.changeSetId,
+        confirmationNote: 'T9.2 mute HIL safety roundtrip test',
+      })).content[0]!.text) as Record<string, unknown>
+      expect(applyResult.success, 'Apply must succeed').toBe(true)
+      expect(applyResult.postWriteVerification, 'postWriteVerification must be present').toBeDefined()
+      expect(applyResult.rollbackHint, 'rollbackHint must be present').toBeDefined()
+
+      // Step 4: Wait for mixer echo and confirm state changed
+      // Note: mixer echoes mute via PV as integer (0=unmuted, 1=muted), not boolean.
+      await waitForKey(flatKey, !originalMute ? 1 : 0)
+      const chChanged = manager.getSnapshot(devId)!.channels.find((c) => c.id === SAFE_CH)!
+      expect(chChanged.mute, `Mute must be ${!originalMute} after apply`).toBe(!originalMute)
+
+      // Step 5: REVERT — safety requirement (always restore after HIL test)
+      const revert = JSON.parse((await callTool(hilTools, 'prepare_mute_change_set', {
+        deviceId: devId, channelId: SAFE_CH, muted: originalMute,
+      })).content[0]!.text) as Record<string, unknown>
+      expect(revert.changeSetId, 'revert changeSetId missing').toBeTruthy()
+
+      const revertResult = JSON.parse((await callTool(hilTools, 'apply_change_set', {
+        deviceId: devId,
+        changeSetId: revert.changeSetId,
+        confirmationNote: 'T9.2 mute revert (safety restore to original state)',
+      })).content[0]!.text) as Record<string, unknown>
+      expect(revertResult.success, 'Revert must succeed').toBe(true)
+
+      // Step 6: Verify reverted to original
+      await waitForKey(flatKey, originalMute ? 1 : 0)
+      const chReverted = manager.getSnapshot(devId)!.channels.find((c) => c.id === SAFE_CH)!
+      expect(chReverted.mute, 'Must be restored to original mute state').toBe(originalMute)
+    }, 30_000)
+
+    it('T9.3: expired changeSetId is rejected with clear error', async () => {
+      // Use a UUID that was never registered — simulates expired/unknown ID
+      const fakeId = '00000000-0000-4000-a000-000000000099'
+      const result = JSON.parse((await callTool(hilTools, 'apply_change_set', {
+        deviceId: devId,
+        changeSetId: fakeId,
+        confirmationNote: 'T9.3 expired test',
+      })).content[0]!.text) as Record<string, unknown>
+      expect(result.error, 'Expired changeSetId must return an error').toBeTruthy()
+    }, 10_000)
+
+    it('T9.4: device mismatch is rejected with clear error', async () => {
+      assertFreshSnapshot()
+      // Record original state BEFORE any changes so we can restore unconditionally.
+      const snapBefore = manager.getSnapshot(devId)!
+      const chBefore = snapBefore.channels.find((c) => c.id === SAFE_CH)!
+      const originalMute = chBefore.mute ?? false
+      const flatKey = `${SAFE_CH}.mute`
+
+      // Prepare a muted:true change set (hardcoded so the mismatch test is deterministic)
+      const prep = JSON.parse((await callTool(hilTools, 'prepare_mute_change_set', {
+        deviceId: devId, channelId: SAFE_CH, muted: true,
+      })).content[0]!.text) as Record<string, unknown>
+
+      try {
+        // Try to apply with wrong deviceId — must be rejected with error
+        const result = JSON.parse((await callTool(hilTools, 'apply_change_set', {
+          deviceId: 'serial:WRONG_DEVICE',
+          changeSetId: prep.changeSetId,
+          confirmationNote: 'T9.4 device mismatch test',
+        })).content[0]!.text) as Record<string, unknown>
+        expect(result.error, 'Device mismatch must return error').toContain('mismatch')
+      } finally {
+        // ALWAYS restore original state in two steps:
+        // 1. Consume the pending changeSet (applies muted:true transiently)
+        await callTool(hilTools, 'apply_change_set', {
+          deviceId: devId,
+          changeSetId: prep.changeSetId as string,
+          confirmationNote: 'T9.4 consume pending changeSet (transient)',
+        })
+        // 2. Restore to original mute state regardless of what happened above
+        const restore = JSON.parse((await callTool(hilTools, 'prepare_mute_change_set', {
+          deviceId: devId, channelId: SAFE_CH, muted: originalMute,
+        })).content[0]!.text) as Record<string, unknown>
+        await callTool(hilTools, 'apply_change_set', {
+          deviceId: devId,
+          changeSetId: restore.changeSetId as string,
+          confirmationNote: 'T9.4 restore Ch11 to original mute state',
+        })
+        // Wait for mixer echo to confirm restore
+        await waitForKey(flatKey, originalMute ? 1 : 0)
+      }
+    }, 20_000)
+  },
+)

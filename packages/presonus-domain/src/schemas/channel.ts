@@ -45,12 +45,32 @@ export type ChannelSelector = z.infer<typeof ChannelSelectorSchema>
 
 /** Fader state in multiple units for agent readability */
 export const FaderStateSchema = z.object({
-  /** Level in dBFS (null = unknown / pre-mapping) */
+  /**
+   * Level in dBFS (null = unknown / pre-mapping).
+   *
+   * AGENT CAUTION: Derived from scene-stored `line.chN.volume` (0–100 raw scale).
+   * This reflects the fader position at the last scene save, NOT guaranteed
+   * live motor/fader position. Do NOT use as "fader is currently at X dB".
+   * Taper formula: calibrated/inferred from 5 HIL anchor points (32SC fw 3.4.0.111374).
+   */
   db: z.number().nullable().optional(),
-  /** Linear value 0–1.0 as reported by mixer (null = unknown) */
+  /**
+   * Linear value 0–1.0 as reported by mixer (null = unknown).
+   * Same scene-stored caveat as `db`.
+   */
   linear: z.number().min(0).max(1).nullable().optional(),
   /** Raw value from mixer state for diagnostic purposes */
   raw: z.unknown().optional(),
+  /**
+   * Where this fader value was read from.
+   * 'sceneStored' = `line.chN.volume`, which is updated on scene save only.
+   */
+  source: z.enum(['sceneStored']).optional(),
+  /**
+   * Confidence level for the dB taper formula.
+   * 'calibrated_inferred' = fitted from HIL anchor points; not exhaustively validated.
+   */
+  confidence: z.enum(['calibrated_inferred', 'probe_required', 'observed']).optional(),
 })
 export type FaderState = z.infer<typeof FaderStateSchema>
 

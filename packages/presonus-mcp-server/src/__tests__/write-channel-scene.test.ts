@@ -357,3 +357,142 @@ describe('get_routing_graph enhancement â€” fxreturn + sub channels (REQ-F-READ-
     expect(subCh!.channelType).toBe('sub')
   })
 })
+
+// ---------------------------------------------------------------------------
+// apply_change_set safety semantics: dry-run, post-write verification, rollback hint
+// TDD: RED first - these tests FAIL until dry-run, postWriteVerification,
+//      rollbackHint are implemented in apply_change_set.
+// ---------------------------------------------------------------------------
+
+describe('apply_change_set safety semantics (dry-run / post-write / rollback) — REQ-F-WRITE-005', () => {
+  const DEVICE_ID = 'serial:SD7E21010066'
+  const CHANNEL_ID = 'line.ch11'  // safe test channel (Klick)
+
+  it('dryRun:true returns resolution without calling applyChange', async () => {
+    /**
+     * Verifies: apply_change_set dry-run must not call applyChange.
+     * Given: dryRun=true in the call
+     * Then:  applyChangeMock never called; response has dryRun:true + resolution array
+     */
+    const { manager, applyChangeMock } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: true })
+
+    const prep = body(await callTool(tools, 'prepare_mute_change_set', {
+      deviceId: DEVICE_ID, channelId: CHANNEL_ID, muted: true,
+    }))
+    expect(prep.changeSetId).toBeTruthy()
+
+    const dryResult = body(await callTool(tools, 'apply_change_set', {
+      deviceId: DEVICE_ID,
+      changeSetId: prep.changeSetId,
+      confirmationNote: 'dry-run unit test',
+      dryRun: true,
+    }))
+
+    expect(dryResult.dryRun).toBe(true)
+    expect(dryResult.resolution).toBeDefined()
+    expect(Array.isArray(dryResult.resolution)).toBe(true)
+    expect(applyChangeMock).not.toHaveBeenCalled()
+  })
+
+  it('dryRun:true leaves changeSetId valid (not consumed)', async () => {
+    /**
+     * Verifies: dry-run must not consume the changeSet.
+     * A subsequent validate_change_set must still return valid:true.
+     */
+    const { manager } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: true })
+
+    const prep = body(await callTool(tools, 'prepare_mute_change_set', {
+      deviceId: DEVICE_ID, channelId: CHANNEL_ID, muted: true,
+    }))
+
+    await callTool(tools, 'apply_change_set', {
+      deviceId: DEVICE_ID,
+      changeSetId: prep.changeSetId,
+      confirmationNote: 'dry-run consume test',
+      dryRun: true,
+    })
+
+    const v = body(await callTool(tools, 'validate_change_set', {
+      deviceId: DEVICE_ID, changeSetId: prep.changeSetId,
+    }))
+    expect(v.valid).toBe(true)
+  })
+
+  it('real apply returns postWriteVerification keyed by rawKeyPath', async () => {
+    /**
+     * Verifies: after a real apply, the response must include postWriteVerification
+     * with expected/actual/match for each changed key.
+     */
+    const { manager } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: true })
+
+    const prep = body(await callTool(tools, 'prepare_mute_change_set', {
+      deviceId: DEVICE_ID, channelId: CHANNEL_ID, muted: true,
+    }))
+
+    const result = body(await callTool(tools, 'apply_change_set', {
+      deviceId: DEVICE_ID,
+      changeSetId: prep.changeSetId,
+      confirmationNote: 'post-write verification test',
+    }))
+
+    expect(result.postWriteVerification).toBeDefined()
+    const pv = result.postWriteVerification as Record<string, { expected: unknown; actual: unknown; match: boolean }>
+    expect(pv['line.ch11.mute']).toBeDefined()
+    expect(pv['line.ch11.mute'].expected).toBe(1)  // muted = 1.0 raw
+  })
+
+  it('real apply returns rollbackHint array', async () => {
+    /**
+     * Verifies: apply response must include rollbackHint so agents can restore state.
+     * rollbackHint[].rawKeyPath must match the changed key.
+     */
+    const { manager } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: true })
+
+    const prep = body(await callTool(tools, 'prepare_mute_change_set', {
+      deviceId: DEVICE_ID, channelId: CHANNEL_ID, muted: true,
+    }))
+
+    const result = body(await callTool(tools, 'apply_change_set', {
+      deviceId: DEVICE_ID,
+      changeSetId: prep.changeSetId,
+      confirmationNote: 'rollback hint test',
+    }))
+
+    expect(result.rollbackHint).toBeDefined()
+    expect(Array.isArray(result.rollbackHint)).toBe(true)
+    const hints = result.rollbackHint as Array<{ rawKeyPath: string; currentDisplayValue: string }>
+    expect(hints[0].rawKeyPath).toBe('line.ch11.mute')
+    expect(hints[0].currentDisplayValue).toBe('active')  // was active before mute
+  })
+
+  it('no dryRun field (omitted) behaves as real apply (backward compat)', async () => {
+    /**
+     * Verifies: omitting dryRun entirely must not break existing callers.
+     */
+    const { manager, applyChangeMock } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: true })
+
+    const prep = body(await callTool(tools, 'prepare_mute_change_set', {
+      deviceId: DEVICE_ID, channelId: CHANNEL_ID, muted: true,
+    }))
+
+    const result = body(await callTool(tools, 'apply_change_set', {
+      deviceId: DEVICE_ID,
+      changeSetId: prep.changeSetId,
+      confirmationNote: 'backward compat test',
+      // dryRun intentionally omitted
+    }))
+
+    expect(result.success).toBe(true)
+    expect(applyChangeMock).toHaveBeenCalledOnce()
+  })
+})
