@@ -1,0 +1,287 @@
+{
+  "_description": "Fat Channel calibration fixture — StudioLive 32SC SD7E21010066 fw 3.4.0.111374, 2026-07-01",
+  "_device": "StudioLive 32SC SD7E21010066 firmware 3.4.0.111374",
+  "_date": "2026-07-01",
+  "_method": "Live UC Surface reading + probe dump (157.247.3.12)",
+  "_calibration_table": [
+    {
+      "ch": 9,
+      "param": "eq.eqgain1",
+      "raw": 0.3454,
+      "ui": -4.64,
+      "unit": "dB",
+      "formula": "(raw-0.5)*30",
+      "confidence": "observed"
+    },
+    {
+      "ch": 12,
+      "param": "eq.eqgain1",
+      "raw": 0.2474,
+      "ui": -7.58,
+      "unit": "dB",
+      "formula": "(raw-0.5)*30",
+      "confidence": "observed"
+    },
+    {
+      "ch": 11,
+      "param": "eq.eqgain1",
+      "raw": 0.268,
+      "ui": -6.96,
+      "unit": "dB",
+      "formula": "(raw-0.5)*30",
+      "confidence": "observed"
+    },
+    {
+      "ch": 1,
+      "param": "eq.eqgain1",
+      "raw": 0.5412,
+      "ui": 1.24,
+      "unit": "dB",
+      "formula": "(raw-0.5)*30",
+      "confidence": "observed"
+    },
+    {
+      "ch": 2,
+      "param": "eq.eqgain1",
+      "raw": 0.6495,
+      "ui": 4.48,
+      "unit": "dB",
+      "formula": "(raw-0.5)*30",
+      "confidence": "observed"
+    },
+    {
+      "ch": 3,
+      "param": "filter.hpf",
+      "raw": 0.3667,
+      "ui": 94,
+      "unit": "Hz",
+      "formula": "24*42^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 5,
+      "param": "filter.hpf",
+      "raw": 0.2467,
+      "ui": 60,
+      "unit": "Hz",
+      "formula": "24*42^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 8,
+      "param": "filter.hpf",
+      "raw": 0.3533,
+      "ui": 90,
+      "unit": "Hz",
+      "formula": "24*42^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 11,
+      "param": "filter.hpf",
+      "raw": 0.1233,
+      "ui": 38,
+      "unit": "Hz",
+      "formula": "24*42^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 22,
+      "param": "filter.hpf",
+      "raw": 0.5033,
+      "ui": 157,
+      "unit": "Hz",
+      "formula": "24*42^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 4,
+      "param": "filter.hpf",
+      "raw": 0.62,
+      "ui": 242,
+      "unit": "Hz",
+      "formula": "24*42^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 9,
+      "param": "eq.eqfreq1",
+      "raw": 0.2297,
+      "ui": 150.1,
+      "unit": "Hz",
+      "formula": "36*502^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 12,
+      "param": "eq.eqfreq1",
+      "raw": 0.1188,
+      "ui": 75.31,
+      "unit": "Hz",
+      "formula": "36*502^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 11,
+      "param": "eq.eqfreq1",
+      "raw": 0.1337,
+      "ui": 82.63,
+      "unit": "Hz",
+      "formula": "36*502^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 1,
+      "param": "eq.eqfreq1",
+      "raw": 0.1081,
+      "ui": 70.48,
+      "unit": "Hz",
+      "formula": "36*502^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 2,
+      "param": "eq.eqfreq1",
+      "raw": 0.1209,
+      "ui": 76.31,
+      "unit": "Hz",
+      "formula": "36*502^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 9,
+      "param": "eq.eqq1",
+      "raw": 0.827,
+      "ui": 4.46,
+      "unit": "Q",
+      "formula": "0.028*466^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 12,
+      "param": "eq.eqq1",
+      "raw": 0.833,
+      "ui": 4.61,
+      "unit": "Q",
+      "formula": "0.028*466^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 11,
+      "param": "eq.eqq1",
+      "raw": 0.82,
+      "ui": 4.31,
+      "unit": "Q",
+      "formula": "0.028*466^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 1,
+      "param": "eq.eqq1",
+      "raw": 0.75,
+      "ui": 2.97,
+      "unit": "Q",
+      "formula": "0.028*466^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 2,
+      "param": "eq.eqq1",
+      "raw": 0.5,
+      "ui": 0.6,
+      "unit": "Q",
+      "formula": "0.028*466^raw",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 1,
+      "param": "eq.eqtype1",
+      "raw": 0.333,
+      "ui": "LOW_SHELF",
+      "unit": "type",
+      "formula": "round(raw*3)->1=LOW_SHELF",
+      "confidence": "observed"
+    },
+    {
+      "ch": 1,
+      "param": "eq.eqtype2",
+      "raw": 1,
+      "ui": "BELL",
+      "unit": "type",
+      "formula": "round(raw*3)->3=BELL",
+      "confidence": "observed"
+    },
+    {
+      "ch": 11,
+      "param": "comp.threshold",
+      "raw": 0.493,
+      "ui": -28.39,
+      "unit": "dBFS",
+      "formula": "(raw-1)*56",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 12,
+      "param": "comp.threshold",
+      "raw": 0.535,
+      "ui": -26.04,
+      "unit": "dBFS",
+      "formula": "(raw-1)*56",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 11,
+      "param": "comp.gain",
+      "raw": 0.2,
+      "ui": 5.6,
+      "unit": "dB",
+      "formula": "raw*27.6",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 12,
+      "param": "comp.gain",
+      "raw": 0.183,
+      "ui": 5.13,
+      "unit": "dB",
+      "formula": "raw*27.6",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 11,
+      "param": "comp.attack",
+      "raw": 0.19,
+      "ui": 1.37,
+      "unit": "ms",
+      "formula": "0.2*e^(10.3*raw)",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 12,
+      "param": "comp.attack",
+      "raw": 0.363,
+      "ui": 8,
+      "unit": "ms",
+      "formula": "0.2*e^(10.3*raw)",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 11,
+      "param": "gate.threshold",
+      "raw": 0.7308,
+      "ui": -22.62,
+      "unit": "dBFS",
+      "formula": "(raw-1)*84",
+      "confidence": "calibrated_inferred"
+    },
+    {
+      "ch": 12,
+      "param": "gate.threshold",
+      "raw": 0.6713,
+      "ui": -27.61,
+      "unit": "dBFS",
+      "formula": "(raw-1)*84",
+      "confidence": "calibrated_inferred"
+    }
+  ]
+}
