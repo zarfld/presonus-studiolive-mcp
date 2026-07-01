@@ -22,7 +22,7 @@
     "mcp:server:dev": "tsx packages/presonus-mcp-server/src/index.ts",
     "typecheck": "tsc --build --dry",
     "inventory": "tsx scripts/generate-capability-matrix.ts",
-    "traceability": "py scripts/github-issues-to-traceability-json.py"
+    "traceability": "node scripts/run-python-script.mjs scripts/github-issues-to-traceability-json.py"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,0 +1,12 @@
+# Python dependencies for pnpm traceability
+#
+# Install with:
+#   pip install -r requirements-traceability.txt
+#
+# Then run:
+#   GITHUB_TOKEN=ghp_xxx pnpm traceability
+#
+# Note: pnpm traceability requires a GITHUB_TOKEN with read:issues scope.
+# Without a token the script exits with "GITHUB_TOKEN required".
+#
+PyGithub>=2.0,<3
