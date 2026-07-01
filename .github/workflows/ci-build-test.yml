@@ -1,0 +1,70 @@
+name: CI — Build, Typecheck, Test, Inventory Drift
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
+  pull_request:
+    branches:
+      - master
+      - main
+      - develop
+
+jobs:
+  build-test:
+    name: Build, Typecheck & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test (unit + integration, excluding HIL)
+        run: pnpm test
+
+      - name: Verify capability inventory is not stale
+        run: |
+          pnpm inventory
+          git diff --exit-code docs/capability-matrix.generated.md docs/generated/capability-inventory.json \
+            || (echo "Capability inventory is out of date. Run 'pnpm inventory' and commit the result." && exit 1)
+
+      - name: Verify README contains no unqualified field-ready / v1.0 claims
+        run: |
+          # Allow the phrase only in a negated / release-checklist context.
+          # Fail if the pattern appears as a current product claim.
+          CLAIM_PATTERN='field-ready backend|Field-ready backend|v1\.0 backend|version 1\.0'
+          if grep -qE "$CLAIM_PATTERN" README.md; then
+            echo "README contains unqualified status claim. Remove or qualify it:"
+            grep -nE "$CLAIM_PATTERN" README.md
+            exit 1
+          fi
+          echo "README claim check passed."
+
+# HIL tests are NOT run in standard CI.
+# To run HIL tests: HIL_PRESONUS=1 HIL_PRESONUS_IP=<ip> pnpm test:hil
+# Only run when a physical StudioLive mixer is connected and explicitly requested.
