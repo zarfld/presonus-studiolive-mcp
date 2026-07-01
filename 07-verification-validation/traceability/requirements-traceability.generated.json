@@ -1,15 +1,3665 @@
 {
   "generatedBy": "scripts/github-issues-to-traceability-json.py",
   "note": "Auto-generated. Do not edit manually. Run `pnpm traceability` to regenerate.",
-  "_bootstrap": "Placeholder. Run `pnpm traceability` with GITHUB_TOKEN set to generate real data.",
   "repository": "zarfld/presonus-studiolive-mcp",
-  "metrics": {},
-  "items": [],
+  "metrics": {
+    "requirement": {
+      "coverage_pct": 100.0,
+      "total": 43,
+      "linked": 43
+    },
+    "requirement_to_ADR": {
+      "coverage_pct": 100.0,
+      "total": 43,
+      "linked": 43
+    },
+    "requirement_to_scenario": {
+      "coverage_pct": 72.09302325581395,
+      "total": 43,
+      "linked": 31
+    },
+    "requirement_to_test": {
+      "coverage_pct": 41.86046511627907,
+      "total": 43,
+      "linked": 18
+    }
+  },
+  "items": [
+    {
+      "id": "#1",
+      "issue": 1,
+      "type": "StR",
+      "title": "Multi-mixer discovery and state inventory for AI context provision",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/1",
+      "labels": [
+        "phase:01-stakeholder-requirements",
+        "priority-critical",
+        "status:closed",
+        "type:requirement:stakeholder"
+      ],
+      "references": [],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#2",
+      "issue": 2,
+      "type": "StR",
+      "title": "Show preparation from rider documents (input list, patch plan, scene checklist)",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/2",
+      "labels": [
+        "phase:01-stakeholder-requirements",
+        "priority-high",
+        "priority:p1",
+        "status:backlog",
+        "type:requirement:stakeholder"
+      ],
+      "references": [],
+      "implements": [
+        {
+          "file": "packages/presonus-domain/src/schemas/show.ts",
+          "line": 5
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "planned",
+      "gaps": []
+    },
+    {
+      "id": "#3",
+      "issue": 3,
+      "type": "StR",
+      "title": "Soundcheck assistance via read-only mixer diagnostics",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/3",
+      "labels": [
+        "phase:01-stakeholder-requirements",
+        "priority:p1",
+        "status:closed",
+        "type:requirement:stakeholder"
+      ],
+      "references": [
+        "#74",
+        "#76",
+        "#78",
+        "#79",
+        "#80",
+        "#81",
+        "#82",
+        "#83"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#4",
+      "issue": 4,
+      "type": "StR",
+      "title": "Routing validation between FOH and stagebox mixer units",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/4",
+      "labels": [
+        "phase:01-stakeholder-requirements",
+        "priority-medium",
+        "priority:p2",
+        "status:backlog",
+        "type:requirement:stakeholder"
+      ],
+      "references": [],
+      "implements": [
+        {
+          "file": "packages/presonus-domain/src/schemas/routing.ts",
+          "line": 5
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "planned",
+      "gaps": []
+    },
+    {
+      "id": "#5",
+      "issue": 5,
+      "type": "StR",
+      "title": "Safety constraint: no autonomous live mixing by AI agents",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/5",
+      "labels": [
+        "phase:01-stakeholder-requirements",
+        "priority-critical",
+        "status:closed",
+        "type:requirement:stakeholder"
+      ],
+      "references": [],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#6",
+      "issue": 6,
+      "type": "ADR",
+      "title": "ADR-001: Use TypeScript/Node.js 20+ as implementation language",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/6",
+      "labels": [
+        "phase:03-architecture",
+        "status:closed",
+        "type:architecture:decision"
+      ],
+      "references": [
+        "#1",
+        "#2",
+        "#3"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#7",
+      "issue": 7,
+      "type": "ADR",
+      "title": "ADR-002: Three-layer architecture (Raw PreSonus \u2192 Normalized domain model \u2192 MCP surface)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/7",
+      "labels": [
+        "phase:03-architecture",
+        "priority-critical",
+        "status:closed",
+        "type:architecture:decision"
+      ],
+      "references": [
+        "#1",
+        "#5"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#8",
+      "issue": 8,
+      "type": "ADR",
+      "title": "ADR-003: pnpm monorepo with four packages (domain, adapter, inspector, mcp-server)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/8",
+      "labels": [
+        "phase:03-architecture",
+        "priority-high",
+        "status:closed",
+        "type:architecture:decision"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#9",
+      "issue": 9,
+      "type": "ADR",
+      "title": "ADR-004: Use @featherbear/presonus-studiolive-api v1.8.0 as hardware adapter (pinned)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/9",
+      "labels": [
+        "phase:03-architecture",
+        "priority-critical",
+        "status:closed",
+        "type:architecture:decision"
+      ],
+      "references": [
+        "#1",
+        "#3"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#10",
+      "issue": 10,
+      "type": "ADR",
+      "title": "ADR-005: Read-only-first policy; write operations require explicit change-set gate",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/10",
+      "labels": [
+        "phase:03-architecture",
+        "priority-critical",
+        "status:closed",
+        "type:architecture:decision"
+      ],
+      "references": [
+        "#5",
+        "#15",
+        "#17",
+        "#22"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-domain/src/schemas/write.ts",
+          "line": 5
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#11",
+      "issue": 11,
+      "type": "ARC-C",
+      "title": "ARC-C-001: presonus-domain package \u2014 Zod schemas for normalized mixer domain model",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/11",
+      "labels": [
+        "phase:03-architecture",
+        "priority-critical",
+        "status:closed",
+        "type:architecture:component"
+      ],
+      "references": [
+        "#7",
+        "#8"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#12",
+      "issue": 12,
+      "type": "ARC-C",
+      "title": "ARC-C-002: presonus-adapter package \u2014 featherbear wrapper, state cache, meter summarizer",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/12",
+      "labels": [
+        "phase:03-architecture",
+        "priority-critical",
+        "status:closed",
+        "type:architecture:component"
+      ],
+      "references": [
+        "#7",
+        "#8",
+        "#9"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#13",
+      "issue": 13,
+      "type": "ARC-C",
+      "title": "ARC-C-003: presonus-inspector package \u2014 probe CLI for hardware reconnaissance",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/13",
+      "labels": [
+        "phase:03-architecture",
+        "priority-high",
+        "status:closed",
+        "type:architecture:component"
+      ],
+      "references": [
+        "#7",
+        "#8"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#14",
+      "issue": 14,
+      "type": "ARC-C",
+      "title": "ARC-C-004: presonus-mcp-server package \u2014 MCP resources, tools, prompts",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/14",
+      "labels": [
+        "phase:03-architecture",
+        "priority-critical",
+        "status:closed",
+        "type:architecture:component"
+      ],
+      "references": [
+        "#7",
+        "#8",
+        "#10"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#15",
+      "issue": 15,
+      "type": "REQ-F",
+      "title": "REQ-F-001: Auto-discover StudioLive III mixers on local subnet via broadcast",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/15",
+      "labels": [
+        "phase:02-requirements",
+        "priority-critical",
+        "status:closed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/client-manager.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/presonus-adapter/src/discovery.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/presonus-domain/src/schemas/mixer.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 6
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "discover_mixers",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#16",
+      "issue": 16,
+      "type": "REQ-F",
+      "title": "REQ-F-002: Identify each mixer by stable serial number (not IP address)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/16",
+      "labels": [
+        "phase:02-requirements",
+        "priority-critical",
+        "status:closed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/client-manager.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/presonus-adapter/src/discovery.ts",
+          "line": 9
+        },
+        {
+          "file": "packages/presonus-domain/src/schemas/mixer.ts",
+          "line": 6
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_mixer_identity",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#17",
+      "issue": 17,
+      "type": "REQ-F",
+      "title": "REQ-F-003: Expose normalized channel list as MCP resource presonus://mixer/{id}/channels",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/17",
+      "labels": [
+        "phase:02-requirements",
+        "priority-critical",
+        "status:closed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1",
+        "#3"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/presonus-domain/src/schemas/channel.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 5
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "mixers",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#18",
+      "issue": 18,
+      "type": "REQ-F",
+      "title": "REQ-F-004: Expose meter summary (silent/active/clipping) as MCP resource presonus://mixer/{id}/meters/summary",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/18",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "status:closed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1",
+        "#3"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/meter-summarizer.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/presonus-domain/src/schemas/metering.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 6
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "mixer-meters-summary",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#19",
+      "issue": 19,
+      "type": "REQ-F",
+      "title": "REQ-F-005: Expose current scene/project as MCP resource presonus://mixer/{id}/scene/current",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/19",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "status:closed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 7
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "mixer-scene-current",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#20",
+      "issue": 20,
+      "type": "REQ-F",
+      "title": "REQ-F-006: presonus-probe CLI shall dump complete mixer state to timestamped JSON fixture",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/20",
+      "labels": [
+        "phase:02-requirements",
+        "priority-critical",
+        "status:closed",
+        "type:requirement:stakeholder"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-inspector/src/cli/commands/diff-state.ts",
+          "line": 8
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "mixer-raw-state",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#21",
+      "issue": 21,
+      "type": "REQ-NF",
+      "title": "REQ-NF-001: Discovery response time shall be \u2264 5 s (95th percentile) on local subnet",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/21",
+      "labels": [
+        "phase:02-requirements",
+        "priority-critical",
+        "status:closed",
+        "type:requirement:non-functional"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/discovery.ts",
+          "line": 10
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#22",
+      "issue": 22,
+      "type": "REQ-NF",
+      "title": "REQ-NF-002: Zero write-capable MCP tools shall be registered in default/locked configuration",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/22",
+      "labels": [
+        "phase:02-requirements",
+        "priority-critical",
+        "status:closed",
+        "type:requirement:non-functional"
+      ],
+      "references": [
+        "#5",
+        "#10"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/client-manager.ts",
+          "line": 7
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/__tests__/tool-inventory.snapshot.test.ts",
+          "line": 15
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/index.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/server.ts",
+          "line": 5
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 5
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#23",
+      "issue": 23,
+      "type": "REQ-NF",
+      "title": "REQ-NF-003: State cache shall reflect mixer changes within 500 ms of featherbear event receipt",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/23",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "status:closed",
+        "type:requirement:non-functional"
+      ],
+      "references": [
+        "#1",
+        "#3"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/meter-summarizer.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 7
+        },
+        {
+          "file": "packages/presonus-domain/src/schemas/metering.ts",
+          "line": 6
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#24",
+      "issue": 24,
+      "type": "REQ-NF",
+      "title": "REQ-NF-004: MCP server shall be operational (stdio ready) within 3 s of process start",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/24",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "status:closed",
+        "type:requirement:non-functional"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/client-manager.ts",
+          "line": 8
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/index.ts",
+          "line": 6
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/server.ts",
+          "line": 6
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#25",
+      "issue": 25,
+      "type": "QA-SC",
+      "title": "QA-SC-001: Soundcheck diagnosis \u2014 state cache reflects mixer change within 500 ms",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/25",
+      "labels": [
+        "phase:03-architecture",
+        "priority-high",
+        "status:closed",
+        "type:architecture:quality-scenario"
+      ],
+      "references": [
+        "#1",
+        "#3",
+        "#7",
+        "#23"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#26",
+      "issue": 26,
+      "type": "QA-SC",
+      "title": "QA-SC-002: Safety boundary \u2014 zero write tools callable in default/control_locked configuration",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/26",
+      "labels": [
+        "phase:03-architecture",
+        "priority-critical",
+        "status:closed",
+        "type:architecture:quality-scenario"
+      ],
+      "references": [
+        "#5",
+        "#10",
+        "#22"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#27",
+      "issue": 27,
+      "type": "QA-SC",
+      "title": "QA-SC-003: Reliability \u2014 server serves cached state and reconnects after mixer disconnect",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/27",
+      "labels": [
+        "phase:03-architecture",
+        "priority-high",
+        "status:closed",
+        "type:architecture:quality-scenario"
+      ],
+      "references": [
+        "#1",
+        "#10",
+        "#12",
+        "#24"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#29",
+      "issue": 29,
+      "type": "ADR",
+      "title": "ADR-007: Routing domain \u2014 read-only-first with explicit not_verifiable status",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/29",
+      "labels": [
+        "phase:03-architecture",
+        "priority-high",
+        "priority:p1",
+        "status:in-progress",
+        "type:architecture:decision"
+      ],
+      "references": [
+        "#4",
+        "#10"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#30",
+      "issue": 30,
+      "type": "REQ-NF",
+      "title": "REQ-NF-ROUT-001: All routing responses shall include explicit confidence/verifiability field",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/30",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "priority:p1",
+        "status:in-progress",
+        "type:requirement:non-functional"
+      ],
+      "references": [
+        "#4",
+        "#29"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 160
+        },
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 245
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 157
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#31",
+      "issue": 31,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-001: Expose per-channel AUX/FX/SUB send routing as MCP resource presonus://mixer/{id}/routing",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/31",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "priority:p1",
+        "status:in-progress",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#29",
+        "#30"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 159
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 132
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#32",
+      "issue": 32,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-002: get_routing_graph tool \u2014 consolidated routing view with confidence fields",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/32",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "priority:p1",
+        "status:in-progress",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#29",
+        "#31"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 422
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 188
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "get_routing_graph",
+      "confidence": "probe_required",
+      "hilRequired": true,
+      "status": "probe_blocked",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "HIL test with @verifies required (probe_required capability); cannot verify in CI"
+      ]
+    },
+    {
+      "id": "#33",
+      "issue": 33,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-003: validate_input_routing tool \u2014 meter + mute + name checks per expected route",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/33",
+      "labels": [
+        "phase:02-requirements",
+        "priority-critical",
+        "priority:p0",
+        "status:in-progress",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#29",
+        "#30"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 244
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_input_routing",
+      "confidence": "not_verifiable_with_current_adapter",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#34",
+      "issue": 34,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-004: validate_stagebox_routing tool \u2014 stagebox presence + mode check",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/34",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "priority:p1",
+        "status:in-progress",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#29",
+        "#30"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 320
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_stagebox_routing",
+      "confidence": "probe_required",
+      "hilRequired": true,
+      "status": "probe_blocked",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "HIL test with @verifies required (probe_required capability); cannot verify in CI"
+      ]
+    },
+    {
+      "id": "#35",
+      "issue": 35,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-005: diagnose_no_signal_routing tool \u2014 structured diagnosis: meter + mute + fader + gate + stagebox",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/35",
+      "labels": [
+        "phase:02-requirements",
+        "priority-critical",
+        "priority:p0",
+        "status:in-progress",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#3",
+        "#4",
+        "#29",
+        "#30"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 363
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "diagnose_no_signal_routing",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#36",
+      "issue": 36,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-006: detect_possible_patch_swap tool \u2014 cross-correlate expected vs actual signal activity",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/36",
+      "labels": [
+        "phase:02-requirements",
+        "priority-high",
+        "priority:p1",
+        "status:in-progress",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#3",
+        "#4",
+        "#29"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 469
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "detect_possible_patch_swap",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#37",
+      "issue": 37,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-007: Expose output patch router as MCP resource presonus://mixer/{id}/routing/outputs",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/37",
+      "labels": [
+        "phase:02-requirements",
+        "priority-medium",
+        "priority:p2",
+        "status:in-progress",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#29",
+        "#30"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/routing-confidence.test.ts",
+          "line": 14
+        },
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 244
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 156
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/routing-confidence.test.ts",
+          "line": 17
+        }
+      ],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": [
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#38",
+      "issue": 38,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-008: RoutingKind + MixerRoute unified type with per-route confidence",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/38",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#31"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 235
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#39",
+      "issue": 39,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-009: FX send assignment (assign_FXA\u2013FXH) extraction in adapter",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/39",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#31"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 211
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#40",
+      "issue": 40,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-010: Non-LINE channel AUX routing (RETURN, FXRETURN, TALKBACK) extraction",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/40",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#31",
+        "#38"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 236
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 397
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1386
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_output_patch_labels",
+      "confidence": "probe_required",
+      "hilRequired": true,
+      "status": "probe_blocked",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "HIL test with @verifies required (probe_required capability); cannot verify in CI"
+      ]
+    },
+    {
+      "id": "#41",
+      "issue": 41,
+      "type": "REQ-F",
+      "title": "REQ-F-AUX-002: find_missing_monitor_sends tool (zero-expectation unassigned/silent send detection)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/41",
+      "labels": [
+        "monitor-mix",
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#38"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 13
+        },
+        {
+          "file": "packages/presonus-domain/src/schemas/mixauxes.ts",
+          "line": 15
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 178
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 812
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 17
+        }
+      ],
+      "hilVerifies": [],
+      "capability": "get_aux_mix",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#42",
+      "issue": 42,
+      "type": "REQ-F",
+      "title": "REQ-F-AUX-003: find_muted_monitor_sends tool (muted send detection in aux mix)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/42",
+      "labels": [
+        "monitor-mix",
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 14
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 847
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 18
+        }
+      ],
+      "hilVerifies": [],
+      "capability": "validate_monitor_requirements",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#43",
+      "issue": 43,
+      "type": "REQ-F",
+      "title": "REQ-F-AUX-004: find_hot_monitor_sends tool (configurable threshold hot send detection)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/43",
+      "labels": [
+        "monitor-mix",
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 15
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 876
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 19
+        }
+      ],
+      "hilVerifies": [],
+      "capability": "find_muted_monitor_sends",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#44",
+      "issue": 44,
+      "type": "REQ-F",
+      "title": "REQ-F-AUX-005: validate_aux_mix tool (zero-expectation combined aux mix audit)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/44",
+      "labels": [
+        "monitor-mix",
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#41",
+        "#42",
+        "#43"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 16
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 909
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 20
+        }
+      ],
+      "hilVerifies": [],
+      "capability": "find_hot_monitor_sends",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#45",
+      "issue": 45,
+      "type": "REQ-F",
+      "title": "REQ-F-ROUT-011: Layer B routing stubs (get_input_routing, validate_avb_routing, validate_output_routing)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/45",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#38"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-domain/src/schemas/validation.ts",
+          "line": 12
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 960
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 977
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 995
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_channel_setup",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#46",
+      "issue": 46,
+      "type": "REQ-F",
+      "title": "REQ-F-PROBE-002: probe-routing CLI command with --kind filter for routing key discovery",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/46",
+      "labels": [
+        "inspector",
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#20"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-inspector/src/__tests__/probe-routing-kinds.test.ts",
+          "line": 4
+        },
+        {
+          "file": "packages/presonus-inspector/src/cli/commands/probe-routing.ts",
+          "line": 12
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1050
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-inspector/src/__tests__/probe-routing-kinds.test.ts",
+          "line": 7
+        }
+      ],
+      "hilVerifies": [],
+      "capability": "complete_routing_probe",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#47",
+      "issue": 47,
+      "type": "ADR",
+      "title": "ADR-008: Two-layer routing model \u2014 observable (Layer A) vs probe-required (Layer B)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/47",
+      "labels": [
+        "phase:03-architecture",
+        "priority:p1",
+        "routing",
+        "status:backlog",
+        "type:architecture:decision"
+      ],
+      "references": [
+        "#4",
+        "#29",
+        "#38",
+        "#39",
+        "#40",
+        "#41",
+        "#42",
+        "#43",
+        "#44",
+        "#45",
+        "#46"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "mixer-fx-sends",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#48",
+      "issue": 48,
+      "type": "QA-SC",
+      "title": "QA-SC-AUX-001: AUX monitor tool response latency under live performance conditions",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/48",
+      "labels": [
+        "phase:03-architecture",
+        "priority:p1",
+        "status:backlog",
+        "type:architecture:quality-scenario"
+      ],
+      "references": [
+        "#41",
+        "#42",
+        "#43",
+        "#44"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "planned",
+      "gaps": []
+    },
+    {
+      "id": "#49",
+      "issue": 49,
+      "type": "QA-SC",
+      "title": "QA-SC-ROUT-001: Routing confidence propagation \u2014 unverified routes never misrepresented",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/49",
+      "labels": [
+        "phase:03-architecture",
+        "priority:p1",
+        "status:backlog",
+        "type:architecture:quality-scenario"
+      ],
+      "references": [
+        "#37",
+        "#38",
+        "#39",
+        "#40",
+        "#45",
+        "#47"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/routing-confidence.test.ts",
+          "line": 15
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/routing-confidence.test.ts",
+          "line": 18
+        }
+      ],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#50",
+      "issue": 50,
+      "type": "QA-SC",
+      "title": "QA-SC-PROBE-001: probe-routing --kind filter completeness and error guidance",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/50",
+      "labels": [
+        "phase:03-architecture",
+        "priority:p2",
+        "status:backlog",
+        "type:architecture:quality-scenario"
+      ],
+      "references": [
+        "#46"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-inspector/src/__tests__/probe-routing-kinds.test.ts",
+          "line": 6
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#51",
+      "issue": 51,
+      "type": "TEST",
+      "title": "TEST: Output patch router resource extraction \u2014 REQ-F-ROUT-007",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/51",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#37"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/routing-confidence.test.ts",
+          "line": 16
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#52",
+      "issue": 52,
+      "type": "TEST",
+      "title": "TEST: RoutingKind + MixerRoute schema validation \u2014 REQ-F-ROUT-008",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/52",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#38"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#53",
+      "issue": 53,
+      "type": "TEST",
+      "title": "TEST: FX send assignment extraction (assign_FXA-H) \u2014 REQ-F-ROUT-009",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/53",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#39"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#54",
+      "issue": 54,
+      "type": "TEST",
+      "title": "TEST: Non-LINE channel AUX routing extraction (RETURN, FXRETURN, TALKBACK) \u2014 REQ-F-ROUT-010",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/54",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#40"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#55",
+      "issue": 55,
+      "type": "TEST",
+      "title": "TEST: AUX mix extraction from flat state (find_missing_monitor_sends data layer) \u2014 REQ-F-AUX-002",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/55",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#41"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 13
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 17
+        }
+      ],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#56",
+      "issue": 56,
+      "type": "TEST",
+      "title": "TEST: find_muted_monitor_sends \u2014 muted_send audit schema validation \u2014 REQ-F-AUX-003",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/56",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#42"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 14
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 18
+        }
+      ],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#57",
+      "issue": 57,
+      "type": "TEST",
+      "title": "TEST: find_hot_monitor_sends \u2014 hot_send threshold schema validation \u2014 REQ-F-AUX-004",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/57",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#43"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 15
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 19
+        }
+      ],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#58",
+      "issue": 58,
+      "type": "TEST",
+      "title": "TEST: validate_aux_mix combined audit schema \u2014 REQ-F-AUX-005",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/58",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#44"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 16
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/find-monitor-sends.test.ts",
+          "line": 20
+        }
+      ],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#59",
+      "issue": 59,
+      "type": "TEST",
+      "title": "TEST: Layer B routing stub tool registration and response structure \u2014 REQ-F-ROUT-011",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/59",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#45"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#60",
+      "issue": 60,
+      "type": "TEST",
+      "title": "TEST: probe-routing --kind filter patterns and VALID_KINDS completeness \u2014 REQ-F-PROBE-002",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/60",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:backlog",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#46"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-inspector/src/__tests__/probe-routing-kinds.test.ts",
+          "line": 5
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#61",
+      "issue": 61,
+      "type": "QA-SC",
+      "title": "QA-SC-MCP-001: MCP resource completeness, freshness, and read-only safety",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/61",
+      "labels": [
+        "phase:03-architecture",
+        "priority:p1",
+        "status:closed",
+        "type:architecture:quality-scenario"
+      ],
+      "references": [],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#62",
+      "issue": 62,
+      "type": "TEST",
+      "title": "TEST: Mixer auto-discovery and stable serial identification \u2014 REQ-F-001, REQ-F-002",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/62",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:closed",
+        "test-type:unit",
+        "type:test"
+      ],
+      "references": [
+        "#16"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#63",
+      "issue": 63,
+      "type": "EPIC",
+      "title": "EPIC-MCP-CORE: Read-only MCP resource surface",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/63",
+      "labels": [
+        "phase:05-implementation",
+        "priority:p1",
+        "status:closed",
+        "type:implementation"
+      ],
+      "references": [
+        "#61",
+        "#62"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "manual_review_required",
+      "gaps": []
+    },
+    {
+      "id": "#64",
+      "issue": 64,
+      "type": "EPIC",
+      "title": "EPIC-AUX-MONITOR: AUX and monitor routing",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/64",
+      "labels": [
+        "phase:05-implementation",
+        "priority:p1",
+        "status:backlog",
+        "type:implementation"
+      ],
+      "references": [
+        "#2"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "manual_review_required",
+      "gaps": []
+    },
+    {
+      "id": "#65",
+      "issue": 65,
+      "type": "EPIC",
+      "title": "EPIC-SOUNDCHECK: Soundcheck diagnostics tools",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/65",
+      "labels": [
+        "phase:05-implementation",
+        "priority:p1",
+        "status:closed",
+        "type:implementation"
+      ],
+      "references": [
+        "#3",
+        "#74",
+        "#76",
+        "#78",
+        "#79"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "manual_review_required",
+      "gaps": []
+    },
+    {
+      "id": "#66",
+      "issue": 66,
+      "type": "EPIC",
+      "title": "EPIC-ROUTING: Routing domain and verification",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/66",
+      "labels": [
+        "phase:05-implementation",
+        "priority:p1",
+        "status:backlog",
+        "type:implementation"
+      ],
+      "references": [
+        "#31",
+        "#32",
+        "#33",
+        "#34",
+        "#35",
+        "#36",
+        "#37",
+        "#38",
+        "#39",
+        "#40",
+        "#49",
+        "#50",
+        "#51",
+        "#52",
+        "#53",
+        "#54",
+        "#55",
+        "#56",
+        "#57",
+        "#58",
+        "#59",
+        "#60",
+        "#61",
+        "#62"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "manual_review_required",
+      "gaps": []
+    },
+    {
+      "id": "#68",
+      "issue": 68,
+      "type": "EPIC",
+      "title": "EPIC-PROBE-HIL: Probe tool and hardware-in-loop tests",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/68",
+      "labels": [
+        "phase:05-implementation",
+        "priority:p1",
+        "status:backlog",
+        "type:implementation"
+      ],
+      "references": [
+        "#2"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "manual_review_required",
+      "gaps": []
+    },
+    {
+      "id": "#74",
+      "issue": 74,
+      "type": "REQ-F",
+      "title": "REQ-F-DIAG-002: analyze_line_check_step \u2014 active channel detection and patch-swap suspicion",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/74",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#3"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/diagnostics.ts",
+          "line": 14
+        },
+        {
+          "file": "packages/presonus-domain/src/schemas/line-check.ts",
+          "line": 8
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "analyze_line_check_step",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#76",
+      "issue": 76,
+      "type": "REQ-F",
+      "title": "REQ-F-DIAG-003: check_required_setup \u2014 rider capacity validation against mixer capabilities",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/76",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#3"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-domain/src/schemas/validation.ts",
+          "line": 13
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#78",
+      "issue": 78,
+      "type": "REQ-F",
+      "title": "REQ-F-DIAG-001: diagnose_channel \u2014 per-channel mute/fader/gate/meter diagnostic tool",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/78",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#3"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/diagnostics.ts",
+          "line": 13
+        },
+        {
+          "file": "packages/presonus-domain/src/schemas/diagnosis.ts",
+          "line": 9
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "diagnose_channel",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#79",
+      "issue": 79,
+      "type": "REQ-F",
+      "title": "REQ-F-DIAG-004: get_mixer_capabilities \u2014 expose mixer hardware capabilities as MCP tool",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/79",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#3"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "get_mixer_capabilities",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "stale_closed_issue",
+      "gaps": [
+        "no @implements annotation found in source",
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#80",
+      "issue": 80,
+      "type": "TEST",
+      "title": "TEST-DIAG-004: get_mixer_capabilities MCP tool \u2014 capabilities object and disconnected error",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/80",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:completed",
+        "test-type:integration",
+        "type:test"
+      ],
+      "references": [
+        "#3",
+        "#79"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#81",
+      "issue": 81,
+      "type": "TEST",
+      "title": "TEST-DIAG-002: analyze_line_check_step MCP tool \u2014 silent/unexpected/ok/no-data scenarios",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/81",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:completed",
+        "test-type:integration",
+        "type:test"
+      ],
+      "references": [
+        "#3",
+        "#74"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#82",
+      "issue": 82,
+      "type": "TEST",
+      "title": "TEST-DIAG-003: check_required_setup MCP tool \u2014 ok/insufficient/unavailable/disconnected",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/82",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:completed",
+        "test-type:integration",
+        "type:test"
+      ],
+      "references": [
+        "#3",
+        "#76"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#83",
+      "issue": 83,
+      "type": "TEST",
+      "title": "TEST-DIAG-001: diagnose_channel MCP tool \u2014 mute/fader/gate/ok scenarios",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/83",
+      "labels": [
+        "phase:07-verification-validation",
+        "priority:p1",
+        "status:completed",
+        "test-type:integration",
+        "type:test"
+      ],
+      "references": [
+        "#3",
+        "#78"
+      ],
+      "implements": [],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#84",
+      "issue": 84,
+      "type": "REQ-F",
+      "title": "REQ-F-FLEXMIX-001: FlexMix bus mode classification and per-channel routing extraction (Layer B routing \u2014 real)",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/84",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:closed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#38",
+        "#45"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 845
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/flexmix-routing.test.ts",
+          "line": 16
+        }
+      ],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": [
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#85",
+      "issue": 85,
+      "type": "REQ-F",
+      "title": "REQ-F-FIXEDSUB-001: Fixed subgroup bus routing extraction (Sub A/B/C/D) with stereolink detection",
+      "state": "closed",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/85",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:closed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#38",
+        "#45",
+        "#84"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/state-mapper.ts",
+          "line": 981
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-adapter/src/__tests__/fixed-subgroups.test.ts",
+          "line": 17
+        }
+      ],
+      "hilVerifies": [],
+      "capability": null,
+      "confidence": null,
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": [
+        "no MCP capability mapped to this requirement"
+      ]
+    },
+    {
+      "id": "#86",
+      "issue": 86,
+      "type": "REQ-F",
+      "title": "REQ-F-WRITE-005: Channel rename and group membership management (v0.4 \u2014 Routing confidence model)",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/86",
+      "labels": [
+        "confidence:layer-a",
+        "phase:05-implementation",
+        "priority:p2",
+        "status:backlog",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#2"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-adapter/src/client-manager.ts",
+          "line": 526
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1543
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1944
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1992
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 2036
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "list_sub_groups",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#88",
+      "issue": 88,
+      "type": "REQ-F",
+      "title": "REQ-F-INP-002: Validate patch sheet for conflicts and range issues",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/88",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-domain/src/schemas/input-list.ts",
+          "line": 13
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1190
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_output_routing",
+      "confidence": "probe_required",
+      "hilRequired": true,
+      "status": "probe_blocked",
+      "gaps": [
+        "no @verifies annotation found in tests",
+        "HIL test with @verifies required (probe_required capability); cannot verify in CI"
+      ]
+    },
+    {
+      "id": "#89",
+      "issue": 89,
+      "type": "REQ-F",
+      "title": "REQ-F-INP-001: Validate agent-provided input list against mixer channel state",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/89",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-domain/src/schemas/input-list.ts",
+          "line": 12
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/__tests__/routing-layer-b-confidence.test.ts",
+          "line": 13
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1094
+        }
+      ],
+      "verifies": [
+        {
+          "file": "packages/presonus-mcp-server/src/__tests__/routing-layer-b-confidence.test.ts",
+          "line": 14
+        }
+      ],
+      "hilVerifies": [],
+      "capability": "get_input_routing",
+      "confidence": "stub",
+      "hilRequired": false,
+      "status": "complete",
+      "gaps": []
+    },
+    {
+      "id": "#90",
+      "issue": 90,
+      "type": "REQ-F",
+      "title": "REQ-F-PROBE-001: Layer B promotion \u2014 capture baseline state for routing probe workflow",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/90",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "routing",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#46"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1014
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "start_routing_probe",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#91",
+      "issue": 91,
+      "type": "REQ-F",
+      "title": "REQ-F-INP-003: Render printable patch sheet data from mixer or patch plan",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/91",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p2",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1",
+        "#88"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-domain/src/schemas/input-list.ts",
+          "line": 14
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1227
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "render_patch_sheet_data",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#92",
+      "issue": 92,
+      "type": "REQ-F",
+      "title": "REQ-F-MON-002: Validate stereo monitor pair consistency (IEM L/R send balance)",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/92",
+      "labels": [
+        "monitor-mix",
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#92",
+        "#93"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1306
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_stereo_monitor_pair",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#93",
+      "issue": 93,
+      "type": "REQ-F",
+      "title": "REQ-F-MON-001: Infer monitor mix layout (stereo IEM pairs, mono wedge assignments)",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/93",
+      "labels": [
+        "monitor-mix",
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#31"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 346
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1273
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "get_monitor_mix_layout",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#94",
+      "issue": 94,
+      "type": "REQ-F",
+      "title": "REQ-F-MON-003: Validate monitor mix names against rider monitor list",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/94",
+      "labels": [
+        "monitor-mix",
+        "phase:02-requirements",
+        "priority:p2",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#4",
+        "#93",
+        "#94"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1352
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_monitor_mix_names",
+      "confidence": "observed",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#95",
+      "issue": 95,
+      "type": "REQ-F",
+      "title": "REQ-F-FAT-001: Expose per-channel Fat Channel DSP state (model + parameters)",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/95",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/resources.ts",
+          "line": 311
+        },
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1422
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "get_fat_channel",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    },
+    {
+      "id": "#96",
+      "issue": 96,
+      "type": "REQ-F",
+      "title": "REQ-F-FAT-002: Validate Fat Channel settings for declared source type",
+      "state": "open",
+      "url": "https://github.com/zarfld/presonus-studiolive-mcp/issues/96",
+      "labels": [
+        "phase:02-requirements",
+        "priority:p1",
+        "status:completed",
+        "type:requirement:functional"
+      ],
+      "references": [
+        "#1",
+        "#95"
+      ],
+      "implements": [
+        {
+          "file": "packages/presonus-mcp-server/src/tools.ts",
+          "line": 1445
+        }
+      ],
+      "verifies": [],
+      "hilVerifies": [],
+      "capability": "validate_fat_channel_for_source",
+      "confidence": "inferred",
+      "hilRequired": false,
+      "status": "implemented_not_verified",
+      "gaps": [
+        "no @verifies annotation found in tests"
+      ]
+    }
+  ],
   "orphanAnnotations": {
     "implements": [],
     "verifies": []
   },
   "capabilitiesWithoutTraceability": [],
-  "forward_links": {},
-  "backward_links": {}
+  "forward_links": {
+    "#1": [],
+    "#2": [],
+    "#3": [
+      "#74",
+      "#76",
+      "#78",
+      "#79",
+      "#80",
+      "#81",
+      "#82",
+      "#83"
+    ],
+    "#4": [],
+    "#5": [],
+    "#6": [
+      "#1",
+      "#2",
+      "#3"
+    ],
+    "#7": [
+      "#1",
+      "#5"
+    ],
+    "#8": [
+      "#1"
+    ],
+    "#9": [
+      "#1",
+      "#3"
+    ],
+    "#10": [
+      "#5",
+      "#15",
+      "#17",
+      "#22"
+    ],
+    "#11": [
+      "#7",
+      "#8"
+    ],
+    "#12": [
+      "#7",
+      "#8",
+      "#9"
+    ],
+    "#13": [
+      "#7",
+      "#8"
+    ],
+    "#14": [
+      "#7",
+      "#8",
+      "#10"
+    ],
+    "#15": [
+      "#1"
+    ],
+    "#16": [
+      "#1"
+    ],
+    "#17": [
+      "#1",
+      "#3"
+    ],
+    "#18": [
+      "#1",
+      "#3"
+    ],
+    "#19": [
+      "#1"
+    ],
+    "#20": [
+      "#1"
+    ],
+    "#21": [
+      "#1"
+    ],
+    "#22": [
+      "#5",
+      "#10"
+    ],
+    "#23": [
+      "#1",
+      "#3"
+    ],
+    "#24": [
+      "#1"
+    ],
+    "#25": [
+      "#1",
+      "#3",
+      "#7",
+      "#23"
+    ],
+    "#26": [
+      "#5",
+      "#10",
+      "#22"
+    ],
+    "#27": [
+      "#1",
+      "#10",
+      "#12",
+      "#24"
+    ],
+    "#29": [
+      "#4",
+      "#10"
+    ],
+    "#30": [
+      "#4",
+      "#29"
+    ],
+    "#31": [
+      "#4",
+      "#29",
+      "#30"
+    ],
+    "#32": [
+      "#4",
+      "#29",
+      "#31"
+    ],
+    "#33": [
+      "#4",
+      "#29",
+      "#30"
+    ],
+    "#34": [
+      "#4",
+      "#29",
+      "#30"
+    ],
+    "#35": [
+      "#3",
+      "#4",
+      "#29",
+      "#30"
+    ],
+    "#36": [
+      "#3",
+      "#4",
+      "#29"
+    ],
+    "#37": [
+      "#4",
+      "#29",
+      "#30"
+    ],
+    "#38": [
+      "#4",
+      "#31"
+    ],
+    "#39": [
+      "#4",
+      "#31"
+    ],
+    "#40": [
+      "#4",
+      "#31",
+      "#38"
+    ],
+    "#41": [
+      "#4",
+      "#38"
+    ],
+    "#42": [
+      "#4"
+    ],
+    "#43": [
+      "#4"
+    ],
+    "#44": [
+      "#4",
+      "#41",
+      "#42",
+      "#43"
+    ],
+    "#45": [
+      "#4",
+      "#38"
+    ],
+    "#46": [
+      "#4",
+      "#20"
+    ],
+    "#47": [
+      "#4",
+      "#29",
+      "#38",
+      "#39",
+      "#40",
+      "#41",
+      "#42",
+      "#43",
+      "#44",
+      "#45",
+      "#46"
+    ],
+    "#48": [
+      "#41",
+      "#42",
+      "#43",
+      "#44"
+    ],
+    "#49": [
+      "#37",
+      "#38",
+      "#39",
+      "#40",
+      "#45",
+      "#47"
+    ],
+    "#50": [
+      "#46"
+    ],
+    "#51": [
+      "#37"
+    ],
+    "#52": [
+      "#38"
+    ],
+    "#53": [
+      "#39"
+    ],
+    "#54": [
+      "#40"
+    ],
+    "#55": [
+      "#41"
+    ],
+    "#56": [
+      "#42"
+    ],
+    "#57": [
+      "#43"
+    ],
+    "#58": [
+      "#44"
+    ],
+    "#59": [
+      "#45"
+    ],
+    "#60": [
+      "#46"
+    ],
+    "#61": [],
+    "#62": [
+      "#16"
+    ],
+    "#63": [
+      "#61",
+      "#62"
+    ],
+    "#64": [
+      "#2"
+    ],
+    "#65": [
+      "#3",
+      "#74",
+      "#76",
+      "#78",
+      "#79"
+    ],
+    "#66": [
+      "#31",
+      "#32",
+      "#33",
+      "#34",
+      "#35",
+      "#36",
+      "#37",
+      "#38",
+      "#39",
+      "#40",
+      "#49",
+      "#50",
+      "#51",
+      "#52",
+      "#53",
+      "#54",
+      "#55",
+      "#56",
+      "#57",
+      "#58",
+      "#59",
+      "#60",
+      "#61",
+      "#62"
+    ],
+    "#68": [
+      "#2"
+    ],
+    "#74": [
+      "#3"
+    ],
+    "#76": [
+      "#3"
+    ],
+    "#78": [
+      "#3"
+    ],
+    "#79": [
+      "#3"
+    ],
+    "#80": [
+      "#3",
+      "#79"
+    ],
+    "#81": [
+      "#3",
+      "#74"
+    ],
+    "#82": [
+      "#3",
+      "#76"
+    ],
+    "#83": [
+      "#3",
+      "#78"
+    ],
+    "#84": [
+      "#4",
+      "#38",
+      "#45"
+    ],
+    "#85": [
+      "#4",
+      "#38",
+      "#45",
+      "#84"
+    ],
+    "#86": [
+      "#2"
+    ],
+    "#88": [
+      "#1"
+    ],
+    "#89": [
+      "#1"
+    ],
+    "#90": [
+      "#4",
+      "#46"
+    ],
+    "#91": [
+      "#1",
+      "#88"
+    ],
+    "#92": [
+      "#4",
+      "#92",
+      "#93"
+    ],
+    "#93": [
+      "#4",
+      "#31"
+    ],
+    "#94": [
+      "#4",
+      "#93",
+      "#94"
+    ],
+    "#95": [
+      "#1"
+    ],
+    "#96": [
+      "#1",
+      "#95"
+    ]
+  },
+  "backward_links": {
+    "#74": [
+      "#3",
+      "#65",
+      "#81"
+    ],
+    "#76": [
+      "#3",
+      "#65",
+      "#82"
+    ],
+    "#78": [
+      "#3",
+      "#65",
+      "#83"
+    ],
+    "#79": [
+      "#3",
+      "#65",
+      "#80"
+    ],
+    "#80": [
+      "#3"
+    ],
+    "#81": [
+      "#3"
+    ],
+    "#82": [
+      "#3"
+    ],
+    "#83": [
+      "#3"
+    ],
+    "#1": [
+      "#15",
+      "#16",
+      "#17",
+      "#18",
+      "#19",
+      "#20",
+      "#21",
+      "#23",
+      "#24",
+      "#25",
+      "#27",
+      "#6",
+      "#7",
+      "#8",
+      "#88",
+      "#89",
+      "#9",
+      "#91",
+      "#95",
+      "#96"
+    ],
+    "#2": [
+      "#6",
+      "#64",
+      "#68",
+      "#86"
+    ],
+    "#3": [
+      "#17",
+      "#18",
+      "#23",
+      "#25",
+      "#35",
+      "#36",
+      "#6",
+      "#65",
+      "#74",
+      "#76",
+      "#78",
+      "#79",
+      "#80",
+      "#81",
+      "#82",
+      "#83",
+      "#9"
+    ],
+    "#5": [
+      "#10",
+      "#22",
+      "#26",
+      "#7"
+    ],
+    "#15": [
+      "#10"
+    ],
+    "#17": [
+      "#10"
+    ],
+    "#22": [
+      "#10",
+      "#26"
+    ],
+    "#7": [
+      "#11",
+      "#12",
+      "#13",
+      "#14",
+      "#25"
+    ],
+    "#8": [
+      "#11",
+      "#12",
+      "#13",
+      "#14"
+    ],
+    "#9": [
+      "#12"
+    ],
+    "#10": [
+      "#14",
+      "#22",
+      "#26",
+      "#27",
+      "#29"
+    ],
+    "#23": [
+      "#25"
+    ],
+    "#12": [
+      "#27"
+    ],
+    "#24": [
+      "#27"
+    ],
+    "#4": [
+      "#29",
+      "#30",
+      "#31",
+      "#32",
+      "#33",
+      "#34",
+      "#35",
+      "#36",
+      "#37",
+      "#38",
+      "#39",
+      "#40",
+      "#41",
+      "#42",
+      "#43",
+      "#44",
+      "#45",
+      "#46",
+      "#47",
+      "#84",
+      "#85",
+      "#90",
+      "#92",
+      "#93",
+      "#94"
+    ],
+    "#29": [
+      "#30",
+      "#31",
+      "#32",
+      "#33",
+      "#34",
+      "#35",
+      "#36",
+      "#37",
+      "#47"
+    ],
+    "#30": [
+      "#31",
+      "#33",
+      "#34",
+      "#35",
+      "#37"
+    ],
+    "#31": [
+      "#32",
+      "#38",
+      "#39",
+      "#40",
+      "#66",
+      "#93"
+    ],
+    "#38": [
+      "#40",
+      "#41",
+      "#45",
+      "#47",
+      "#49",
+      "#52",
+      "#66",
+      "#84",
+      "#85"
+    ],
+    "#41": [
+      "#44",
+      "#47",
+      "#48",
+      "#55"
+    ],
+    "#42": [
+      "#44",
+      "#47",
+      "#48",
+      "#56"
+    ],
+    "#43": [
+      "#44",
+      "#47",
+      "#48",
+      "#57"
+    ],
+    "#20": [
+      "#46"
+    ],
+    "#39": [
+      "#47",
+      "#49",
+      "#53",
+      "#66"
+    ],
+    "#40": [
+      "#47",
+      "#49",
+      "#54",
+      "#66"
+    ],
+    "#44": [
+      "#47",
+      "#48",
+      "#58"
+    ],
+    "#45": [
+      "#47",
+      "#49",
+      "#59",
+      "#84",
+      "#85"
+    ],
+    "#46": [
+      "#47",
+      "#50",
+      "#60",
+      "#90"
+    ],
+    "#37": [
+      "#49",
+      "#51",
+      "#66"
+    ],
+    "#47": [
+      "#49"
+    ],
+    "#16": [
+      "#62"
+    ],
+    "#61": [
+      "#63",
+      "#66"
+    ],
+    "#62": [
+      "#63",
+      "#66"
+    ],
+    "#32": [
+      "#66"
+    ],
+    "#33": [
+      "#66"
+    ],
+    "#34": [
+      "#66"
+    ],
+    "#35": [
+      "#66"
+    ],
+    "#36": [
+      "#66"
+    ],
+    "#49": [
+      "#66"
+    ],
+    "#50": [
+      "#66"
+    ],
+    "#51": [
+      "#66"
+    ],
+    "#52": [
+      "#66"
+    ],
+    "#53": [
+      "#66"
+    ],
+    "#54": [
+      "#66"
+    ],
+    "#55": [
+      "#66"
+    ],
+    "#56": [
+      "#66"
+    ],
+    "#57": [
+      "#66"
+    ],
+    "#58": [
+      "#66"
+    ],
+    "#59": [
+      "#66"
+    ],
+    "#60": [
+      "#66"
+    ],
+    "#84": [
+      "#85"
+    ],
+    "#88": [
+      "#91"
+    ],
+    "#92": [
+      "#92"
+    ],
+    "#93": [
+      "#92",
+      "#94"
+    ],
+    "#94": [
+      "#94"
+    ],
+    "#95": [
+      "#96"
+    ]
+  }
 }
