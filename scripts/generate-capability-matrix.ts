@@ -121,14 +121,14 @@ const TOOL_META: Record<string, ToolMeta> = {
     safetyClass: 'diagnostic', traceability: '#36 REQ-F-ROUT-006',
   },
 
-  // ── Routing — Layer B stubs (probe instructions only) ────────────────────
+  // ── Routing — Layer A implementations (HIL evidence 2026-07-01) ───────────
   get_input_routing: {
-    defaultAvailability: 'always', confidence: 'stub',
-    safetyClass: 'stub', traceability: 'REQ-F-INP-001',
+    defaultAvailability: 'always', confidence: 'inferred',
+    safetyClass: 'diagnostic', traceability: '#45 REQ-F-ROUT-011',
   },
   validate_avb_routing: {
-    defaultAvailability: 'always', confidence: 'stub',
-    safetyClass: 'stub', traceability: 'REQ-F-INP-001',
+    defaultAvailability: 'always', confidence: 'observed',
+    safetyClass: 'diagnostic', traceability: '#45 REQ-F-ROUT-011',
   },
   validate_output_routing: {
     defaultAvailability: 'always', confidence: 'probe_required',

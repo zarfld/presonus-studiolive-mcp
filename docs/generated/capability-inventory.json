@@ -164,17 +164,17 @@
       "name": "get_input_routing",
       "kind": "tool",
       "defaultAvailability": "always",
-      "confidence": "stub",
-      "safetyClass": "stub",
-      "traceability": "REQ-F-INP-001"
+      "confidence": "inferred",
+      "safetyClass": "diagnostic",
+      "traceability": "#45 REQ-F-ROUT-011"
     },
     {
       "name": "validate_avb_routing",
       "kind": "tool",
       "defaultAvailability": "always",
-      "confidence": "stub",
-      "safetyClass": "stub",
-      "traceability": "REQ-F-INP-001"
+      "confidence": "observed",
+      "safetyClass": "diagnostic",
+      "traceability": "#45 REQ-F-ROUT-011"
     },
     {
       "name": "validate_output_routing",

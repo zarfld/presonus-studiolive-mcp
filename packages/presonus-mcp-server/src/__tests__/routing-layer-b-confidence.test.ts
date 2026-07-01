@@ -79,6 +79,49 @@ describe('Layer B routing stubs — confidence invariants', () => {
       const result = await call('get_input_routing', { deviceId: 'test-device' })
       expect(result.probeSteps ?? result.reason).toBeTruthy()
     })
+
+    it('interpolates deviceId into probe step commands — no <IP> placeholder', async () => {
+      /**
+       * Verifies: #45 REQ-F-ROUT-011 — probe instructions must be executable with actual device
+       * Given: deviceId is passed as '10.0.1.50'
+       * When:  get_input_routing returns probeSteps
+       * Then:  every `probe-routing dump` command contains '10.0.1.50', none contains the literal <IP> placeholder
+       * Note:  `probe-routing diff` operates on file pairs and does not take --device — excluded.
+       */
+      const result = await call('get_input_routing', { deviceId: '10.0.1.50' })
+      const steps = result.probeSteps as string[]
+      const dumpSteps = steps.filter((s) => typeof s === 'string' && s.includes('probe-routing dump'))
+      expect(dumpSteps.length).toBeGreaterThan(0)
+      for (const step of dumpSteps) {
+        expect(step).toContain('10.0.1.50')
+        expect(step).not.toMatch(/<IP>|<FOH-IP>/)
+      }
+    })
+
+    it('probe commands invoke the probe CLI subcommand correctly — not a bare pnpm script', async () => {
+      /**
+       * Verifies: #45 REQ-F-ROUT-011 — probe-routing is a subcommand of the probe CLI
+       * `pnpm probe-routing` is wrong (no such top-level script exists).
+       * Correct form: `pnpm probe:dev probe-routing` or `pnpm probe probe-routing`.
+       */
+      const result = await call('get_input_routing', { deviceId: '10.0.1.50' })
+      const steps = result.probeSteps as string[]
+      const cmdSteps = steps.filter((s) => typeof s === 'string' && s.startsWith('pnpm'))
+      for (const step of cmdSteps) {
+        expect(step).not.toMatch(/^pnpm probe-routing\b/)
+        expect(step).toMatch(/pnpm probe[:\w]* probe-routing/)
+      }
+    })
+
+    it('has no empty-string entries in probeSteps', async () => {
+      /**
+       * Verifies: #45 REQ-F-ROUT-011 — every probe step must be a non-empty string
+       */
+      const result = await call('get_input_routing', { deviceId: '10.0.1.50' })
+      const steps = result.probeSteps as string[]
+      expect(Array.isArray(steps)).toBe(true)
+      expect(steps.every((s) => typeof s === 'string' && s.trim().length > 0)).toBe(true)
+    })
   })
 
   describe('validate_avb_routing', () => {
@@ -92,6 +135,49 @@ describe('Layer B routing stubs — confidence invariants', () => {
     it('includes probe instructions', async () => {
       const result = await call('validate_avb_routing', { deviceId: 'test-device' })
       expect(result.probeSteps ?? result.reason).toBeTruthy()
+    })
+
+    it('interpolates deviceId into probe step commands — no <FOH-IP> placeholder', async () => {
+      /**
+       * Verifies: #45 REQ-F-ROUT-011 — probe instructions must be executable with actual device
+       * Given: deviceId is passed as '10.0.1.50'
+       * When:  validate_avb_routing returns probeSteps
+       * Then:  every `probe-routing dump` command contains '10.0.1.50', none contains the literal <FOH-IP> placeholder
+       * Note:  `probe-routing diff` operates on file pairs and does not take --device — excluded.
+       */
+      const result = await call('validate_avb_routing', { deviceId: '10.0.1.50' })
+      const steps = result.probeSteps as string[]
+      const dumpSteps = steps.filter((s) => typeof s === 'string' && s.includes('probe-routing dump'))
+      expect(dumpSteps.length).toBeGreaterThan(0)
+      for (const step of dumpSteps) {
+        expect(step).toContain('10.0.1.50')
+        expect(step).not.toMatch(/<IP>|<FOH-IP>/)
+      }
+    })
+
+    it('probe commands invoke the probe CLI subcommand correctly — not a bare pnpm script', async () => {
+      /**
+       * Verifies: #45 REQ-F-ROUT-011 — probe-routing is a subcommand of the probe CLI
+       * `pnpm probe-routing` is wrong (no such top-level script exists).
+       * Correct form: `pnpm probe:dev probe-routing` or `pnpm probe probe-routing`.
+       */
+      const result = await call('validate_avb_routing', { deviceId: '10.0.1.50' })
+      const steps = result.probeSteps as string[]
+      const cmdSteps = steps.filter((s) => typeof s === 'string' && s.startsWith('pnpm'))
+      for (const step of cmdSteps) {
+        expect(step).not.toMatch(/^pnpm probe-routing\b/)
+        expect(step).toMatch(/pnpm probe[:\w]* probe-routing/)
+      }
+    })
+
+    it('has no empty-string entries in probeSteps', async () => {
+      /**
+       * Verifies: #45 REQ-F-ROUT-011 — every probe step must be a non-empty string
+       */
+      const result = await call('validate_avb_routing', { deviceId: '10.0.1.50' })
+      const steps = result.probeSteps as string[]
+      expect(Array.isArray(steps)).toBe(true)
+      expect(steps.every((s) => typeof s === 'string' && s.trim().length > 0)).toBe(true)
     })
   })
 })

@@ -190,3 +190,76 @@ export const OUTPUT_PATCH_KEY_PATTERNS = {
   ANALOG_COUNT: 16,
   AVB_COUNT: 8,
 } as const
+
+// ---------------------------------------------------------------------------
+// Input source routing keys — HIL probe 2026-07-01 (StudioLive 32SC fw 3.3.0.109659)
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-channel input source selection key suffixes (relative to `line.chN` prefix).
+ * OBSERVED: StudioLive 32SC firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * Evidence: captures/probe-input-source/ (before/after diff with Ch1 Local→Stage Box).
+ */
+export const KNOWN_INPUT_SRC_KEY_SUFFIXES = {
+  /** Normalized 0–1 float. Index = Math.round(value × INPUT_SRC_RANGE_MAX). */
+  INPUTSRC_VALUE: '.inputsrc.value',
+} as const
+
+/**
+ * Effective max index for line.chN.inputsrc.value on StudioLive 32SC.
+ * Gives 4 options: indices 0–3.
+ * OBSERVED: strings=3 in flat state (confirmed by probe: 4 distinct values seen).
+ */
+export const INPUT_SRC_RANGE_MAX = 3
+
+/**
+ * Input source labels by index on StudioLive 32SC.
+ * OBSERVED on firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * null = probe_required (label not yet confirmed from hardware).
+ */
+export const INPUT_SRC_LABELS: ReadonlyArray<string | null> = [
+  'Local',      // index 0 — observed: default state before change
+  'Stage Box',  // index 1 — observed: user changed Ch1 Local→Stage Box (2026-07-01)
+  null,         // index 2 — probe_required
+  null,         // index 3 — probe_required
+] as const
+
+// ---------------------------------------------------------------------------
+// AVB / stagebox stream routing keys — HIL probe 2026-07-01 (32SC + 32R)
+// ---------------------------------------------------------------------------
+
+/**
+ * Stagebox setup and AVB stream routing key patterns.
+ * OBSERVED: StudioLive 32SC + PreSonus StudioLive 32R (2026-07-01 HIL probe).
+ * Evidence: captures/probe-avb/ (stream swap confirmed in diff).
+ */
+export const KNOWN_STAGEBOX_KEY_PATTERNS = {
+  /**
+   * Prefix for per-block AVB source keys.
+   * Full key: `${AVB_SRC_PREFIX}${range}${AVB_SRC_VALUE_SUFFIX}`
+   * e.g. stageboxsetup.avb_src_1_8.value
+   */
+  AVB_SRC_PREFIX: 'stageboxsetup.avb_src_',
+  AVB_SRC_VALUE_SUFFIX: '.value',
+  AVB_SRC_STRINGS_SUFFIX: '.strings',
+  /** 1 = stagebox connected, 0 = not connected */
+  CONNECT_STATUS: 'stageboxsetup.connect_status',
+  /** Display name of connected stagebox (e.g. "PreSonus StudioLive 32R") */
+  SELECTED_NAME: 'stageboxsetup.selected_name',
+  /**
+   * Max stream index for avb_src_*.value on 32SC.
+   * 9 options: 0="None", 1–8="DeviceName:Send X-Y".
+   * Formula: Math.round(value × AVB_RANGE_MAX).
+   */
+  AVB_RANGE_MAX: 8,
+} as const
+
+/**
+ * The 8 channel-block range suffixes for AVB src keys on StudioLive 32SC.
+ * OBSERVED on firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * Used as: `stageboxsetup.avb_src_${range}.value`
+ */
+export const AVB_SRC_BLOCK_RANGES = [
+  '1_8', '9_16', '17_24', '25_32', '33_40', '41_48', '49_56', '57_64',
+] as const
+export type AvbSrcBlockRange = typeof AVB_SRC_BLOCK_RANGES[number]

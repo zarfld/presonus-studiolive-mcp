@@ -16,7 +16,7 @@
  * The featherbear state.get("line.ch1.mute") traverses this tree using dot-notation.
  * We flatten it first with flattenFeatherbearState() before key-pattern processing.
  */
-import type { MixerChannel, MixerIdentity, ChannelFatState, NormalizedEqBand, ChannelSendRouting, AuxSend, FxSend, SubgroupAssign, OutputPatchRouter, MixerCapabilities, AuxMix } from '@presonus-mcp/domain'
+import type { MixerChannel, MixerIdentity, ChannelFatState, NormalizedEqBand, ChannelSendRouting, AuxSend, FxSend, SubgroupAssign, OutputPatchRouter, MixerCapabilities, AuxMix, InputRoutingReport, AvbStreamRouting } from '@presonus-mcp/domain'
 import {
   decodeCompressorModel,
   decodeEqModel,
@@ -34,7 +34,7 @@ import {
   normalizedToLimiterThresholdDb,
 } from '@presonus-mcp/domain'
 import type { RawStateTree } from './types.js'
-import { KNOWN_CHANNEL_KEY_SUFFIXES, KNOWN_FAT_KEY_SUFFIXES, KNOWN_GLOBAL_KEYS, KNOWN_SEND_ROUTING_KEY_SUFFIXES, OUTPUT_PATCH_KEY_PATTERNS } from './types.js'
+import { KNOWN_CHANNEL_KEY_SUFFIXES, KNOWN_FAT_KEY_SUFFIXES, KNOWN_GLOBAL_KEYS, KNOWN_SEND_ROUTING_KEY_SUFFIXES, OUTPUT_PATCH_KEY_PATTERNS, KNOWN_INPUT_SRC_KEY_SUFFIXES, INPUT_SRC_RANGE_MAX, INPUT_SRC_LABELS, KNOWN_STAGEBOX_KEY_PATTERNS, AVB_SRC_BLOCK_RANGES } from './types.js'
 
 export interface MixerSnapshot {
   identity: MixerIdentity
@@ -1085,3 +1085,159 @@ export function extractFixedSubGroups(flat: Record<string, unknown>): FixedSubGr
 
   return { buses, stereoPairs, confidence: 'high' }
 }
+
+// ---------------------------------------------------------------------------
+// extractInputRouting � STUB (Phase 4a TDD)
+// HIL evidence: captures/probe-input-source/ (2026-07-01)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract per-channel input source routing from a FLAT state dict.
+ *
+ * KEY CONFIRMED by HIL probe 2026-07-01 (StudioLive 32SC fw 3.3.0.109659):
+ *   line.chN.inputsrc.value - normalized float, Math.round(value x 3) = source index.
+ *   Index 0 = 'Local' (observed), Index 1 = 'Stage Box' (observed), 2-3 = probe_required.
+ *
+ * @implements #45 REQ-F-ROUT-011 - input routing observable
+ * @architecture #47 ADR-008: Layer B -> Layer A promotion
+ * @see captures/probe-input-source/ for HIL evidence
+ *
+ * Returns undefined when no inputsrc keys are present in flat state.
+ */
+export function extractInputRouting(
+  flat: Record<string, unknown>,
+): InputRoutingReport | undefined {
+  const channels: InputRoutingReport['channels'] = []
+
+  for (let i = 1; i <= 32; i++) {
+    const valueKey = `line.ch${i}${KNOWN_INPUT_SRC_KEY_SUFFIXES.INPUTSRC_VALUE}`
+    const raw = flat[valueKey]
+    if (typeof raw !== 'number') continue
+
+    const index = Math.min(INPUT_SRC_RANGE_MAX, Math.max(0, Math.round(raw * INPUT_SRC_RANGE_MAX)))
+    channels.push({
+      channelNumber: i,
+      rawValue: raw,
+      inputSourceIndex: index,
+      inputSourceLabel: INPUT_SRC_LABELS[index] ?? null,
+      confidence: 'inferred',
+    })
+  }
+
+  if (channels.length === 0) return undefined
+
+  const mixerSerial = typeof flat[KNOWN_GLOBAL_KEYS.MIXER_SERIAL] === 'string'
+    ? flat[KNOWN_GLOBAL_KEYS.MIXER_SERIAL] as string
+    : 'unknown'
+  const firmware = typeof flat[KNOWN_GLOBAL_KEYS.FIRMWARE] === 'string'
+    ? flat[KNOWN_GLOBAL_KEYS.FIRMWARE] as string
+    : 'unknown'
+
+  return {
+    confidence: 'inferred',
+    channels,
+    mixerSerial,
+    firmware,
+    hilEvidence: 'captures/probe-input-source/ (2026-07-01, StudioLive 32SC fw 3.3.0.109659)',
+    notes: [
+      'Input source indices 0 (Local) and 1 (Stage Box) confirmed by HIL probe.',
+      'Indices 2-3 labels are probe_required — additional probing needed.',
+    ],
+  }
+}
+
+// ---------------------------------------------------------------------------
+// extractAvbStreamRouting -- Phase 4b
+// HIL evidence: captures/probe-avb/ (2026-07-01)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract AVB stream routing from a FLAT state dict.
+ *
+ * KEY CONFIRMED by HIL probe 2026-07-01 (StudioLive 32SC + 32R fw 3.3.0.109659):
+ *   stageboxsetup.avb_src_{range}.value -- 8 blocks (1_8, 9_16, ..., 57_64).
+ *   Math.round(value x 8) = stream index (0=None, 1-8=device send blocks).
+ *   Labels from stageboxsetup.avb_src_{range}.strings.
+ *
+ * @implements #45 REQ-F-ROUT-011 - AVB routing observable
+ * @architecture #47 ADR-008: Layer B -> Layer A promotion
+ * @see captures/probe-avb/ for HIL evidence
+ *
+ * Returns undefined when no stageboxsetup.avb_src_* keys are present.
+ */
+export function extractAvbStreamRouting(
+  flat: Record<string, unknown>,
+): AvbStreamRouting | undefined {
+  const { AVB_SRC_PREFIX, AVB_SRC_VALUE_SUFFIX, AVB_SRC_STRINGS_SUFFIX, CONNECT_STATUS, SELECTED_NAME, AVB_RANGE_MAX } = KNOWN_STAGEBOX_KEY_PATTERNS
+
+  // Presence check on first block
+  const firstKey = `${AVB_SRC_PREFIX}${AVB_SRC_BLOCK_RANGES[0]}${AVB_SRC_VALUE_SUFFIX}`
+  if (flat[firstKey] === undefined) return undefined
+
+  const streamBlocks: AvbStreamRouting['streamBlocks'] = []
+
+  for (const range of AVB_SRC_BLOCK_RANGES) {
+    const valueKey   = `${AVB_SRC_PREFIX}${range}${AVB_SRC_VALUE_SUFFIX}`
+    const stringsKey = `${AVB_SRC_PREFIX}${range}${AVB_SRC_STRINGS_SUFFIX}`
+    const raw = flat[valueKey]
+    if (typeof raw !== 'number') continue
+
+    const index = Math.min(AVB_RANGE_MAX, Math.max(0, Math.round(raw * AVB_RANGE_MAX)))
+    const strings = flat[stringsKey]
+    const label = (index === 0)
+      ? null
+      : (Array.isArray(strings) && index < strings.length)
+          ? String(strings[index])
+          : null
+
+    streamBlocks.push({
+      channelRange: range.replace('_', '-'),
+      keyRange: range,
+      streamIndex: index,
+      streamLabel: label,
+      confidence: 'observed',
+    })
+  }
+
+  if (streamBlocks.length === 0) return undefined
+
+  const connectRaw = flat[CONNECT_STATUS]
+  const connected = connectRaw !== undefined && connectRaw !== 0 && connectRaw !== false
+  const stageboxName = typeof flat[SELECTED_NAME] === 'string' ? flat[SELECTED_NAME] as string : null
+  const mixerSerial = typeof flat[KNOWN_GLOBAL_KEYS.MIXER_SERIAL] === 'string'
+    ? flat[KNOWN_GLOBAL_KEYS.MIXER_SERIAL] as string
+    : 'unknown'
+  const firmware = typeof flat[KNOWN_GLOBAL_KEYS.FIRMWARE] === 'string'
+    ? flat[KNOWN_GLOBAL_KEYS.FIRMWARE] as string
+    : 'unknown'
+
+  return {
+    confidence: 'observed',
+    stageboxName,
+    connected,
+    streamBlocks,
+    mixerSerial,
+    firmware,
+    hilEvidence: 'captures/probe-avb/ (2026-07-01, StudioLive 32SC + 32R fw 3.3.0.109659)',
+  }
+}
+
+// ---------------------------------------------------------------------------
+// extractInputRouting � STUB (Phase 4a TDD)
+// HIL evidence: captures/probe-input-source/ (2026-07-01)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract per-channel input source routing from a FLAT state dict.
+ *
+ * KEY CONFIRMED by HIL probe 2026-07-01 (StudioLive 32SC fw 3.3.0.109659):
+ *   line.chN.inputsrc.value - normalized float, Math.round(value x 3) = source index.
+ *   Index 0 = 'Local' (observed), Index 1 = 'Stage Box' (observed), 2-3 = probe_required.
+ *
+ * @implements #45 REQ-F-ROUT-011 - input routing observable
+ * @architecture #47 ADR-008: Layer B -> Layer A promotion
+ * @see captures/probe-input-source/ for HIL evidence
+ *
+ * Returns undefined when no inputsrc keys are present in flat state.
+ * STUB: returns undefined -- TDD Red state.
+ */

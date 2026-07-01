@@ -331,3 +331,99 @@ export const MixerRoutingGraphSchema = z.object({
   }),
 })
 export type MixerRoutingGraph = z.infer<typeof MixerRoutingGraphSchema>
+
+// ---------------------------------------------------------------------------
+// Input source routing — HIL evidence 2026-07-01 (StudioLive 32SC fw 3.3.0.109659)
+// Key confirmed: line.chN.inputsrc.value  probe: captures/probe-input-source/
+// Index 0='Local' (observed), Index 1='Stage Box' (observed), 2-3=probe_required
+// ---------------------------------------------------------------------------
+
+/**
+ * Input source selection for one channel strip.
+ *
+ * OBSERVED on StudioLive 32SC firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * Index formula: Math.round(value × 3).
+ *
+ * @implements #45 REQ-F-ROUT-011 — input routing observable
+ * Traces to: #4 StR-4
+ */
+export const InputChannelSourceSchema = z.object({
+  channelNumber: z.number().int().min(1).max(32),
+  rawValue: z.number().min(0).max(1),
+  /** 0–3. Indices 0 and 1 confirmed; 2–3 are probe_required. */
+  inputSourceIndex: z.number().int().min(0).max(3),
+  /** null when the label for this index is not yet confirmed (probe_required). */
+  inputSourceLabel: z.string().nullable(),
+  confidence: RoutingConfidenceSchema,
+})
+export type InputChannelSource = z.infer<typeof InputChannelSourceSchema>
+
+/**
+ * Full per-device input routing report returned by get_input_routing.
+ *
+ * OBSERVED on StudioLive 32SC firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ */
+export const InputRoutingReportSchema = z.object({
+  confidence: RoutingConfidenceSchema,
+  channels: z.array(InputChannelSourceSchema),
+  mixerSerial: z.string(),
+  firmware: z.string(),
+  hilEvidence: z.string().optional(),
+  notes: z.array(z.string()).optional(),
+})
+export type InputRoutingReport = z.infer<typeof InputRoutingReportSchema>
+
+// ---------------------------------------------------------------------------
+// AVB stream routing — HIL evidence 2026-07-01 (StudioLive 32SC + 32R fw 3.3.0.109659)
+// Key confirmed: stageboxsetup.avb_src_{range}.value  probe: captures/probe-avb/
+// Labels from stageboxsetup.avb_src_{range}.strings array (device-specific)
+// ---------------------------------------------------------------------------
+
+/**
+ * One 8-channel AVB stream block assignment.
+ *
+ * OBSERVED on StudioLive 32SC + StudioLive 32R firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ * Index 0 = 'None', indices 1–8 = 'DeviceName:Send X-Y'.
+ * Formula: Math.round(value × 8).
+ *
+ * @implements #45 REQ-F-ROUT-011 — AVB routing observable
+ */
+export const AvbStreamBlockSchema = z.object({
+  /** FOH channel range serviced by this block, e.g. "1-8" */
+  channelRange: z.string(),
+  /** Key range suffix as used in state key, e.g. "1_8" */
+  keyRange: z.string(),
+  /** 0 = None; 1–8 = corresponding device send stream */
+  streamIndex: z.number().int().min(0).max(8),
+  /** Full label from strings array (e.g. "PreSonus StudioLive 32R:Send 1-8"); null when index=0 (None). */
+  streamLabel: z.string().nullable(),
+  confidence: RoutingConfidenceSchema,
+})
+export type AvbStreamBlock = z.infer<typeof AvbStreamBlockSchema>
+
+/**
+ * Full AVB stream routing report returned by validate_avb_routing.
+ *
+ * OBSERVED on StudioLive 32SC + StudioLive 32R firmware 3.3.0.109659 (2026-07-01 HIL probe).
+ */
+export const AvbStreamRoutingSchema = z.object({
+  confidence: RoutingConfidenceSchema,
+  /** From stageboxsetup.selected_name; null if not connected. */
+  stageboxName: z.string().nullable(),
+  /** true when stageboxsetup.connect_status is non-zero */
+  connected: z.boolean(),
+  streamBlocks: z.array(AvbStreamBlockSchema),
+  mixerSerial: z.string(),
+  firmware: z.string(),
+  hilEvidence: z.string().optional(),
+  /** Present when expectedStreams was supplied to validate_avb_routing. */
+  validation: z.object({
+    allMatch: z.boolean(),
+    mismatches: z.array(z.object({
+      channelRange: z.string(),
+      expected: z.string(),
+      actual: z.string().nullable(),
+    })),
+  }).optional(),
+})
+export type AvbStreamRouting = z.infer<typeof AvbStreamRoutingSchema>

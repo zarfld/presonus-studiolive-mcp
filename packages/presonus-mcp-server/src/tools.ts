@@ -12,7 +12,7 @@
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, extractAuxMixes, extractFixedSubGroups, type PresonusClientManager } from '@presonus-mcp/adapter'
+import { discoverMixers, diagnoseChannel, analyzeLineCheckStep, extractAuxMixes, extractFixedSubGroups, extractInputRouting, extractAvbStreamRouting, type PresonusClientManager } from '@presonus-mcp/adapter'
 import {
   eqGainDbToNormalized,
   eqFreqHzToNormalized,
@@ -956,38 +956,91 @@ export function registerTools(
     },
   )
 
-  // ─── get_input_routing (Layer B stub) ─────────────────────────────────────
+  // ─── get_input_routing (Layer A — HIL probe 2026-07-01) ──────────────────
   // @implements #45 REQ-F-ROUT-011
   server.tool(
     'get_input_routing',
-    'Layer B stub: physical input source routing is not verifiable with the current adapter. Returns structured not_verifiable response with probe instructions.',
+    'Returns per-channel input source routing (Local/Stage Box). Confidence: inferred. Falls back to probe instructions when flatState is not populated.',
     { deviceId: z.string() },
-    async ({ deviceId: _deviceId }) => {
+    async ({ deviceId }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const flatState = (snapshot as any)?.flatState as Record<string, unknown> | undefined ?? {}
+      const inputRouting = extractInputRouting(flatState)
+
+      if (inputRouting) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({
+          status: 'inferred',
+          confidence: 'inferred',
+          channels: inputRouting.channels,
+          mixerSerial: inputRouting.mixerSerial,
+          firmware: inputRouting.firmware,
+          hilEvidence: inputRouting.hilEvidence,
+          notes: inputRouting.notes,
+        }, null, 2) }] }
+      }
+
+      // Fallback: no inputsrc data in snapshot yet
       const probeSteps = [
-        'pnpm probe-routing dump --device <IP> --out before-routing.json',
-        '<In UC Surface: change one channel input source>',
-        'pnpm probe-routing dump --device <IP> --out after-routing.json',
-        'pnpm probe-routing diff --before before-routing.json --after after-routing.json --kind input-source',
+        `pnpm probe:dev probe-routing dump --device ${deviceId} --out before-input-source.json`,
+        '<In UC Surface: change one channel input source (e.g., Local → Stagebox on Ch1)>',
+        `pnpm probe:dev probe-routing dump --device ${deviceId} --out after-input-source.json`,
+        `pnpm probe:dev probe-routing diff --before before-input-source.json --after after-input-source.json --kind input-source`,
       ]
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'not_verifiable_with_current_adapter', reason: 'Physical input source routing requires probe diff-state. No confirmed state key found yet.', probeSteps, probeMarkdown: `## How to discover input routing\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }, null, 2) }] }
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'not_verifiable_with_current_adapter', reason: 'Physical input source routing requires probe diff-state. No confirmed state key found yet. Run the probe steps below to discover the key.', probeSteps, probeMarkdown: `## How to discover input routing\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }, null, 2) }] }
     },
   )
 
-  // ─── validate_avb_routing (Layer B stub) ──────────────────────────────────
+  // ─── validate_avb_routing (Layer A implementation backed by HIL probe 2026-07-01) ───
   // @implements #45 REQ-F-ROUT-011
   server.tool(
     'validate_avb_routing',
-    'Layer B stub: AVB stream routing requires a 32R stagebox and probe session. Returns structured not_verifiable response with probe instructions.',
+    'Returns AVB stream routing (block assignments from 32R stagebox). Confidence: observed. HIL evidence: 2026-07-01 StudioLive 32SC + 32R fw 3.3.0.109659. Falls back to probe instructions when no state is available.',
     { deviceId: z.string(), expectedStreams: z.array(z.string()).optional() },
-    async ({ deviceId: _deviceId, expectedStreams: _expectedStreams }) => {
+    async ({ deviceId, expectedStreams }) => {
+      const snapshot = clientManager.getSnapshot(deviceId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const flatState = (snapshot as any)?.flatState as Record<string, unknown> | undefined ?? {}
+      const avbRouting = extractAvbStreamRouting(flatState)
+
+      if (avbRouting) {
+        // Optional validation against expectedStreams
+        let validation: { allMatch: boolean; mismatches: Array<{ channelRange: string; expected: string; actual: string | null }> } | undefined
+        if (expectedStreams && expectedStreams.length > 0) {
+          const mismatches = avbRouting.streamBlocks
+            .filter((b) => {
+              const expected = expectedStreams.find((e) => e.includes(b.channelRange))
+              return expected !== undefined && b.streamLabel !== expected
+            })
+            .map((b) => ({
+              channelRange: b.channelRange,
+              expected: expectedStreams.find((e) => e.includes(b.channelRange)) ?? '',
+              actual: b.streamLabel,
+            }))
+          validation = { allMatch: mismatches.length === 0, mismatches }
+        }
+        return { content: [{ type: 'text' as const, text: JSON.stringify({
+          status: 'observed',
+          confidence: 'observed',
+          stageboxName: avbRouting.stageboxName,
+          connected: avbRouting.connected,
+          streamBlocks: avbRouting.streamBlocks,
+          mixerSerial: avbRouting.mixerSerial,
+          firmware: avbRouting.firmware,
+          hilEvidence: avbRouting.hilEvidence,
+          ...(validation ? { validation } : {}),
+        }, null, 2) }] }
+      }
+
+      // Fallback: no AVB routing data in snapshot yet — return probe instructions
       const probeSteps = [
-        'Connect StudioLive 32R stagebox via AVB',
-        'pnpm probe-routing dump --device <FOH-IP> --out before-avb.json',
-        '<In UC Surface: change one AVB stream assignment>',
-        'pnpm probe-routing dump --device <FOH-IP> --out after-avb.json',
-        'pnpm probe-routing diff --before before-avb.json --after after-avb.json --kind avb-stream',
+        'Connect StudioLive 32R stagebox via AVB to the FOH mixer',
+        `pnpm probe:dev probe-routing dump --device ${deviceId} --out before-avb.json`,
+        '<In UC Surface: change one AVB stream source assignment>',
+        `pnpm probe:dev probe-routing dump --device ${deviceId} --out after-avb.json`,
+        `pnpm probe:dev probe-routing diff --before before-avb.json --after after-avb.json --kind avb-stream`,
       ]
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'not_verifiable_with_current_adapter', reason: 'AVB stream mapping requires 32R hardware and a separate probe session.', probeSteps, probeMarkdown: `## How to discover AVB routing\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }, null, 2) }] }
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ status: 'not_verifiable_with_current_adapter', reason: 'AVB stream mapping requires 32R hardware and a separate probe session. Run the probe steps below to discover the key.', probeSteps, probeMarkdown: `## How to discover AVB routing\n\n${probeSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }, null, 2) }] }
     },
   )
 

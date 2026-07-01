@@ -20,6 +20,8 @@ export {
   extractOutputPatchRouter,
   extractFlexMixBusTopology,
   extractFixedSubGroups,
+  extractInputRouting,
+  extractAvbStreamRouting,
 } from './state-mapper.js'
 export type {
   MixerSnapshot,
