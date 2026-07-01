@@ -48,8 +48,8 @@
 | `find_muted_monitor_sends` | `always` | `observed` | `diagnostic` | #43 REQ-F-AUX-004 |
 | `find_hot_monitor_sends` | `always` | `observed` | `diagnostic` | #44 REQ-F-AUX-005 |
 | `validate_aux_mix` | `always` | `observed` | `diagnostic` | #43 REQ-F-AUX-004 |
-| `get_input_routing` | `always` | `inferred` | `diagnostic` | #45 REQ-F-ROUT-011 |
-| `validate_avb_routing` | `always` | `observed` | `diagnostic` | #45 REQ-F-ROUT-011 |
+| `get_input_routing` | `always` | `inferred` | `diagnostic` | #45 REQ-F-ROUT-011 — Observed on StudioLive 32SC (SD7E21010066), firmware 3.3.0.109659 (2026-07-01). Indices 0=Local, 1=Stage Box confirmed. Indices 2–3 labels probe_required. Other StudioLive III models unverified. |
+| `validate_avb_routing` | `always` | `observed` | `diagnostic` | #45 REQ-F-ROUT-011 — Observed on StudioLive 32SC + StudioLive 32R, firmware 3.3.0.109659 (2026-07-01). Other StudioLive III models remain unverified. |
 | `validate_output_routing` | `always` | `probe_required` | `diagnostic` | REQ-F-INP-002 |
 | `start_routing_probe` | `always` | `observed` | `read-only` | REQ-F-PROBE-001 |
 | `complete_routing_probe` | `always` | `observed` | `read-only` | REQ-F-PROBE-002 |
