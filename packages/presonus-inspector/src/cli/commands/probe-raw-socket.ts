@@ -132,7 +132,12 @@ export function registerProbeRawSocketCommand(program: Command): void {
       'line.ch11.comp.release,line.ch11.gate.range,line.ch11.comp.ratio,line.ch11.limit.threshold,line.ch11.comp.attack,line.ch11.gate.release'
     )
     .option('--out <dir>', 'Output directory for evidence files')
-    .action(async (opts: { device: string; port: string; duration: string; filter: string; out?: string }) => {
+    .option(
+      '--client-options <opts>',
+      'Override featherbear clientOptions subscription string',
+      'perm users levl redu rtan'
+    )
+    .action(async (opts: { device: string; port: string; duration: string; filter: string; out?: string; clientOptions: string }) => {
       const port = parseInt(opts.port, 10)
       const duration = parseInt(opts.duration, 10)
       const watchKeys = opts.filter.split(',').map(k => k.trim()).filter(Boolean)
@@ -147,7 +152,7 @@ export function registerProbeRawSocketCommand(program: Command): void {
 
       console.error(`Connecting to ${opts.device}:${port}...`)
       console.error(`Watching keys: ${watchKeys.join(', ')}`)
-      console.error(`Duration: ${duration}ms  |  Output: ${outDir}`)
+      console.error(`Duration: ${duration}ms  |  clientOptions: ${opts.clientOptions}  |  Output: ${outDir}`)
       console.error('')
       console.error('>>> Move the Fat Channel knobs in UC Surface now. <<<')
       console.error('')
@@ -271,6 +276,7 @@ export function registerProbeRawSocketCommand(program: Command): void {
       await client.connect({
         clientDescription: 'presonus-mcp-probe-raw-socket',
         clientIdentifier: `probe-raw-${Date.now()}`,
+        clientOptions: opts.clientOptions,
       })
       console.error(`Connected. Watching for ${duration}ms...`)
 
