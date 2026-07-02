@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "description": "comp.ratio 1.5:1 guided anchor — 32R Ch11 low range",
+    "device": "32R",
+    "serial": "RA3E18030194",
+    "captureDate": "2026-07-02"
+  },
+  "anchor": {
+    "key": "comp.ratio",
+    "raw": 0.35087716579437256,
+    "display": 1.5,
+    "unit": ":1",
+    "oldFormula": "1+0.922*(raw/(1-raw))^0.781",
+    "oldPred": 1.57,
+    "oldErr_pct": 4.7,
+    "quadraticFormula": "1+exp(-0.0647+0.9332*x-0.0481*x^2)",
+    "quadraticPred": 1.518,
+    "quadraticErr_pct": 1.2,
+    "status": "CONFIRMS_QUADRATIC_LOW_RANGE — quadratic clearly outperforms old power law"
+  }
+}
