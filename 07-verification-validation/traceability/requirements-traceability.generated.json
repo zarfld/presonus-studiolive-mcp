@@ -934,11 +934,11 @@
       "implements": [
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 181
+          "line": 182
         },
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 266
+          "line": 267
         },
         {
           "file": "packages/presonus-mcp-server/src/resources.ts",
@@ -978,7 +978,7 @@
       "implements": [
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 180
+          "line": 181
         },
         {
           "file": "packages/presonus-mcp-server/src/resources.ts",
@@ -1204,7 +1204,7 @@
         },
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 265
+          "line": 266
         },
         {
           "file": "packages/presonus-mcp-server/src/resources.ts",
@@ -1545,11 +1545,11 @@
         },
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 1141
+          "line": 1145
         },
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 1203
+          "line": 1207
         },
         {
           "file": "packages/presonus-domain/src/schemas/routing.ts",
@@ -2547,7 +2547,7 @@
       "implements": [
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 883
+          "line": 887
         }
       ],
       "verifies": [
@@ -2587,7 +2587,7 @@
       "implements": [
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 1019
+          "line": 1023
         }
       ],
       "verifies": [
@@ -2931,6 +2931,10 @@
       ],
       "implements": [
         {
+          "file": "packages/presonus-domain/src/__tests__/fat-channel.test.ts",
+          "line": 18
+        },
+        {
           "file": "packages/presonus-mcp-server/src/resources.ts",
           "line": 311
         },
@@ -2984,7 +2988,14 @@
     }
   ],
   "orphanAnnotations": {
-    "implements": [],
+    "implements": [
+      {
+        "file": "packages/presonus-domain/src/__tests__/fat-channel.test.ts",
+        "line": 18,
+        "reqId": "REQ-F-FAT-001",
+        "issueNumber": null
+      }
+    ],
     "verifies": []
   },
   "capabilitiesWithoutTraceability": [],

@@ -61,7 +61,7 @@
 | [#92](https://github.com/zarfld/presonus-studiolive-mcp/issues/92) | REQ-F | REQ-F-MON-002: Validate stereo monitor pair consistency | ðŸ”µ | `validate_stereo_monitor_pair` | `inferred` | `implemented_not_verified` | 1 | 0 | 0 | no @verifies annotation found in tests |
 | [#93](https://github.com/zarfld/presonus-studiolive-mcp/issues/93) | REQ-F | REQ-F-MON-001: Infer monitor mix layout (stereo IEM pai | ðŸ”µ | `get_monitor_mix_layout` | `inferred` | `implemented_not_verified` | 2 | 0 | 0 | no @verifies annotation found in tests |
 | [#94](https://github.com/zarfld/presonus-studiolive-mcp/issues/94) | REQ-F | REQ-F-MON-003: Validate monitor mix names against rider | ðŸ”µ | `validate_monitor_mix_names` | `observed` | `implemented_not_verified` | 1 | 0 | 0 | no @verifies annotation found in tests |
-| [#95](https://github.com/zarfld/presonus-studiolive-mcp/issues/95) | REQ-F | REQ-F-FAT-001: Expose per-channel Fat Channel DSP state | ðŸ”µ | `get_fat_channel` | `inferred` | `implemented_not_verified` | 2 | 0 | 0 | no @verifies annotation found in tests |
+| [#95](https://github.com/zarfld/presonus-studiolive-mcp/issues/95) | REQ-F | REQ-F-FAT-001: Expose per-channel Fat Channel DSP state | ðŸ”µ | `get_fat_channel` | `inferred` | `implemented_not_verified` | 3 | 0 | 0 | no @verifies annotation found in tests |
 | [#96](https://github.com/zarfld/presonus-studiolive-mcp/issues/96) | REQ-F | REQ-F-FAT-002: Validate Fat Channel settings for declar | ðŸ”µ | `validate_fat_channel_for_source` | `inferred` | `implemented_not_verified` | 1 | 0 | 0 | no @verifies annotation found in tests |
 
 ## Probe/HIL-Blocked Requirements
@@ -118,6 +118,14 @@
 | [#81](https://github.com/zarfld/presonus-studiolive-mcp/issues/81) | TEST | TEST-DIAG-002: analyze_line_check_step MCP tool — silent/une | âœ… | `complete` |
 | [#82](https://github.com/zarfld/presonus-studiolive-mcp/issues/82) | TEST | TEST-DIAG-003: check_required_setup MCP tool — ok/insufficie | âœ… | `complete` |
 | [#83](https://github.com/zarfld/presonus-studiolive-mcp/issues/83) | TEST | TEST-DIAG-001: diagnose_channel MCP tool — mute/fader/gate/o | âœ… | `complete` |
+
+## Orphan @implements Annotations (no GitHub issue number)
+
+> Create a GitHub issue for each REQ-ID and back-fill `#N` in the annotation.
+
+| File | Line | REQ-ID |
+|---|---|---|
+| `packages/presonus-domain/src/__tests__/fat-channel.test.ts` | 18 | `REQ-F-FAT-001` |
 
 ---
 
