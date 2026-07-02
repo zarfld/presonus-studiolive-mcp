@@ -22,6 +22,7 @@ import {
   decodeEqModel,
   normalizedToEqGainDb,
   normalizedToEqFreqHz,
+  normalizedToHpfFreqHz,
   normalizedToEqQ,
   normalizedToEqBandType,
   normalizedToCompThresholdDb,
@@ -384,12 +385,15 @@ export function extractFatChannelState(
     })
   }
 
-  // HPF (uses same log-frequency formula as EQ freq)
+  // HPF uses dedicated formula (narrower range than EQ freq, calibrated separately)
   const hpfRaw = f(KNOWN_FAT_KEY_SUFFIXES.FILTER_HPF)
 
-  // Compressor
-  const compInputRaw   = f(KNOWN_FAT_KEY_SUFFIXES.COMP_INPUT)
-  const compOutputRaw  = f(KNOWN_FAT_KEY_SUFFIXES.COMP_OUTPUT)
+  // Compressor — key names differ by model:
+  //   STANDARD/TUBE/BRIT_COMP/etc.: comp.threshold (dBFS), comp.gain (makeup dB)
+  //   FET model: comp.input (threshold-like), comp.output (gain-like)
+  // Try STANDARD keys first; fall back to FET keys.
+  const compThreshRaw  = f('.comp.threshold')  ?? f(KNOWN_FAT_KEY_SUFFIXES.COMP_INPUT)
+  const compGainRaw    = f('.comp.gain')        ?? f(KNOWN_FAT_KEY_SUFFIXES.COMP_OUTPUT)
   const compAttackRaw  = f(KNOWN_FAT_KEY_SUFFIXES.COMP_ATTACK)
   const compReleaseRaw = f(KNOWN_FAT_KEY_SUFFIXES.COMP_RELEASE)
   const compRatioRaw   = f(KNOWN_FAT_KEY_SUFFIXES.COMP_RATIO)
@@ -410,14 +414,14 @@ export function extractFatChannelState(
     compModel: compModelResult?.normalized,
     eqEnabled: toBool(eqOnRaw),
     eqBands:   eqBands.length > 0 ? eqBands : undefined,
-    hpfFrequencyHz: typeof hpfRaw === 'number' ? normalizedToEqFreqHz(hpfRaw) : undefined,
+    hpfFrequencyHz: typeof hpfRaw === 'number' ? normalizedToHpfFreqHz(hpfRaw) : undefined,
     comp: compOnRaw !== undefined ? {
       enabled:     toBool(compOnRaw),
-      thresholdDb: typeof compInputRaw   === 'number' ? normalizedToCompThresholdDb(compInputRaw)   : undefined,
-      makeupDb:    typeof compOutputRaw  === 'number' ? normalizedToCompMakeupDb(compOutputRaw)      : undefined,
-      ratioX:      typeof compRatioRaw   === 'number' ? normalizedToCompRatioX(compRatioRaw)         : undefined,
-      attackMs:    typeof compAttackRaw  === 'number' ? normalizedToAttackMs(compAttackRaw)          : undefined,
-      releaseMs:   typeof compReleaseRaw === 'number' ? normalizedToReleaseMs(compReleaseRaw)        : undefined,
+      thresholdDb: typeof compThreshRaw === 'number' ? normalizedToCompThresholdDb(compThreshRaw) : undefined,
+      makeupDb:    typeof compGainRaw   === 'number' ? normalizedToCompMakeupDb(compGainRaw)      : undefined,
+      ratioX:      typeof compRatioRaw  === 'number' ? normalizedToCompRatioX(compRatioRaw)        : undefined,
+      attackMs:    typeof compAttackRaw === 'number' ? normalizedToAttackMs(compAttackRaw)          : undefined,
+      releaseMs:   typeof compReleaseRaw=== 'number' ? normalizedToReleaseMs(compReleaseRaw)       : undefined,
     } : undefined,
     gate: gateOnRaw !== undefined ? {
       enabled:     toBool(gateOnRaw),
@@ -432,7 +436,7 @@ export function extractFatChannelState(
       thresholdDb: typeof limitThreshRaw  === 'number' ? normalizedToLimiterThresholdDb(limitThreshRaw)  : undefined,
       releaseMs:   typeof limitReleaseRaw === 'number' ? normalizedToReleaseMs(limitReleaseRaw)          : undefined,
     } : undefined,
-    parameterConfidence: 'guessed',
+    parameterConfidence: 'inferred',
   }
 }
 

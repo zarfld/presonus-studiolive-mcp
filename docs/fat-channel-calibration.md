@@ -58,26 +58,30 @@ in scene/cache files (live-index-only evidence).
 
 ## DSP parameter values — calibration status
 
-All continuous parameter values (EQ gain/freq/Q, comp threshold/ratio/attack/release/makeup,
-gate, limiter) are currently `parameterConfidence: 'guessed'`.
+Calibrated from HIL probe on StudioLive 32SC SD7E21010066 fw **3.4.0.111374** (2026-07-01).
+Evidence: `test/fixtures/32sc/fat-channel/fat-channel-calibration.json` (31 anchor points).
 
-This means the de-normalization formulas in
-`packages/presonus-adapter/src/state-mapper.ts` and
-`packages/presonus-domain/src/schemas/fat-channel.ts` are **best estimates
-only** — they have not been verified against actual hardware measurements.
-
-| Parameter group | Formula (guessed) | Source | Status |
+| Parameter group | Formula | Confidence | Notes |
 |---|---|---|---|
-| EQ gain | `(raw - 0.5) × 36` → ±18 dB | state-mapper.ts | `guessed` |
-| EQ frequency | `20 × 1000^raw` → 20 Hz–20 kHz (log) | state-mapper.ts | `guessed` |
-| EQ Q | `0.1 × 160^raw` → 0.1–16 (log) | state-mapper.ts | `guessed` |
-| Comp threshold | `(raw - 1) × 60` → −60 to 0 dBFS | state-mapper.ts | `guessed` |
-| Comp makeup | `raw × 24` → 0–24 dB | state-mapper.ts | `guessed` |
-| Comp ratio | `1 + raw × 15` → 1×–16× | state-mapper.ts | `guessed` |
-| Comp/gate attack | `raw × 150` → 0–150 ms | state-mapper.ts | `guessed` |
-| Comp/gate/lim release | various | state-mapper.ts | `guessed` |
-| Gate threshold | `(raw - 1) × 80` → −80 to 0 dBFS | state-mapper.ts | `guessed` |
-| Gate range | `raw × −80` → 0 to −80 dB | state-mapper.ts | `guessed` |
+| EQ gain | `(raw−0.5)×30` → ±15 dB | **observed** | 5 points, max error 0.005 dB |
+| EQ frequency | `36×502^raw` → 36 Hz–18 kHz | **calibrated\_inferred** | 5 pts band-1, max 0.013% |
+| HPF frequency | `24×42^raw` → 24 Hz–1 kHz | **calibrated\_inferred** | 6 pts, max 0.46% |
+| EQ Q factor | `0.028×466^raw` → 0.03–13 | **calibrated\_inferred** | 5 pts, max 0.17 Q units |
+| EQ band type | `round(raw×3)` → 4 types | **calibrated\_inferred** | BELL (1.0) and LOW\_SHELF (0.333) confirmed; others probe\_required |
+| Comp threshold (STANDARD) | `(raw−1)×56` → -56 to 0 dBFS | **calibrated\_inferred** | 2 pts; key is `comp.threshold` |
+| Comp makeup (STANDARD) | `raw×27.6` → 0–28 dB | **calibrated\_inferred** | 2 pts; key is `comp.gain` |
+| Comp attack | `0.2×e^(10.3×raw)` ms | **calibrated\_inferred** | 2 pts; valid only raw 0.15–0.40 |
+| Gate threshold | `(raw−1)×84` → -84 to 0 dBFS | **calibrated\_inferred** | 2 pts; max 0.007 dB |
+| Comp ratio | probe\_required | **probe\_required** | 2 pts only (4.7:1, 10.2:1); range unconfirmed |
+| Comp/gate release | probe\_required | **probe\_required** | 1 data point only |
+| Gate range/depth | probe\_required | **probe\_required** | no calibration data |
+| Limiter threshold | probe\_required | **probe\_required** | no calibration data |
+| Fader taper | `volumeRaw100ToDb(v)` | **calibrated\_inferred** | `line.chN.volume` is 0–100 scene-stored; see `docs/hil/fader-preamp-calibration-notes.md` |
+
+> **IMPORTANT: FET vs STANDARD compressor key difference**
+> - STANDARD/TUBE/etc.: threshold key = `comp.threshold`, makeup key = `comp.gain`
+> - FET model: threshold-like key = `comp.input`, gain-like key = `comp.output`
+> - The adapter now tries `comp.threshold` first, falls back to `comp.input`.
 | Limiter threshold | `(raw - 1) × 20` → −20 to 0 dBFS | state-mapper.ts | `guessed` |
 | Fader taper | Log law assumed (0.75 ≈ unity) | state-mapper.ts | `guessed` |
 

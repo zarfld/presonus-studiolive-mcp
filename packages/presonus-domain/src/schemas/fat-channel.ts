@@ -498,134 +498,229 @@ export const ChannelFatStateSchema = z.object({
    * 'guessed'  = best-estimate formulas; verify with probe-fat-channel.
    * 'observed' = confirmed via probe-fat-channel on physical 32SC hardware.
    */
-  parameterConfidence: z.enum(['observed', 'guessed']),
+  parameterConfidence: z.enum(['observed', 'inferred', 'guessed']),
 })
 export type ChannelFatState = z.infer<typeof ChannelFatStateSchema>
 
 // ---------------------------------------------------------------------------
 // De-normalization helpers (raw 0–1 → real units)
-// CONFIDENCE: guessed — update after probe-fat-channel calibration
+//
+// Confidence per function (updated from HIL probe 2026-07-01, 32SC fw 3.4.0.111374):
+//   observed          = multiple HIL anchor points, exact match
+//   calibrated_inferred = fitted from HIL data, documented tolerance
+//   probe_required    = no calibration — formula still guessed, use with caution
+//
+// Evidence: test/fixtures/32sc/fat-channel/fat-channel-calibration.json
 // ---------------------------------------------------------------------------
 
-/** EQ gain: linear ±18 dB. raw=0→-18 dB, raw=0.5→0 dB, raw=1→+18 dB */
+/**
+ * EQ gain: linear ±15 dB.  raw=0→-15 dB, raw=0.5→0 dB, raw=1→+15 dB
+ *
+ * OBSERVED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ * 5 anchor points, max error 0.005 dB. Formula: (raw-0.5)*30
+ */
 export function normalizedToEqGainDb(raw: number): number {
-  return (raw - 0.5) * 36
+  return (raw - 0.5) * 30
 }
 
-/** EQ frequency: log scale 20 Hz – 20 kHz. raw=0→20 Hz, raw=0.5→632 Hz, raw=1→20000 Hz */
+/**
+ * EQ frequency: log scale ~36 Hz – ~18 kHz.  raw=0→36 Hz, raw=0.5→850 Hz, raw=1→18 kHz
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ * 5 anchor points (band 1 data), max error 0.013%. Formula: 36*502^raw
+ * Note: calibrated from band-1 low-frequency data; apply to all bands.
+ */
 export function normalizedToEqFreqHz(raw: number): number {
-  return 20 * Math.pow(1000, raw)
+  return 36 * Math.pow(502, raw)
 }
 
-/** EQ Q factor: log scale 0.1 – 16. raw=0→0.1, raw=0.5→1.26, raw=1→16 */
+/**
+ * HPF frequency: log scale ~24 Hz – ~1000 Hz.  raw=0→24 Hz, raw=1→~1000 Hz
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ * 6 anchor points, max error 0.46%. Formula: 24*42^raw
+ * This is DIFFERENT from the EQ freq formula — HPF has a narrower frequency range.
+ */
+export function normalizedToHpfFreqHz(raw: number): number {
+  return 24 * Math.pow(42, raw)
+}
+
+/**
+ * EQ Q factor: log scale ~0.03 – ~13.  raw=0→0.03, raw=0.5→0.60, raw=1→13
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ * 5 anchor points, max error 0.16 Q units. Formula: 0.028*466^raw
+ */
 export function normalizedToEqQ(raw: number): number {
-  return 0.1 * Math.pow(160, raw)
+  return 0.028 * Math.pow(466, raw)
 }
 
-/** EQ filter type from raw float. Mapping is guessed — needs probe calibration. */
+/**
+ * EQ filter type from raw float.
+ *
+ * PARTIALLY OBSERVED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ *   raw=0.333 → LOW_SHELF  (confirmed — Ch1 band-1 UC Surface display)
+ *   raw=1.000 → BELL       (confirmed — Ch1 bands 2-4 UC Surface display)
+ *   raw=0.000, 0.667: probe_required (not observed, formula index assumed)
+ */
 export function normalizedToEqBandType(raw: number): EqBandType {
-  const types: EqBandType[] = ['BELL', 'LOW_SHELF', 'HIGH_SHELF', 'HIGH_PASS', 'LOW_PASS']
-  return types[Math.round(raw * 4)] ?? 'UNKNOWN'
+  // 4 types (indices 0–3), step = 1/3:
+  // 0 = LOW_PASS (raw≈0, not yet observed)
+  // 1 = LOW_SHELF (raw≈0.333, confirmed)
+  // 2 = HIGH_SHELF (raw≈0.667, not yet observed)
+  // 3 = BELL (raw≈1.0, confirmed)
+  const types: EqBandType[] = ['LOW_PASS', 'LOW_SHELF', 'HIGH_SHELF', 'BELL']
+  return types[Math.round(raw * 3)] ?? 'UNKNOWN'
 }
 
-/** Comp threshold: linear -60 to 0 dBFS */
+/**
+ * Comp threshold: linear -56 to 0 dBFS
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ * 2 anchor points, exact match. Formula: (raw-1)*56
+ * IMPORTANT: For STANDARD compressor model, the state key is `comp.threshold`
+ * (NOT `comp.input` which is used by the FET model).
+ */
 export function normalizedToCompThresholdDb(raw: number): number {
-  return (raw - 1) * 60
+  return (raw - 1) * 56
 }
 
-/** Comp makeup gain: linear 0 to +24 dB */
+/**
+ * Comp makeup gain: linear 0 to +27.6 dB
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ * 2 anchor points, max error 0.08 dB. Formula: raw*27.6
+ * IMPORTANT: For STANDARD compressor model, the state key is `comp.gain`
+ * (NOT `comp.output` which is used by the FET model).
+ */
 export function normalizedToCompMakeupDb(raw: number): number {
-  return raw * 24
+  return raw * 27.6
 }
 
-/** Comp ratio: linear 1× to 16×. raw=0→1:1, raw=1→16:1 */
+/**
+ * Comp ratio: probe_required — formula still guessed
+ * 2 HIL data points observed (4.7:1 and 10.2:1) but range not confirmed.
+ * Do not use until full calibration is complete.
+ */
 export function normalizedToCompRatioX(raw: number): number {
+  // PROBE_REQUIRED: 2 data points only (raw=0.826→4.7:1, raw=0.950→10.2:1)
+  // Formula below is provisional and should not be trusted outside raw=0.8–1.0
   return 1 + raw * 15
 }
 
-/** Comp/gate attack: linear 0 to 150 ms */
+/**
+ * Comp/gate attack time in ms.
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ * 2 anchor points, max error 5%. Formula: 0.2*exp(10.3*raw)
+ * Validated only for raw 0.15–0.40; extrapolation outside this range is uncertain.
+ */
 export function normalizedToAttackMs(raw: number): number {
-  return raw * 150
+  return 0.2 * Math.exp(10.3 * raw)
 }
 
-/** Comp/gate/limiter release: linear 0 to 2000 ms */
+/**
+ * Comp/gate/limiter release time in ms.
+ * PROBE_REQUIRED: only one HIL data point (raw=0.5 → 150 ms).
+ * Do not use until full calibration is complete.
+ */
 export function normalizedToReleaseMs(raw: number): number {
+  // PROBE_REQUIRED: 1 data point only (raw=0.5 → 150 ms)
+  // Provisional linear estimate; actual taper is unknown
   return raw * 2000
 }
 
-/** Gate threshold: linear -80 to 0 dBFS */
+/**
+ * Gate threshold in dBFS.
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
+ * 2 anchor points, max error 0.007 dB. Formula: (raw-1)*84
+ */
 export function normalizedToGateThresholdDb(raw: number): number {
-  return (raw - 1) * 80
+  return (raw - 1) * 84
 }
 
-/** Gate range: linear 0 to -80 dB */
+/**
+ * Gate range/depth in dB.
+ * PROBE_REQUIRED: no calibration data.
+ */
 export function normalizedToGateRangeDb(raw: number): number {
   return raw * -80
 }
 
-/** Limiter threshold: linear -20 to 0 dBFS */
+/**
+ * Limiter threshold in dBFS.
+ * PROBE_REQUIRED: no calibration data.
+ */
 export function normalizedToLimiterThresholdDb(raw: number): number {
   return (raw - 1) * 20
 }
 
 // ---------------------------------------------------------------------------
 // Inverse de-normalization helpers (real units → raw 0–1 for write tools)
-// CONFIDENCE: guessed — same calibration caveat applies
+// Confidence matches the forward function unless noted otherwise.
 // ---------------------------------------------------------------------------
 
-/** EQ gain dB → raw 0–1. Clamps to ±18 dB range. */
+/** EQ gain dB → raw 0–1. Clamps to ±15 dB range. OBSERVED. */
 export function eqGainDbToNormalized(db: number): number {
-  return Math.max(0, Math.min(1, db / 36 + 0.5))
+  return Math.max(0, Math.min(1, db / 30 + 0.5))
 }
 
-/** EQ frequency Hz → raw 0–1. Clamps to 20–20000 Hz range. */
+/** EQ frequency Hz → raw 0–1. Clamps to 36–18000 Hz range. CALIBRATED_INFERRED. */
 export function eqFreqHzToNormalized(hz: number): number {
-  const clamped = Math.max(20, Math.min(20000, hz))
-  return Math.log(clamped / 20) / Math.log(1000)
+  const clamped = Math.max(36, Math.min(18000, hz))
+  return Math.log(clamped / 36) / Math.log(502)
 }
 
-/** EQ Q factor → raw 0–1. Clamps to 0.1–16 range. */
+/** HPF frequency Hz → raw 0–1. Clamps to 24–1000 Hz range. CALIBRATED_INFERRED. */
+export function hpfFreqHzToNormalized(hz: number): number {
+  const clamped = Math.max(24, Math.min(1000, hz))
+  return Math.log(clamped / 24) / Math.log(42)
+}
+
+/** EQ Q factor → raw 0–1. Clamps to 0.028–13 range. CALIBRATED_INFERRED. */
 export function eqQToNormalized(q: number): number {
-  const clamped = Math.max(0.1, Math.min(16, q))
-  return Math.log(clamped / 0.1) / Math.log(160)
+  const clamped = Math.max(0.028, Math.min(13, q))
+  return Math.log(clamped / 0.028) / Math.log(466)
 }
 
-/** Comp threshold dBFS → raw 0–1. Clamps to -60–0 dBFS range. */
+/** Comp threshold dBFS → raw 0–1. Clamps to -56–0 dBFS. CALIBRATED_INFERRED (STANDARD comp). */
 export function compThresholdDbToNormalized(db: number): number {
-  return Math.max(0, Math.min(1, db / 60 + 1))
+  return Math.max(0, Math.min(1, db / 56 + 1))
 }
 
-/** Comp makeup dB → raw 0–1. Clamps to 0–24 dB range. */
+/** Comp makeup dB → raw 0–1. Clamps to 0–27.6 dB. CALIBRATED_INFERRED (STANDARD comp). */
 export function compMakeupDbToNormalized(db: number): number {
-  return Math.max(0, Math.min(1, db / 24))
+  return Math.max(0, Math.min(1, db / 27.6))
 }
 
-/** Comp ratio X → raw 0–1. Clamps to 1–16× range. */
+/** Comp ratio X → raw 0–1. PROBE_REQUIRED — provisional. */
 export function compRatioXToNormalized(ratioX: number): number {
   return Math.max(0, Math.min(1, (ratioX - 1) / 15))
 }
 
-/** Attack ms → raw 0–1. Clamps to 0–150 ms range. CONFIDENCE: guessed */
+/** Attack ms → raw 0–1. CALIBRATED_INFERRED (validated for 1–10 ms range only). */
 export function attackMsToNormalized(ms: number): number {
-  return Math.max(0, Math.min(1, ms / 150))
+  const clamped = Math.max(0.2, ms)
+  return Math.log(clamped / 0.2) / 10.3
 }
 
-/** Release ms → raw 0–1. Clamps to 0–2000 ms range. CONFIDENCE: guessed */
+/** Release ms → raw 0–1. PROBE_REQUIRED — provisional. */
 export function releaseMsToNormalized(ms: number): number {
   return Math.max(0, Math.min(1, ms / 2000))
 }
 
-/** Gate threshold dBFS → raw 0–1. Clamps to -80–0 dBFS range. CONFIDENCE: guessed */
+/** Gate threshold dBFS → raw 0–1. Clamps to -84–0 dBFS. CALIBRATED_INFERRED. */
 export function gateThresholdDbToNormalized(db: number): number {
-  return Math.max(0, Math.min(1, db / 80 + 1))
+  return Math.max(0, Math.min(1, db / 84 + 1))
 }
 
-/** Gate range dB → raw 0–1. Clamps to 0 to -80 dB range. CONFIDENCE: guessed */
+/** Gate range dB → raw 0–1. PROBE_REQUIRED — provisional. */
 export function gateRangeDbToNormalized(rangeDb: number): number {
   return Math.max(0, Math.min(1, rangeDb / -80))
 }
 
-/** Limiter threshold dBFS → raw 0–1. Clamps to -20–0 dBFS range. CONFIDENCE: guessed */
+/** Limiter threshold dBFS → raw 0–1. PROBE_REQUIRED — provisional. */
 export function limiterThresholdDbToNormalized(db: number): number {
   return Math.max(0, Math.min(1, db / 20 + 1))
 }

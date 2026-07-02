@@ -229,9 +229,9 @@ describe('extractFatChannelState', () => {
     expect(fat!.eqBands).toHaveLength(4)
   })
 
-  it('sets parameterConfidence to guessed', () => {
+  it('sets parameterConfidence to inferred (calibrated from HIL probe 2026-07-01)', () => {
     const fat = extractFatChannelState(fatChannelFlat, 'line.ch1')
-    expect(fat!.parameterConfidence).toBe('guessed')
+    expect(fat!.parameterConfidence).toBe('inferred')
   })
 
   it('decodes EQ model from opt.eqmodel.value', () => {
@@ -265,16 +265,16 @@ describe('extractFatChannelState', () => {
     expect(band1.frequencyHz!).toBeLessThanOrEqual(20000)
   })
 
-  it('EQ band 1 gain ~+1.5 dB (raw=0.5412, formula: (raw-0.5)*36)', () => {
+  it('EQ band 1 gain ~+1.24 dB (raw=0.5412, formula: (raw-0.5)*30)', () => {
     const fat = extractFatChannelState(fatChannelFlat, 'line.ch1')
-    // (0.5412 - 0.5) * 36 = 1.48 dB — GUESSED FORMULA, update after probe calibration
-    expect(fat!.eqBands![0]!.gainDb!).toBeCloseTo(1.48, 0)
+    // (0.5412 - 0.5) * 30 = 1.24 dB — calibrated formula (observed on 32SC fw 3.4.0.111374)
+    expect(fat!.eqBands![0]!.gainDb!).toBeCloseTo(1.24, 0)
   })
 
-  it('EQ band 1 freq ~42 Hz (raw=0.108, formula: 20*1000^raw)', () => {
+  it('EQ band 1 freq ~71 Hz (raw=0.108, formula: 36*502^raw)', () => {
     const fat = extractFatChannelState(fatChannelFlat, 'line.ch1')
-    // 20 * 1000^0.108 ≈ 42 Hz — GUESSED FORMULA, update after probe calibration
-    expect(fat!.eqBands![0]!.frequencyHz!).toBeCloseTo(42, -1)  // within ±10 Hz
+    // 36 * 502^0.108 ≈ 71 Hz — calibrated formula (calibrated_inferred on 32SC fw 3.4.0.111374)
+    expect(fat!.eqBands![0]!.frequencyHz!).toBeCloseTo(71, -1)  // within ±10 Hz
   })
 
   it('compressor is enabled (comp.on=1)', () => {

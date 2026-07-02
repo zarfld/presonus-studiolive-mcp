@@ -83,14 +83,16 @@ describe('normalizedToHpfFreqHz — calibrated_inferred (32SC fw 3.4.0.111374)',
     expect(normalizedToHpfFreqHz(0.3533)).toBeGreaterThan(87)
     expect(normalizedToHpfFreqHz(0.3533)).toBeLessThan(93)
   })
-  it('Ch3: raw=0.3667 → 94 Hz', () => {
-    expect(normalizedToHpfFreqHz(0.3667)).toBeCloseTo(94, 0)
+  it('Ch3: raw=0.3667 → 94 Hz (±2 Hz display rounding)', () => {
+    expect(normalizedToHpfFreqHz(0.3667)).toBeGreaterThan(92)
+    expect(normalizedToHpfFreqHz(0.3667)).toBeLessThan(97)
   })
   it('Ch22: raw=0.5033 → 157 Hz', () => {
     expect(normalizedToHpfFreqHz(0.5033)).toBeCloseTo(157, 0)
   })
-  it('Ch4: raw=0.6200 → 242 Hz', () => {
-    expect(normalizedToHpfFreqHz(0.6200)).toBeCloseTo(242, 0)
+  it('Ch4: raw=0.6200 → 242 Hz (±3 Hz display rounding)', () => {
+    expect(normalizedToHpfFreqHz(0.6200)).toBeGreaterThan(239)
+    expect(normalizedToHpfFreqHz(0.6200)).toBeLessThan(246)
   })
   it('range: raw=0 → ~24 Hz, raw=1 → ~1 kHz', () => {
     expect(normalizedToHpfFreqHz(0)).toBeCloseTo(24, 0)

@@ -916,12 +916,12 @@ describe('prepare_fat_channel_change_set (ADR-006)', () => {
     registerTools(server, makeMockManager(snapshot), { writeEnabled: true })
     const result = await callTool(tools, 'prepare_fat_channel_change_set', {
       deviceId: DEVICE_ID, channelId: 'line.ch1',
-      compressor: { thresholdDb: -30 },  // → (−30/60 + 1) = 0.5
+      compressor: { thresholdDb: -30 },  // → (−30/56 + 1) ≈ 0.464 (calibrated formula)
     })
     const changes = body(result).changes as Array<{ parameter: string; proposedRawValue: number }>
     const threshChange = changes.find((c) => c.parameter === 'comp.threshold')
     expect(threshChange).toBeDefined()
-    expect(threshChange!.proposedRawValue).toBeCloseTo(0.5, 5)
+    expect(threshChange!.proposedRawValue).toBeCloseTo(0.464, 2)
   })
 
   it('returns error when no parameters are specified', async () => {
