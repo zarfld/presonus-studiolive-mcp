@@ -286,43 +286,60 @@ import {
   normalizedToLimiterThresholdDb,
 } from '../schemas/fat-channel.js'
 
-// Comp ratio — 5 confirmed 32R guided anchors (2026-07-02)
-// Formula: 1 + 0.922*(raw/(1-raw))^0.781
-// No 2-param power law fits all 5 to < 6%: inherent ~11% max error in mid-high range
-// RMS error = 6.5%  max error = 11.3% (at raw=0.819/4.5:1)
+// Comp ratio — FULL CALIBRATION from 10 confirmed 32R anchors (2026-07-02)
+// Formula: 1 + exp(-0.0647 + 0.9332*x - 0.0481*x^2)  where x = ln(r/(1-r))
+// Max error 3.1%, RMS 1.6% across all 9 interior confirmed anchors.
+// Previous 2-param power law had max=12%, RMS=8%.
 // HIL Evidence: test/fixtures/32r/fat-channel/guided/comp-ratio-*-anchor-2026-07-02.json
 
-describe('normalizedToCompRatioX — 5-anchor calibrated (32R guided 2026-07-02)', () => {
-  it('raw=0 → 1.0 (exact min, 1:1 no compression)', () => {
+describe('normalizedToCompRatioX — quadratic-log calibrated 10-anchor (32R 2026-07-02)', () => {
+  it('raw=0 → 1.0 (exact min)', () => {
     expect(normalizedToCompRatioX(0)).toBe(1.0)
   })
   it('raw=1 → Infinity (Limit mode)', () => {
     expect(normalizedToCompRatioX(1)).toBe(Infinity)
   })
-  it('32R dump: raw=0.175 → ~1.2:1 (±8%) [confirmed; formula overestimates ~6%]', () => {
-    expect(normalizedToCompRatioX(0.1754)).toBeGreaterThan(1.1)
-    expect(normalizedToCompRatioX(0.1754)).toBeLessThan(1.4)
+  it('raw=0.175 → ~1.2:1 (±2%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.1754)).toBeGreaterThan(1.17)
+    expect(normalizedToCompRatioX(0.1754)).toBeLessThan(1.23)
   })
-  it('32R 50% dump: raw=0.526 → ~2.0:1 (±2%) [confirmed; formula exact]', () => {
-    expect(normalizedToCompRatioX(0.526)).toBeGreaterThan(1.96)
-    expect(normalizedToCompRatioX(0.526)).toBeLessThan(2.04)
+  it('raw=0.526 → ~2.0:1 (±3%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.5263)).toBeGreaterThan(1.95)
+    expect(normalizedToCompRatioX(0.5263)).toBeLessThan(2.07)
   })
-  it('32R 75% dump: raw=0.819 → ~4.5:1 (±13%) [confirmed; formula underestimates ~11%]', () => {
-    expect(normalizedToCompRatioX(0.8187)).toBeGreaterThan(3.5)
-    expect(normalizedToCompRatioX(0.8187)).toBeLessThan(5.0)
+  it('raw=0.632 → ~2.5:1 (±3%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.6316)).toBeGreaterThan(2.43)
+    expect(normalizedToCompRatioX(0.6316)).toBeLessThan(2.57)
   })
-  it('32R dump: raw=0.947 → ~10:1 (±3%) [confirmed; formula accurate]', () => {
-    expect(normalizedToCompRatioX(0.9474)).toBeGreaterThan(9.5)
-    expect(normalizedToCompRatioX(0.9474)).toBeLessThan(10.5)
+  it('raw=0.702 → ~3.0:1 (±3%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.7018)).toBeGreaterThan(2.91)
+    expect(normalizedToCompRatioX(0.7018)).toBeLessThan(3.09)
+  })
+  it('raw=0.819 → ~4.5:1 (±4%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.8187)).toBeGreaterThan(4.32)
+    expect(normalizedToCompRatioX(0.8187)).toBeLessThan(4.68)
+  })
+  it('raw=0.842 → ~5.0:1 (±3%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.8421)).toBeGreaterThan(4.85)
+    expect(normalizedToCompRatioX(0.8421)).toBeLessThan(5.15)
+  })
+  it('raw=0.877 → ~6.0:1 (±3%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.8772)).toBeGreaterThan(5.82)
+    expect(normalizedToCompRatioX(0.8772)).toBeLessThan(6.18)
+  })
+  it('raw=0.921 → ~8.0:1 (±3%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.9211)).toBeGreaterThan(7.76)
+    expect(normalizedToCompRatioX(0.9211)).toBeLessThan(8.24)
+  })
+  it('raw=0.947 → ~10.0:1 (±4%) [confirmed anchor]', () => {
+    expect(normalizedToCompRatioX(0.9474)).toBeGreaterThan(9.6)
+    expect(normalizedToCompRatioX(0.9474)).toBeLessThan(10.4)
   })
   it('ratio is monotonically increasing across range', () => {
-    const r1 = normalizedToCompRatioX(0.3)
-    const r2 = normalizedToCompRatioX(0.5)
-    const r3 = normalizedToCompRatioX(0.7)
-    const r4 = normalizedToCompRatioX(0.9)
-    expect(r1).toBeLessThan(r2)
-    expect(r2).toBeLessThan(r3)
-    expect(r3).toBeLessThan(r4)
+    const vals = [0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95].map(normalizedToCompRatioX)
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThan(vals[i - 1])
+    }
   })
 })
 

@@ -638,26 +638,19 @@ export function normalizedToCompMakeupDb(raw: number): number {
 /**
  * STANDARD comp ratio.
  *
- * CALIBRATED from 5 confirmed 32R guided anchors (dump + UC Surface display, 2026-07-02):
- *   raw=0      → 1.0:1   (exact, confirmed)
- *   raw=0.175  → 1.2:1   (confirmed; formula predicts 1.28:1,  +6.3%)
- *   raw=0.526  → 2.0:1   (confirmed; formula predicts 2.001:1, +0.1%)
- *   raw=0.819  → 4.5:1   (confirmed; formula predicts 3.99:1, -11.3%)
- *   raw=0.947  → 10.0:1  (confirmed; formula predicts 9.82:1,  -1.8%)
- *   raw=1.000  → ∞       (Limit mode, confirmed)
+ * CALIBRATED from 10 confirmed 32R guided anchors (dump + UC Surface display, 2026-07-02):
+ *   raw=0      → 1.0:1   raw=0.175 → 1.2:1   raw=0.526 → 2.0:1   raw=0.632 → 2.5:1
+ *   raw=0.702  → 3.0:1   raw=0.819 → 4.5:1   raw=0.842 → 5.0:1   raw=0.877 → 6.0:1
+ *   raw=0.921  → 8.0:1   raw=0.947 → 10.0:1  raw=1.000 → ∞ (Limit)
  *
- * Formula: 1 + 0.922 × (raw/(1-raw))^0.781
- * (Original Phase 2 coefficients; LS 4-anchor fit gives A=0.837 B=0.864 with similar max error)
+ * Formula: ratio = 1 + exp(a + b·x + c·x²)  where  x = ln(raw/(1-raw))
+ *   a = -0.0647,  b = 0.9332,  c = -0.0481
+ * (Quadratic fit in log-log space, least-squares over 9 interior confirmed anchors)
+ * Max error at confirmed anchors: 3.1%  (raw=0.947/10.0:1)
+ * RMS error:  1.6%
  *
- * Error profile (4-point RMS=6.5%, max=11.3%):
- * - Low range (raw 0–0.2): formula overestimates by ~6% (1.2:1 shown as 1.28:1)
- * - Mid range (raw 0.5):   essentially exact (2.0:1 ✓)
- * - Mid-high (raw 0.8):    formula underestimates by 11% (4.5:1 shown as 4.0:1)
- * - High range (raw 0.95): essentially exact (10.0:1 → 9.8:1 ✓)
- *
- * ⚠️ No 2-parameter power law can simultaneously fit all 5 anchors to < 6% max error.
- *    A piecewise or 3-parameter model is needed for < 5% accuracy across the full range.
- *    See: test/fixtures/32r/fat-channel/guided/comp-ratio-*-anchor-2026-07-02.json
+ * The simple 2-param power law 1+A*(r/(1-r))^B cannot fit this range below 12% max error;
+ * the quadratic term captures the taper characteristic of this control.
  *
  * Special cases:
  *   raw ≤ 0   → 1.0  (no compression)
@@ -666,7 +659,8 @@ export function normalizedToCompMakeupDb(raw: number): number {
 export function normalizedToCompRatioX(raw: number): number {
   if (raw <= 0) return 1.0
   if (raw >= 1) return Infinity
-  return 1 + 0.922 * Math.pow(raw / (1 - raw), 0.781)
+  const x = Math.log(raw / (1 - raw))
+  return 1 + Math.exp(-0.0647 + 0.9332 * x - 0.0481 * x * x)
 }
 
 /**
