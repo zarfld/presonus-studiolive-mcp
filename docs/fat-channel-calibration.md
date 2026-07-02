@@ -149,9 +149,31 @@ sendPacket('PV', Buffer.concat([Buffer.from(`${key}\x00\x00\x00`), buf]))
 **Do not implement Fat Channel writes until the write path is verified with a dedicated probe.**
 
 ### Next Steps from SL-Edit Analysis
-1. **Test write-triggered PV echo**: Write a known-safe value (mute) and watch if PV echo arrives for other monitored keys simultaneously.
-2. **`clientOptions` investigation**: Try variants beyond `"perm users levl redu rtan"` to see if DSP echoes become available.
-3. **limit.release key**: Confirm `line.chN.limit.release` is present in 3.4.0.111374 state (it IS — confirmed in session dumps).
+1. ✅ **Write-triggered PV echo CONFIRMED** (2026-07-02): Writing comp.release via PV causes the mixer to echo the change back as a decoded PV event with correct float value. client.state updated. See `test/fixtures/32sc/fat-channel/live-events/write-echo-evidence.json`.
+2. **`clientOptions` investigation**: Passive observation still shows no echoes — the write-echo path works only for active writes, not passive UC Surface monitoring.
+3. **limit.release key**: Confirmed `line.chN.limit.release` is present in 3.4.0.111374 state (confirmed in session dumps).
+
+---
+
+## PV Write-Echo Probe Results (2026-07-02)
+
+Evidence: `test/fixtures/32sc/fat-channel/live-events/write-echo-evidence.json`
+Command: `pnpm probe:dev probe-fat-write-echo --device <ip> --channel line.ch11 --key comp.release --delta 0.01 --duration 8000 --allow-unmuted`
+
+**Result: `writeAccepted_echoObserved`** — all flags YES.
+
+| Key | Write accepted | PV echo observed | Raw packet observed | client.state updated | Restore verified | Classification |
+|---|---|---|---|---|---|---|
+| `line.ch11.comp.release` | YES | YES | YES | YES (decoded 0.51) | YES (decoded 0.5) | `writeAccepted_echoObserved` |
+
+**Implications:**
+- Fat Channel PV writes ARE accepted by the mixer and echoed back.
+- The echo arrives as a decoded featherbear `PV` event with the raw 4-byte LE float value.
+- `client.state` updates on echo (as Buffer; featherbear has no float transformer for this key).
+- Float decode: `Buffer.from(state.value.data).readFloatLE(0)` → correct float.
+- **Passive observation still shows no echoes** — the mixer only echoes writes from connected clients, not UC Surface-originated changes.
+- Fat Channel write support remains **disabled in production** pending further safety review.
+- The probe command `probe-fat-write-echo` is available for further testing of other parameter keys.
 
 ---
 

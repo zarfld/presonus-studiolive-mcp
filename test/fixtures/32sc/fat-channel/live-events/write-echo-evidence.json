@@ -1,0 +1,68 @@
+{
+  "_meta": {
+    "device": "157.247.3.12",
+    "firmware": "check device",
+    "capturedAt": "2026-07-02T10:30:40.148Z",
+    "key": "line.ch11.comp.release",
+    "slashKey": "line/ch11/comp/release",
+    "channel": "line.ch11",
+    "delta": 0.01,
+    "duration": 8000,
+    "dryRun": false,
+    "note": "adapterDoesNotApplyEcho means featherbear received PV echo but stores raw Buffer (no float transformer). Decoded float values show correct write/restore values."
+  },
+  "originalValue": 0.5,
+  "writeValue": 0.51,
+  "writePayloadHex": "6c696e652f636831312f636f6d702f72656c656173650000005c8f023f",
+  "restoreValue": 0.5,
+  "writeAccepted": true,
+  "pvEchoObserved": true,
+  "rawPvObserved": true,
+  "stateUpdated": true,
+  "restoreVerified": true,
+  "writeError": null,
+  "classification": "writeAccepted_echoObserved",
+  "rawPacketsSeen": 17,
+  "rawPvPacketsAfterWrite": [
+    {
+      "ts": "2026-07-02T10:30:30.342Z",
+      "code": "PV",
+      "pvKey": "line/ch11/comp/release"
+    },
+    {
+      "ts": "2026-07-02T10:30:37.783Z",
+      "code": "PV",
+      "pvKey": "line/ch11/comp/release"
+    }
+  ],
+  "decodedPVEventsAfterWrite": [
+    {
+      "ts": "2026-07-02T10:30:30.342Z",
+      "name": "line/ch11/comp/release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          92,
+          143,
+          2,
+          63
+        ]
+      },
+      "decodedFloat": 0.5099999904632568
+    },
+    {
+      "ts": "2026-07-02T10:30:37.782Z",
+      "name": "line/ch11/comp/release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          0,
+          0,
+          0,
+          63
+        ]
+      },
+      "decodedFloat": 0.5
+    }
+  ]
+}
