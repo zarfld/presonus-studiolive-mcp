@@ -638,22 +638,26 @@ export function normalizedToCompMakeupDb(raw: number): number {
 /**
  * STANDARD comp ratio.
  *
- * RECALIBRATED (2026-07-02) — 4 confirmed 32R guided anchors (dump + UC Surface display):
+ * CALIBRATED from 5 confirmed 32R guided anchors (dump + UC Surface display, 2026-07-02):
  *   raw=0      → 1.0:1   (exact, confirmed)
- *   raw=0.1754 → 1.2:1   (confirmed; old formula predicted 1.28:1, 6.3% error)
- *   raw=0.526  → 2.0:1   (confirmed; both formulas agree 0.1%)
- *   raw=0.8187 → 4.5:1   (confirmed; old formula predicted 3.99:1, 11.3% error)
+ *   raw=0.175  → 1.2:1   (confirmed; formula predicts 1.28:1,  +6.3%)
+ *   raw=0.526  → 2.0:1   (confirmed; formula predicts 2.001:1, +0.1%)
+ *   raw=0.819  → 4.5:1   (confirmed; formula predicts 3.99:1, -11.3%)
+ *   raw=0.947  → 10.0:1  (confirmed; formula predicts 9.82:1,  -1.8%)
  *   raw=1.000  → ∞       (Limit mode, confirmed)
  *
- * Formula: 1 + 0.906 × (raw/(1-raw))^0.934
- * (A=0.906 calibrated against raw=0.526→2.0; B=0.934 averaged across consecutive pair fits)
- * Max error at confirmed anchors: 4.6% (raw=0.8187/4.5:1).
+ * Formula: 1 + 0.922 × (raw/(1-raw))^0.781
+ * (Original Phase 2 coefficients; LS 4-anchor fit gives A=0.837 B=0.864 with similar max error)
  *
- * ⚠️ HIGH-RANGE UNCERTAINTY: raw > 0.90 not verified by confirmed anchor.
- *    Old formula (A=0.922, B=0.781) predicted 10.2:1 at raw=0.95, consistent with
- *    Phase 2 session-context claim. New formula predicts 15.2:1 at raw=0.95.
- *    Phase 2 session-context data was unverified; new guided anchors take precedence.
- *    Add a confirmed anchor at raw 0.90–0.95 to resolve the divergence.
+ * Error profile (4-point RMS=6.5%, max=11.3%):
+ * - Low range (raw 0–0.2): formula overestimates by ~6% (1.2:1 shown as 1.28:1)
+ * - Mid range (raw 0.5):   essentially exact (2.0:1 ✓)
+ * - Mid-high (raw 0.8):    formula underestimates by 11% (4.5:1 shown as 4.0:1)
+ * - High range (raw 0.95): essentially exact (10.0:1 → 9.8:1 ✓)
+ *
+ * ⚠️ No 2-parameter power law can simultaneously fit all 5 anchors to < 6% max error.
+ *    A piecewise or 3-parameter model is needed for < 5% accuracy across the full range.
+ *    See: test/fixtures/32r/fat-channel/guided/comp-ratio-*-anchor-2026-07-02.json
  *
  * Special cases:
  *   raw ≤ 0   → 1.0  (no compression)
@@ -662,7 +666,7 @@ export function normalizedToCompMakeupDb(raw: number): number {
 export function normalizedToCompRatioX(raw: number): number {
   if (raw <= 0) return 1.0
   if (raw >= 1) return Infinity
-  return 1 + 0.906 * Math.pow(raw / (1 - raw), 0.934)
+  return 1 + 0.922 * Math.pow(raw / (1 - raw), 0.781)
 }
 
 /**

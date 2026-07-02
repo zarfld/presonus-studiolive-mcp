@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "description": "comp.ratio 10.0:1 guided anchor — 32R Ch11 high range",
+    "device": "32R",
+    "serial": "RA3E18030194",
+    "captureDate": "2026-07-02"
+  },
+  "anchor": {
+    "key": "comp.ratio",
+    "raw": 0.9473683834075928,
+    "display": 10,
+    "unit": ":1",
+    "formula": "1+0.922*(raw/(1-raw))^0.781",
+    "formulaPred": 9.817,
+    "formulaErr_pct": 1.8,
+    "status": "CONFIRMS_HIGH_RANGE — Phase2 session-context claim of 10.2:1 at raw≈0.95 was approximately correct"
+  }
+}
