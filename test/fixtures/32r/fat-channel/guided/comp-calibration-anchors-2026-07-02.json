@@ -1,0 +1,79 @@
+{
+  "_meta": {
+    "description": "STANDARD compressor calibration anchors – StudioLive 32R, live simultaneous dump + UC Surface readback",
+    "device": "32R",
+    "serial": "RA3E18030194",
+    "firmware": "unknown (parallel probe session 2026-07-02)",
+    "channel": "line.ch11",
+    "compmodel": "STANDARD",
+    "opt.compmodel.value": 0,
+    "captureMethod": "probe-routing dump --out captures/cal-anchors/32r-ch11-comp.json",
+    "captureDate": "2026-07-02",
+    "displayReadbackMethod": "UC Surface manual readback by user while dump was in progress",
+    "notes": [
+      "All raw values are ZLIB scene-stored values extracted from the mixer dump.",
+      "Display values were read simultaneously from UC Surface (32R Ch11 Fat Channel panel).",
+      "32R was used in parallel probe session with UC Control closed — live PV events confirmed for this device.",
+      "All ZLIB values are expected to reflect the CURRENT physical knob positions (live state).",
+      "comp.attack raw=1.0 means attack knob at maximum (fully right)."
+    ]
+  },
+  "anchors": [
+    {
+      "key": "comp.threshold",
+      "raw": 0.0,
+      "display": -56.0,
+      "unit": "dBFS",
+      "formulaPhase1": "(raw-1)*56",
+      "formulaPhase1Prediction": -56.0,
+      "formulaPhase1Error_pct": 0.0,
+      "status": "EXACT_MATCH",
+      "notes": "raw=0 (minimum) → -56 dBFS. Exactly confirms (raw-1)*56 formula at the minimum endpoint for 32R. Floor = -56 dBFS for 32R STANDARD comp."
+    },
+    {
+      "key": "comp.ratio",
+      "raw": 0.0,
+      "display": 1.0,
+      "unit": ":1",
+      "formulaPhase2": "1 + 0.922*(raw/(1-raw))^0.781",
+      "formulaPhase2Prediction": 1.0,
+      "formulaPhase2Error_pct": 0.0,
+      "status": "EXACT_MATCH",
+      "notes": "raw=0 (minimum) → 1.0:1 (no compression). Exactly confirms formula minimum endpoint."
+    },
+    {
+      "key": "comp.attack",
+      "raw": 1.0,
+      "display": 150,
+      "unit": "ms",
+      "formulaPhase1": "0.2*exp(10.3*raw)",
+      "formulaPhase1Prediction": 5946.5,
+      "formulaPhase1Error_pct": 3864.3,
+      "status": "CONTRADICTS_PHASE1",
+      "derivedFormula": "150*raw^1.161 (2-point cross-device fit with 32SC raw=0.190→21.8ms)",
+      "notes": "raw=1.0 (maximum attack knob) → 150ms. Phase 1 formula completely wrong (predicts 5947ms). Cross-device 2-point fit: 150*raw^1.161. Maximum attack time = 150ms confirmed for 32R."
+    },
+    {
+      "key": "comp.release",
+      "raw": 0.7200872898101807,
+      "display": 384,
+      "unit": "ms",
+      "formulaPhase2": "2.5+897.5*raw^2.605",
+      "formulaPhase2Prediction": 384.02,
+      "formulaPhase2Error_pct": 0.005,
+      "status": "EXACT_MATCH",
+      "notes": "Extremely close match (0.005% error). Strongly confirms formula: 2.5+897.5*raw^2.605."
+    },
+    {
+      "key": "comp.gain",
+      "raw": 0.3149999976158142,
+      "display": 8.82,
+      "unit": "dB",
+      "formulaPhase1": "raw*27.6",
+      "formulaPhase1Prediction": 8.694,
+      "formulaPhase1Error_pct": 1.4,
+      "status": "APPROXIMATELY_CONFIRMED",
+      "notes": "1.4% error (0.13 dB). Approximately confirms formula: raw*27.6."
+    }
+  ]
+}

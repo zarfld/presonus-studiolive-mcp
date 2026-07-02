@@ -237,20 +237,35 @@ describe('normalizedToGateThresholdDb — calibrated_inferred', () => {
 // ---------------------------------------------------------------------------
 // Comp/gate attack — calibrated_inferred (2 anchor points)
 // HIL: 0.2*exp(10.3*raw) ms confirmed on 32SC fw 3.4.0.111374 (2026-07-01)
-// NOTE: Validated only in range raw=0.15–0.40; extrapolation outside is uncertain
+// NOTE: RECALIBRATED 2026-07-02 — Phase 1 formula (0.2*exp(10.3*raw)) was wrong.
+// New formula: 150*raw^1.161, derived from 2 cross-device live dump anchors:
+//   32SC fw 3.4.0.111374 Ch11: raw=0.190 → 21.8 ms (UC Surface, live dump)
+//   32R Ch11:                  raw=1.000 → 150 ms  (UC Surface, live dump)
+// HIL Evidence: test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+//               test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
 // ---------------------------------------------------------------------------
 
-describe('normalizedToAttackMs — calibrated_inferred', () => {
-  it('Ch11 STANDARD comp: raw=0.190 → ~1.4 ms (±0.1 ms)', () => {
-    expect(normalizedToAttackMs(0.190)).toBeGreaterThan(1.2)
-    expect(normalizedToAttackMs(0.190)).toBeLessThan(1.6)
+describe('normalizedToAttackMs — recalibrated_2pt_crossdevice (2026-07-02)', () => {
+  it('32SC Ch11 STANDARD comp: raw=0.190 → ~21.8 ms (±1 ms) [empirical anchor]', () => {
+    expect(normalizedToAttackMs(0.190)).toBeGreaterThan(20.8)
+    expect(normalizedToAttackMs(0.190)).toBeLessThan(22.8)
   })
-  it('Ch12 STANDARD comp: raw=0.363 → ~8 ms (±1 ms)', () => {
-    expect(normalizedToAttackMs(0.363)).toBeGreaterThan(7)
-    expect(normalizedToAttackMs(0.363)).toBeLessThan(9.5)
+  it('32R Ch11 STANDARD comp: raw=1.000 → 150 ms (exact clamp) [empirical anchor]', () => {
+    expect(normalizedToAttackMs(1.000)).toBe(150)
   })
-  it('raw=0 → very fast attack (< 0.5 ms)', () => {
-    expect(normalizedToAttackMs(0)).toBeLessThan(0.5)
+  it('raw=0.363 → ~46 ms (±10 ms) [formula interpolation, unverified]', () => {
+    // Formula prediction only — no hardware anchor for this value.
+    expect(normalizedToAttackMs(0.363)).toBeGreaterThan(36)
+    expect(normalizedToAttackMs(0.363)).toBeLessThan(56)
+  })
+  it('raw=0 → 0 ms (exact clamp)', () => {
+    expect(normalizedToAttackMs(0)).toBe(0)
+  })
+  it('attack is monotonically increasing across range', () => {
+    const vals = [0, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0].map(normalizedToAttackMs)
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThanOrEqual(vals[i - 1])
+    }
   })
 })
 

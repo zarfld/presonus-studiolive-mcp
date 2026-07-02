@@ -592,10 +592,20 @@ export function normalizedToEqBandType(raw: number): EqBandType {
 }
 
 /**
- * Comp threshold: linear -56 to 0 dBFS
+ * Comp threshold: linear N to 0 dBFS.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- * 2 anchor points, exact match. Formula: (raw-1)*56
+ * ⚠️ DEVICE-DEPENDENT RANGE — two contradictory anchors:
+ *
+ *   32R STANDARD (serial RA3E18030194, 2026-07-02 live dump):
+ *     raw=0 → -56 dBFS  →  K=56  (exact match for formula (raw-1)*56)
+ *
+ *   32SC STANDARD (serial SD7E21010066, fw 3.4.0.111374, 2026-07-02 live dump):
+ *     raw=0.493 → -41.45 dBFS  →  K≈81.76  (formula (raw-1)*81.76)
+ *     This CONTRADICTS Phase 1 formula (K=56). Phase 1 data is presumed misread.
+ *
+ * Current implementation uses K=56 (validated exactly on 32R).
+ * ⚠️ May be wrong for 32SC — see test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ *
  * IMPORTANT: For STANDARD compressor model, the state key is `comp.threshold`
  * (NOT `comp.input` which is used by the FET model).
  */
@@ -608,6 +618,11 @@ export function normalizedToCompThresholdDb(raw: number): number {
  *
  * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
  * 2 anchor points, max error 0.08 dB. Formula: raw*27.6
+ *
+ * ADDITIONAL VALIDATION (2026-07-02 live dump):
+ *   32R Ch11: raw=0.315 → 8.82 dB display (formula=8.69 dB, error=1.4%) — approximately confirmed.
+ * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ *
  * IMPORTANT: For STANDARD compressor model, the state key is `comp.gain`
  * (NOT `comp.output` which is used by the FET model).
  */
@@ -642,16 +657,25 @@ export function normalizedToCompRatioX(raw: number): number {
 /**
  * Comp/gate attack time in ms.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- * 2 anchor points only, max error 5%. Formula: 0.2*exp(10.3*raw)
+ * RECALIBRATED (2026-07-02): Phase 1 formula 0.2*exp(10.3*raw) was WRONG.
+ * Phase 1 predicted 1.37ms at raw=0.190 but actual display = 21.8ms (+1400% error).
+ * Phase 1 anchor data is presumed misread or from wrong parameter.
  *
- * ⚠️ PARTIAL RANGE ONLY: validated for raw 0.15–0.40 (1.4 ms–8 ms).
- * Extrapolation outside this range is UNRELIABLE. At raw=1, formula predicts
- * ~4400 ms which is likely wrong for a typical compressor attack range.
- * More calibration points needed before trusting values outside raw 0.15–0.40.
+ * New formula derived from 2 cross-device data points (live simultaneous dumps):
+ *   32SC fw 3.4.0.111374 Ch11:  raw=0.190 → 21.8 ms  (UC Surface display)
+ *   32R Ch11:                   raw=1.000 → 150 ms   (UC Surface display, maximum attack)
+ * Power-law fit: 150 × raw^1.161
+ * ⚠️ LOW CONFIDENCE: only 2 data points, from different mixer models.
+ *    Same formula validated at both measured points (error < 0.1 ms).
+ *    Intermediate values (raw 0.2–0.9) are interpolated and unverified.
+ *    At raw=0, formula returns 0ms (instant attack) — true minimum unconfirmed.
+ * See: test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
  */
 export function normalizedToAttackMs(raw: number): number {
-  return 0.2 * Math.exp(10.3 * raw)
+  if (raw <= 0) return 0
+  if (raw >= 1) return 150
+  return 150 * Math.pow(raw, 1.161)
 }
 
 /**
@@ -662,15 +686,17 @@ export function normalizedToAttackMs(raw: number): number {
  *   raw=0.365→67.5ms (Ch27 scene-stored, UC Surface confirmed this session),
  *   raw=0.5→150ms (Phase 1 session), raw=1→900ms (max, user-reported; raw inferred).
  * Formula: 2.5 + 897.5 × raw^2.605
- * decodedEventNotObserved: no PV/JM/data event for comp.release was observed through
- *   featherbear decoded event path during a 60-second probe (UC Surface, 32SC fw 3.4.0.111374).
- *   This does not prove the mixer never sends a raw PV packet; the raw TCP layer was not tapped
- *   in that probe. Use pnpm probe:dev probe-raw-socket to distinguish:
- *     rawPacketObservedParserGap — mixer sends PV but featherbear doesn't decode/emit it
- *     noRawPacketObserved — no raw PV packet arrived from mixer for this key
+ *
+ * ADDITIONAL VALIDATION (2026-07-02 live dumps, both mixers):
+ *   32SC Ch11: raw=0.500 → 162ms display (formula=150ms, error=7.4%) — approximately confirmed.
+ *   32R Ch11:  raw=0.720 → 384ms display (formula=384ms, error=0.005%) — EXACT MATCH.
+ * See: test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ *
+ * liveObserved (32R, UC Control closed): PV events confirmed for comp.release via parallel probe.
+ *   See: test/fixtures/32sc/fat-channel/live-events/parallel-probe/32r-live-pv-evidence.json
+ * decodedEventNotObserved (32SC with UC Control open): no PV/JM/data event for comp.release.
  *   See: test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json
- *   Until raw-socket probe confirms otherwise, treat calibration data as sceneSnapshot
- *   (values reflect last saved scene). Required sequence: set knob → save scene → capture dump.
  */
 export function normalizedToReleaseMs(raw: number): number {
   return 2.5 + 897.5 * Math.pow(raw, 2.605)

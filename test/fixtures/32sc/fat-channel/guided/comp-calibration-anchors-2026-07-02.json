@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "description": "STANDARD compressor calibration anchors – StudioLive 32SC, live simultaneous dump + UC Surface readback",
+    "device": "32SC",
+    "serial": "SD7E21010066",
+    "firmware": "3.4.0.111374",
+    "channel": "line.ch11",
+    "compmodel": "STANDARD",
+    "opt.compmodel.value": 0,
+    "captureMethod": "probe-routing dump --out captures/cal-anchors/32sc-ch11-comp.json",
+    "captureDate": "2026-07-02",
+    "displayReadbackMethod": "UC Surface manual readback by user while dump was in progress",
+    "notes": [
+      "All raw values are ZLIB scene-stored values extracted from the mixer dump.",
+      "Display values were read simultaneously from UC Surface (32SC Ch11 Fat Channel panel).",
+      "UC Control was NOT running during physical knob sweeps (live PV enabled on 32R; see parallel-probe evidence).",
+      "32SC comp.ratio ZLIB=1.0 is STALE from Phase 2 calibration probe write (not restored); display 1.9:1 reflects current physical knob position — raw↔display pair is NOT consistent for ratio.",
+      "comp.threshold K≈82 discrepancy with Phase 1 formula (K=56) is unresolved; new anchor supersedes Phase 1 data for threshold."
+    ]
+  },
+  "anchors": [
+    {
+      "key": "comp.threshold",
+      "raw": 0.4930070042610168,
+      "display": -41.45,
+      "unit": "dBFS",
+      "formulaPhase1": "(raw-1)*56",
+      "formulaPhase1Prediction": -28.39,
+      "formulaPhase1Error_pct": 31.5,
+      "status": "CONTRADICTS_PHASE1",
+      "derivedK": 81.76,
+      "derivedFormula": "(raw-1)*81.76",
+      "notes": "Phase 1 used K=56 ('exact match'); this anchor requires K≈82. Phase 1 data suspected misread or wrong channel. 32R at raw=0→-56dB is consistent with K=56. May indicate 32SC vs 32R use different threshold floor ranges."
+    },
+    {
+      "key": "comp.attack",
+      "raw": 0.18999999761581421,
+      "display": 21.8,
+      "unit": "ms",
+      "formulaPhase1": "0.2*exp(10.3*raw)",
+      "formulaPhase1Prediction": 1.42,
+      "formulaPhase1Error_pct": 93.5,
+      "status": "CONTRADICTS_PHASE1",
+      "notes": "Phase 1 formula completely wrong. New formula derived from 2 cross-device data points: 32SC raw=0.190→21.8ms + 32R raw=1.0→150ms. Derived: 150*raw^1.161 ms. Phase 1 data (raw=0.190→1.37ms) is presumed misread or wrong parameter."
+    },
+    {
+      "key": "comp.release",
+      "raw": 0.5,
+      "display": 162,
+      "unit": "ms",
+      "formulaPhase2": "2.5+897.5*raw^2.605",
+      "formulaPhase2Prediction": 150.02,
+      "formulaPhase2Error_pct": 7.4,
+      "status": "APPROXIMATELY_CONFIRMED",
+      "notes": "7.4% error is within Phase 2 calibration uncertainty. Formula approximately correct. 32R gives exact match at raw=0.720→384ms (see 32R fixture)."
+    },
+    {
+      "key": "comp.ratio",
+      "raw": 1.0,
+      "display": "1.9:1",
+      "rawStatus": "STALE",
+      "status": "UNUSABLE",
+      "notes": "ZLIB raw=1.0 is from Phase 2 probe that wrote max ratio and failed to restore. Display=1.9:1 reflects current PHYSICAL knob position. Raw↔display pair is inconsistent. Do NOT use for calibration."
+    },
+    {
+      "key": "comp.gain",
+      "raw": 0.20000000298023224,
+      "displayNotRecorded": true,
+      "formulaPhase1": "raw*27.6",
+      "formulaPhase1Prediction": 5.52,
+      "unit": "dB",
+      "status": "NOT_READ",
+      "notes": "User did not read comp.gain display for 32SC during this session. 32R confirms formula at raw=0.315→8.82dB (see 32R fixture)."
+    }
+  ]
+}
