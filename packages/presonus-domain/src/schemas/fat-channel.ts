@@ -638,16 +638,22 @@ export function normalizedToCompMakeupDb(raw: number): number {
 /**
  * STANDARD comp ratio.
  *
- * OPPORTUNISTIC_CALIBRATION on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-02):
- * Only endpoints (raw=0 and raw=1) were guided probes (dump-confirmed). The 5 intermediate
- * points are from session context (prior scene state; provenance not verified by systematic
- * guided probe procedure with min/25%/50%/75%/max positions).
- * 7 anchor points: raw=0→1:1 (guided), raw=0.526→2.0:1, raw=0.663→2.7:1, raw=0.706→3.0:1,
- *   raw=0.826→4.7:1, raw=0.950→10.2:1 (session context), raw=1.0→Limit(∞) (guided).
- * Formula: 1 + 0.922 × (raw/(1-raw))^0.781
- * ⚠️ LOW CONFIDENCE: max error ~13% in mid-range (raw=0.7–0.85).
- *    Full guided calibration (min/25%/50%/75%/max probes) not completed.
- *    Treat mid-range values as probe_required quality until re-calibrated.
+ * RECALIBRATED (2026-07-02) — 4 confirmed 32R guided anchors (dump + UC Surface display):
+ *   raw=0      → 1.0:1   (exact, confirmed)
+ *   raw=0.1754 → 1.2:1   (confirmed; old formula predicted 1.28:1, 6.3% error)
+ *   raw=0.526  → 2.0:1   (confirmed; both formulas agree 0.1%)
+ *   raw=0.8187 → 4.5:1   (confirmed; old formula predicted 3.99:1, 11.3% error)
+ *   raw=1.000  → ∞       (Limit mode, confirmed)
+ *
+ * Formula: 1 + 0.906 × (raw/(1-raw))^0.934
+ * (A=0.906 calibrated against raw=0.526→2.0; B=0.934 averaged across consecutive pair fits)
+ * Max error at confirmed anchors: 4.6% (raw=0.8187/4.5:1).
+ *
+ * ⚠️ HIGH-RANGE UNCERTAINTY: raw > 0.90 not verified by confirmed anchor.
+ *    Old formula (A=0.922, B=0.781) predicted 10.2:1 at raw=0.95, consistent with
+ *    Phase 2 session-context claim. New formula predicts 15.2:1 at raw=0.95.
+ *    Phase 2 session-context data was unverified; new guided anchors take precedence.
+ *    Add a confirmed anchor at raw 0.90–0.95 to resolve the divergence.
  *
  * Special cases:
  *   raw ≤ 0   → 1.0  (no compression)
@@ -656,7 +662,7 @@ export function normalizedToCompMakeupDb(raw: number): number {
 export function normalizedToCompRatioX(raw: number): number {
   if (raw <= 0) return 1.0
   if (raw >= 1) return Infinity
-  return 1 + 0.922 * Math.pow(raw / (1 - raw), 0.781)
+  return 1 + 0.906 * Math.pow(raw / (1 - raw), 0.934)
 }
 
 /**

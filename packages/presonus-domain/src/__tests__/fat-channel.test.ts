@@ -286,36 +286,35 @@ import {
   normalizedToLimiterThresholdDb,
 } from '../schemas/fat-channel.js'
 
-// Comp ratio — OPPORTUNISTIC_CALIBRATION: only endpoints guided-probed;
-// 5 intermediate points from session context. ~13% mid-range error.
-// Treat mid-range assertions as probe_required quality.
+// Comp ratio — RECALIBRATED (32R guided calibration 2026-07-02, 4 confirmed anchors)
+// Formula: 1 + 0.906*(raw/(1-raw))^0.934
+// Confirmed: raw=0/1.0:1, raw=0.175/1.2:1, raw=0.526/2.0:1, raw=0.819/4.5:1, raw=1/Limit
+// Max error at confirmed anchors: 4.6% (raw=0.819/4.5:1)
+// ⚠️ raw > 0.90: formula predicts ~15:1 vs Phase2 context claim of 10:1; unresolved, need anchor.
 
-describe('normalizedToCompRatioX — opportunistic_calibration, ~13% mid-range error (Phase 2, 32SC fw 3.4.0.111374)', () => {
+describe('normalizedToCompRatioX — recalibrated_4pt_guided (32R 2026-07-02)', () => {
   it('raw=0 → 1.0 (exact min, 1:1 no compression)', () => {
     expect(normalizedToCompRatioX(0)).toBe(1.0)
   })
   it('raw=1 → Infinity (Limit mode)', () => {
     expect(normalizedToCompRatioX(1)).toBe(Infinity)
   })
-  it('raw=0.526 → ~2.0:1 (±5%)', () => {
-    expect(normalizedToCompRatioX(0.526)).toBeGreaterThan(1.9)
-    expect(normalizedToCompRatioX(0.526)).toBeLessThan(2.1)
+  it('32R dump: raw=0.175 → ~1.2:1 (±2%) [empirical anchor]', () => {
+    expect(normalizedToCompRatioX(0.1754)).toBeGreaterThan(1.18)
+    expect(normalizedToCompRatioX(0.1754)).toBeLessThan(1.22)
   })
-  it('raw=0.663 → ~2.7:1 (±15%)', () => {
-    expect(normalizedToCompRatioX(0.663)).toBeGreaterThan(2.2)
-    expect(normalizedToCompRatioX(0.663)).toBeLessThan(3.2)
+  it('32R 50% dump: raw=0.526 → ~2.0:1 (±2%) [empirical anchor]', () => {
+    expect(normalizedToCompRatioX(0.526)).toBeGreaterThan(1.96)
+    expect(normalizedToCompRatioX(0.526)).toBeLessThan(2.04)
   })
-  it('raw=0.706 → ~3.0:1 (±15%)', () => {
-    expect(normalizedToCompRatioX(0.706)).toBeGreaterThan(2.5)
-    expect(normalizedToCompRatioX(0.706)).toBeLessThan(3.5)
+  it('32R 75% dump: raw=0.819 → ~4.5:1 (±5%) [empirical anchor]', () => {
+    expect(normalizedToCompRatioX(0.8187)).toBeGreaterThan(4.3)
+    expect(normalizedToCompRatioX(0.8187)).toBeLessThan(4.8)
   })
-  it('raw=0.826 → ~4.7:1 (±15%)', () => {
-    expect(normalizedToCompRatioX(0.826)).toBeGreaterThan(3.9)
-    expect(normalizedToCompRatioX(0.826)).toBeLessThan(5.5)
-  })
-  it('raw=0.950 → ~10.2:1 (±20%)', () => {
+  it('raw=0.950 → some high ratio (8–20:1) [unresolved — need confirmed anchor]', () => {
+    // Phase 2 context claimed 10.2:1; new formula gives 15.2:1; neither confirmed by dump.
     expect(normalizedToCompRatioX(0.950)).toBeGreaterThan(8)
-    expect(normalizedToCompRatioX(0.950)).toBeLessThan(15)
+    expect(normalizedToCompRatioX(0.950)).toBeLessThan(20)
   })
   it('ratio is monotonically increasing across range', () => {
     const r1 = normalizedToCompRatioX(0.3)

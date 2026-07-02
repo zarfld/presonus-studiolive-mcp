@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "description": "comp.ratio 4.5:1 guided anchor — 32R Ch11 75% position",
+    "device": "32R",
+    "serial": "RA3E18030194",
+    "captureDate": "2026-07-02"
+  },
+  "anchor": {
+    "key": "comp.ratio",
+    "raw": 0.8187134861946106,
+    "display": 4.5,
+    "unit": ":1",
+    "formulaOld": "1+0.922*(raw/(1-raw))^0.781",
+    "formulaOldPred": 3.993,
+    "formulaOldErr_pct": 11.3,
+    "formulaNew": "1+0.906*(raw/(1-raw))^0.934",
+    "formulaNewPred": 4.705,
+    "formulaNewErr_pct": 4.6,
+    "status": "OLD_FORMULA_WRONG_11pct; NEW_FORMULA_4.6pct_error"
+  }
+}
