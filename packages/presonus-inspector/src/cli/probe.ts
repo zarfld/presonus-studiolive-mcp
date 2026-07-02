@@ -12,6 +12,7 @@
  *   presonus-probe watch-meters --device <serial|ip> --seconds <N>
  *   presonus-probe diff-state --before <file> --after <file>
  *   presonus-probe probe-fat-channel --device <serial|ip> --channel LINE:1
+ *   presonus-probe probe-live-events --device <ip> --duration <ms> --filter <keys>
  */
 import { Command } from 'commander'
 import { registerDiscoverCommand } from './commands/discover.js'
@@ -22,6 +23,7 @@ import { registerDiffStateCommand } from './commands/diff-state.js'
 import { registerProbeFatChannelCommand } from './commands/probe-fat-channel.js'
 import { registerReadSceneCommand } from './commands/read-scene.js'
 import { registerProbeRoutingCommand } from './commands/probe-routing.js'
+import { registerProbeLiveEventsCommand } from './commands/probe-live-events.js'
 
 const program = new Command()
 
@@ -38,6 +40,7 @@ registerDiffStateCommand(program)
 registerProbeFatChannelCommand(program)
 registerReadSceneCommand(program)
 registerProbeRoutingCommand(program)
+registerProbeLiveEventsCommand(program)
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error('Error:', err instanceof Error ? err.message : String(err))

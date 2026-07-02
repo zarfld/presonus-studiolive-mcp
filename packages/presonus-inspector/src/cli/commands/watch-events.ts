@@ -52,11 +52,13 @@ export function registerWatchEventsCommand(program: Command): void {
         process.stderr.write(`\r  Events captured: ${eventCount}`)
       }
 
-      // Subscribe to generic data event
+      // Subscribe to generic data event (fires after every specific event)
       client.on('data', (data: unknown) => writeEvent('data', data))
 
-      // Subscribe to specific known event types
-      for (const evt of ['setting', 'meter', 'connect', 'disconnect', 'error']) {
+      // Subscribe to specific message-code events.
+      // featherbear emits the raw 2-letter code as the event name, e.g. 'PV', 'JM', 'ZB'.
+      // NOTE: 'setting' is NOT a valid featherbear event name — the correct code is 'PV'.
+      for (const evt of ['PV', 'JM', 'PC', 'PS', 'ZB', 'MS', 'PL', 'CK', 'connected', 'closed', 'reconnecting', 'error']) {
         client.on(evt, (data: unknown) => writeEvent(evt, data))
       }
 

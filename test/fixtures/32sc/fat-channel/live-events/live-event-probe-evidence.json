@@ -1,0 +1,131 @@
+{
+  "_meta": {
+    "device": "StudioLive 32SC",
+    "serialRedacted": "SD7E21010066",
+    "firmware": "3.4.0.111374",
+    "capturedAt": "2026-07-02T08:40:10Z",
+    "probeCommand": "pnpm probe:dev probe-live-events --device 157.247.3.12 --duration 60000 --filter 'line.ch11.comp.release,line.ch11.gate.range,line.ch11.comp.ratio,line.ch11.limit.threshold,line.ch11.comp.attack,line.ch11.gate.release'",
+    "watchedChannel": "Ch11 (STANDARD comp, gate enabled)",
+    "userAction": "User confirmed moving knobs in UC Surface (comp.release and others) during the 60-second observation window",
+    "featherbear_version": "@featherbear/presonus-studiolive-api (installed version)"
+  },
+
+  "event_subscription": {
+    "subscribed_codes": ["PV", "JM", "PC", "PS", "ZB", "data", "connected", "closed", "reconnecting", "error"],
+    "total_events_captured": 34,
+    "zlib_snapshot_received": true,
+    "connected_event_received": true
+  },
+
+  "pv_events_observed": {
+    "total_pv_events": 13,
+    "pv_events_for_fat_channel_keys": 0,
+    "pv_event_paths_seen": [
+      "permissions/mix_permissions",
+      "permissions/rename",
+      "permissions/channel_source",
+      "permissions/preamps",
+      "permissions/assigns",
+      "permissions/scenes",
+      "permissions/mute_groups",
+      "permissions/channel_type",
+      "permissions/eq_dyn",
+      "permissions/geq",
+      "permissions/fx",
+      "permissions/groups",
+      "permissions/device_list"
+    ],
+    "note": "All 13 PV events were permissions/* handshake packets. Zero PV events arrived for any line.* Fat Channel parameter key during 60 seconds while user actively moved knobs."
+  },
+
+  "zlib_snapshot_values_at_connect": {
+    "line.ch11.comp.release": 0.5,
+    "line.ch11.gate.range": 0,
+    "line.ch11.comp.ratio": 1,
+    "line.ch11.limit.threshold": 1,
+    "line.ch11.comp.attack": 0.1899999976158142,
+    "line.ch11.gate.release": 0.5
+  },
+
+  "snapshot_after_knob_movement": {
+    "capturedAt": "2026-07-02T08:42:xx",
+    "note": "Fresh snapshot dump taken AFTER user confirmed moving knobs. Values UNCHANGED from ZLIB snapshot at connect time.",
+    "line.ch11.comp.release": 0.5,
+    "line.ch11.gate.range": 0,
+    "line.ch11.comp.ratio": 1,
+    "line.ch11.limit.threshold": 1,
+    "line.ch11.comp.attack": 0.1899999976158142,
+    "line.ch11.gate.release": 0.5
+  },
+
+  "results": [
+    {
+      "key": "line.ch11.comp.release",
+      "pv_event_arrived": false,
+      "state_updated_live": false,
+      "snapshot_unchanged_after_movement": true,
+      "classification": "sceneStored",
+      "confidence": "confirmed",
+      "interpretation": "comp.release is scene-stored. The featherbear ZLIB snapshot reflects the last saved scene value, not the live DSP position. Moving the knob in UC Surface changes the live audio DSP but does NOT send a PV event and does NOT update the featherbear state. The state only changes when a scene is explicitly saved/stored."
+    },
+    {
+      "key": "line.ch11.gate.range",
+      "pv_event_arrived": false,
+      "state_updated_live": false,
+      "snapshot_unchanged_after_movement": true,
+      "classification": "sceneStored",
+      "confidence": "confirmed",
+      "interpretation": "Same as comp.release — gate.range is scene-stored."
+    },
+    {
+      "key": "line.ch11.comp.ratio",
+      "pv_event_arrived": false,
+      "state_updated_live": false,
+      "snapshot_unchanged_after_movement": "not_confirmed_this_session",
+      "classification": "sceneStored",
+      "confidence": "probable",
+      "interpretation": "No PV event for comp.ratio during the probe window. Snapshot unchanged at raw=1 (scene value from earlier calibration). May not have been moved during this probe session. Treat as sceneStored consistent with other Fat Channel parameters."
+    },
+    {
+      "key": "line.ch11.limit.threshold",
+      "pv_event_arrived": false,
+      "state_updated_live": false,
+      "snapshot_unchanged_after_movement": "not_confirmed_this_session",
+      "classification": "sceneStored",
+      "confidence": "probable",
+      "interpretation": "No PV event. Consistent with sceneStored classification."
+    },
+    {
+      "key": "line.ch11.comp.attack",
+      "pv_event_arrived": false,
+      "state_updated_live": false,
+      "snapshot_unchanged_after_movement": "not_confirmed_this_session",
+      "classification": "sceneStored",
+      "confidence": "probable",
+      "interpretation": "No PV event. Consistent with sceneStored classification."
+    },
+    {
+      "key": "line.ch11.gate.release",
+      "pv_event_arrived": false,
+      "state_updated_live": false,
+      "snapshot_unchanged_after_movement": "not_confirmed_this_session",
+      "classification": "sceneStored",
+      "confidence": "probable",
+      "interpretation": "No PV event. Consistent with sceneStored classification."
+    }
+  ],
+
+  "conclusion": {
+    "fat_channel_parameters_emit_pv_events": false,
+    "fat_channel_state_source": "sceneStored — ZLIB snapshot only",
+    "protocol_behaviour": "The StudioLive 32SC (fw 3.4.0.111374) does NOT send PV/MessageCode.Setting events for Fat Channel DSP parameters (comp.release, gate.range, etc.) when knobs are moved in UC Surface. The featherbear state for these parameters is populated exclusively from the initial ZLIB compressed state snapshot, which reflects the last saved scene. The live DSP value changes immediately on knob movement but is not observable through the featherbear subscription protocol without an explicit scene save.",
+    "implications_for_calibration": [
+      "Raw values read via state dump reflect the last saved scene, not the current physical knob position.",
+      "Calibration anchor points (raw → display value) are valid IF the scene was saved with that knob position.",
+      "Min/max endpoint probes where the user reports the display value but no state capture was made have uncertain raw values.",
+      "Future calibration should: set knob, save scene, then capture dump — to get both display value AND raw value."
+    ],
+    "previous_sceneStored_claim": "The original premature claim of 'scene-stored' based on snapshot non-update was CORRECT in conclusion, though the evidence was incomplete at the time. This probe provides the HIL evidence that confirms it.",
+    "watch_events_bug_fixed": "The existing watch-events command used event code 'setting' which is not a valid featherbear event name. The correct code is 'PV' (MessageCode.ParamValue/Setting). This has been fixed in the updated watch-events.ts."
+  }
+}

@@ -6,7 +6,7 @@
     "phase": "Phase 2 — Opportunistic Calibration",
     "description": "Phase 2 opportunistic calibration anchors for STANDARD comp ratio, comp release, gate release, gate range, limiter threshold. Endpoints guided-probed; intermediate points from session context. Not a full guided calibration (min/25%/50%/75%/max procedure).",
     "channels_tested": ["Ch11 (STANDARD comp/gate)", "Ch27 (STANDARD comp, gate enabled)", "Ch9 (gate release)"],
-    "method": "Guided probe: user set parameter to specific positions in UC Surface, probe CLI captured state; comp.release and gate.range are scene-stored (not live-updated via featherbear)"
+    "method": "Guided probe: user set parameter to specific positions in UC Surface, probe CLI captured state; comp.release and gate.range confirmed sceneStored by live-event probe (see test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json)"
   },
 
   "comp_ratio_standard": {

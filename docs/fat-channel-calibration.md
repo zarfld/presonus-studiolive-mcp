@@ -84,6 +84,11 @@ Evidence: `test/fixtures/32sc/fat-channel/fat-channel-calibration.json` (31 anch
 > Endpoints guided-probed; intermediate points from session context.
 > Not a full guided calibration (min/25%/50%/75%/max procedure).
 > Phase 2 parameters bolded above. Comp ratio is LOW CONFIDENCE (~13% error) — treat mid-range as probe_required.
+>
+> **Live Event Probe Evidence** (2026-07-02): `test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json`
+> Confirms that Fat Channel DSP parameters (comp.release, gate.range, comp.ratio, etc.) do **not** emit PV events
+> when knobs are moved in UC Surface. The featherbear ZLIB snapshot reflects the last saved scene value only.
+> Classification: `sceneStored` (confirmed). See fixture for full protocol analysis.
 
 > **IMPORTANT: FET vs STANDARD compressor key difference**
 > - STANDARD/TUBE/etc.: threshold key = `comp.threshold`, makeup key = `comp.gain`

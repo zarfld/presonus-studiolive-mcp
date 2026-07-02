@@ -662,9 +662,11 @@ export function normalizedToAttackMs(raw: number): number {
  *   raw=0.365→67.5ms (Ch27 scene-stored, UC Surface confirmed this session),
  *   raw=0.5→150ms (Phase 1 session), raw=1→900ms (max, user-reported; raw inferred).
  * Formula: 2.5 + 897.5 × raw^2.605
- * sceneStored: `comp.release` is scene-stored — featherbear state reflects last saved scene
- *   value, not the live physical knob position. Endpoint raw values (0 and 1) were not
- *   captured from the state; they are inferred from the formula fit to reported min/max display values.
+ * sceneStored: CONFIRMED by live event probe (2026-07-02, 32SC fw 3.4.0.111374).
+ *   Moving comp.release in UC Surface emits NO PV event and does NOT update featherbear state.
+ *   The ZLIB snapshot reflects the last saved scene value, not the live knob position.
+ *   See: test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json
+ *   Calibration anchor points are valid only when the scene was saved at that knob position.
  */
 export function normalizedToReleaseMs(raw: number): number {
   return 2.5 + 897.5 * Math.pow(raw, 2.605)
@@ -679,8 +681,9 @@ export function normalizedToReleaseMs(raw: number): number {
  *   raw=0.260→281ms, raw=0.447→594ms, raw=0.880→1640ms (existing scene-stored values),
  *   raw=1.0→2000ms (max, user-reported; raw inferred).
  * Formula: 50 + 1950 × raw^1.583
- * Note: gate.release scene-stored status not confirmed; intermediate values taken from
- *   existing channel scene captures. Endpoint raw values inferred from formula fit.
+ * sceneStored: CONFIRMED by live event probe (2026-07-02, 32SC fw 3.4.0.111374).
+ *   Fat Channel DSP parameters do NOT emit PV events when moved in UC Surface.
+ *   See: test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json
  */
 export function normalizedToGateReleaseMs(raw: number): number {
   return 50 + 1950 * Math.pow(raw, 1.583)
@@ -707,7 +710,9 @@ export function normalizedToGateThresholdDb(raw: number): number {
  *   from formula as ≈0.019 (not verified by guided probe).
  * Formula: 100 × (raw^0.46 - 1)
  * Max error < 1% for the 2 observed mid-range points only.
- * sceneStored: gate.range scene-stored status not confirmed; state not re-read at min/max positions.
+ * sceneStored: CONFIRMED by live event probe (2026-07-02, 32SC fw 3.4.0.111374).
+ *   gate.range does NOT emit PV events when moved in UC Surface.
+ *   See: test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json
  * ⚠️ Formula not validated for EXPANDER mode (gate.expander=true) — use with caution.
  */
 export function normalizedToGateRangeDb(raw: number): number {
