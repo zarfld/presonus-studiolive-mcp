@@ -128,6 +128,7 @@ export function registerProbeFatWriteEchoCommand(program: Command): void {
     .option('--dry-run', 'Log the write payload without sending it')
     .option('--allow-unmuted', 'Proceed even if the channel is not muted')
     .option('--out <dir>', 'Output directory for evidence fixture')
+    .option('--no-restore', 'Do NOT restore original value after write (leaves mixer at written value)')
     .action(async (opts: {
       device: string
       port: string
@@ -138,6 +139,7 @@ export function registerProbeFatWriteEchoCommand(program: Command): void {
       dryRun?: boolean
       allowUnmuted?: boolean
       out?: string
+      restore: boolean   // Commander sets this true by default; --no-restore sets false
     }) => {
       const port       = parseInt(opts.port, 10)
       const delta      = parseFloat(opts.delta)
@@ -157,6 +159,7 @@ export function registerProbeFatWriteEchoCommand(program: Command): void {
       console.error(`  Delta:    ${delta}`)
       console.error(`  Duration: ${duration}ms`)
       if (opts.dryRun) console.error('  DRY RUN — no write will be sent')
+      if (opts.restore === false) console.error('  NO-RESTORE — written value will persist')
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { Client } = await import('@featherbear/presonus-studiolive-api') as any
@@ -329,21 +332,26 @@ export function registerProbeFatWriteEchoCommand(program: Command): void {
         writeError = String(err)
         console.error(`[WRITE ERROR] ${writeError}`)
       } finally {
-        // ── RESTORE (unconditional) ─────────────────────────────────────
-        console.error('\n[RESTORE] Sending restore...')
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (client as any)._sendPacket('PV', restorePayload)
-          await new Promise(r => setTimeout(r, 2000))
+        // ── RESTORE (unless --no-restore) ────────────────────────────────
+        if (opts.restore !== false) {
+          console.error('\n[RESTORE] Sending restore...')
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (client as any)._sendPacket('PV', restorePayload)
+            await new Promise(r => setTimeout(r, 2000))
 
-          const stateAfterRestore = snapState()
-          const stateFloatAfterRestore = decodeStateValue(stateAfterRestore)
-          restoreVerified =
-            stateAfterRestore === null || // sceneStored — can't verify via state
-            (stateFloatAfterRestore !== null && Math.abs(stateFloatAfterRestore - restoreValue) < 0.001)
-          console.error(`  Restore state: ${JSON.stringify(stateAfterRestore)} (decoded: ${stateFloatAfterRestore}) — ${restoreVerified ? 'VERIFIED' : 'mismatch'}`)
-        } catch (restoreErr) {
-          console.error(`[RESTORE ERROR] ${String(restoreErr)}`)
+            const stateAfterRestore = snapState()
+            const stateFloatAfterRestore = decodeStateValue(stateAfterRestore)
+            restoreVerified =
+              stateAfterRestore === null || // sceneStored — can't verify via state
+              (stateFloatAfterRestore !== null && Math.abs(stateFloatAfterRestore - restoreValue) < 0.001)
+            console.error(`  Restore state: ${JSON.stringify(stateAfterRestore)} (decoded: ${stateFloatAfterRestore}) — ${restoreVerified ? 'VERIFIED' : 'mismatch'}`)
+          } catch (restoreErr) {
+            console.error(`[RESTORE ERROR] ${String(restoreErr)}`)
+          }
+        } else {
+          console.error(`\n[NO-RESTORE] Leaving ${fullKey} at written value (${writeValue.toFixed(6)})`)
+          restoreVerified = false
         }
 
         await client.close?.()
