@@ -235,28 +235,34 @@ describe('normalizedToGateThresholdDb — calibrated_inferred', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Comp/gate attack — RECALIBRATED with 3 anchors (2026-07-02 guided calibration)
-// Formula: 0.20 + 149.8*raw^1.165 ms
-//   32R all-min dump: raw≈0 → 0.20 ms (physical min stop)
-//   32SC Ch11 cross-device: raw=0.190 → 21.8 ms
-//   32R all-max dump: raw=1.000 → 150 ms
-// HIL Evidence: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+// Comp/gate attack — CONFIRMED 3-anchor (pure 32R guided calibration 2026-07-02)
+// Formula: 0.20 + 149.8*raw^2.922 ms
+//   raw≈0 → 0.20 ms (physical min stop)
+//   raw=0.525 → 23.0 ms (32R 50% position, dump-confirmed) EXACT
+//   raw=1.000 → 150 ms (32R all-max) EXACT
+// Phase 1 raw=0.190→1.37ms was correct for 32R; formula now predicts 1.37ms.
+// The 32SC raw=0.190→21.8ms was a stale-ZLIB mismatch (knob not at 0.190).
+// HIL Evidence: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-*.json
 // ---------------------------------------------------------------------------
 
-describe('normalizedToAttackMs — recalibrated_3pt_guided (2026-07-02)', () => {
+describe('normalizedToAttackMs — confirmed_3pt_32R_guided (2026-07-02)', () => {
   it('32R all-min: raw=0 → 0.20 ms [empirical anchor, exact clamp]', () => {
     expect(normalizedToAttackMs(0)).toBe(0.20)
   })
-  it('32SC Ch11 cross-device: raw=0.190 → ~21.8 ms (±1 ms) [empirical anchor]', () => {
-    expect(normalizedToAttackMs(0.190)).toBeGreaterThan(20.8)
-    expect(normalizedToAttackMs(0.190)).toBeLessThan(22.8)
+  it('32R 50%: raw=0.525 → ~23.0 ms (±0.5 ms) [empirical anchor, EXACT]', () => {
+    expect(normalizedToAttackMs(0.525)).toBeGreaterThan(22.5)
+    expect(normalizedToAttackMs(0.525)).toBeLessThan(23.5)
   })
   it('32R all-max: raw=1.000 → 150 ms [empirical anchor, exact clamp]', () => {
     expect(normalizedToAttackMs(1.000)).toBe(150)
   })
-  it('raw=0.363 → ~50 ms (±15 ms) [formula interpolation, unverified]', () => {
-    expect(normalizedToAttackMs(0.363)).toBeGreaterThan(35)
-    expect(normalizedToAttackMs(0.363)).toBeLessThan(65)
+  it('raw=0.190 → ~1.37 ms [Phase 1 measurement reconciled, formula-derived]', () => {
+    expect(normalizedToAttackMs(0.190)).toBeGreaterThan(1.0)
+    expect(normalizedToAttackMs(0.190)).toBeLessThan(2.0)
+  })
+  it('raw=0.363 → ~10 ms (±5 ms) [formula interpolation, unverified]', () => {
+    expect(normalizedToAttackMs(0.363)).toBeGreaterThan(5)
+    expect(normalizedToAttackMs(0.363)).toBeLessThan(20)
   })
   it('attack is monotonically increasing across range', () => {
     const vals = [0, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0].map(normalizedToAttackMs)
@@ -436,6 +442,34 @@ describe('normalizedToLimiterThresholdDb — calibrated_inferred (Phase 2, 32SC 
   })
   it('raw=0 → -27 dBFS (formula floor)', () => {
     expect(normalizedToLimiterThresholdDb(0)).toBeCloseTo(-27, 1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Comp keyfilter frequency — CALIBRATED_INFERRED (32R guided calibration 2026-07-02)
+// Formula: 40 × 400^raw Hz  (raw > 0); raw=0 → 'off'
+// HIL Evidence: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
+// ---------------------------------------------------------------------------
+import { normalizedToKeyfilterHz } from '../schemas/fat-channel.js'
+
+describe('normalizedToKeyfilterHz — calibrated_inferred (32R 50% + max dump, 2026-07-02)', () => {
+  it('raw=0 → "off" [empirical: min stop displayed as off]', () => {
+    expect(normalizedToKeyfilterHz(0)).toBe('off')
+  })
+  it('32R 50%: raw=0.495 → ~776 Hz (±5 Hz) [empirical anchor, EXACT]', () => {
+    const v = normalizedToKeyfilterHz(0.495)
+    expect(typeof v).toBe('number')
+    expect(v as number).toBeGreaterThan(771)
+    expect(v as number).toBeLessThan(782)
+  })
+  it('32R all-max: raw=1.0 → 16000 Hz [empirical anchor, exact clamp]', () => {
+    expect(normalizedToKeyfilterHz(1.0)).toBe(16000)
+  })
+  it('frequency is monotonically increasing', () => {
+    const vals = [0.1, 0.3, 0.5, 0.7, 0.9, 1.0].map(r => normalizedToKeyfilterHz(r) as number)
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThan(vals[i - 1])
+    }
   })
 })
 

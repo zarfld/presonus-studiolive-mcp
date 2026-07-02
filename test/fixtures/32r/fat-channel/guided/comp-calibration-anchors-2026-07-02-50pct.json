@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "description": "STANDARD comp ~50% guided calibration anchors — 32R Ch11 (all params simultaneously at 50%)",
+    "device": "32R",
+    "serial": "RA3E18030194",
+    "captureDate": "2026-07-02",
+    "captureMethod": "probe-routing dump + concurrent probe-raw-socket",
+    "notes": "All sliders set to visual ~50% simultaneously. ZLIB matches raw-socket state."
+  },
+  "anchors": [
+    {
+      "key": "comp.threshold",
+      "raw": 0.5049999952316284,
+      "display": -27.72,
+      "unit": "dBFS",
+      "formula": "(raw-1)*56",
+      "formulaPrediction": -27.72,
+      "error_pct": 0,
+      "status": "EXACT"
+    },
+    {
+      "key": "comp.ratio",
+      "raw": 0.5263158082962036,
+      "display": 2,
+      "unit": ":1",
+      "formula": "1+0.922*(raw/(1-raw))^0.781",
+      "formulaPrediction": 2,
+      "error_pct": 0.1,
+      "status": "EXACT"
+    },
+    {
+      "key": "comp.attack",
+      "raw": 0.52475506067276,
+      "display": 23,
+      "unit": "ms",
+      "oldFormula": "0.20+149.8*raw^1.165",
+      "oldFormulaPrediction": 70.91,
+      "oldError_pct": 208,
+      "newFormula": "0.20+149.8*raw^2.922",
+      "newFormulaPrediction": 23,
+      "newError_pct": 0,
+      "status": "CORRECTS_EXPONENT — old exponent 1.165 was wrong; 2.922 is correct"
+    },
+    {
+      "key": "comp.release",
+      "raw": 0.5297870635986328,
+      "display": 174,
+      "unit": "ms",
+      "formula": "2.5+897.5*raw^2.605",
+      "formulaPrediction": 174.02,
+      "error_pct": 0.01,
+      "status": "EXACT"
+    },
+    {
+      "key": "comp.gain",
+      "raw": 0.49000000953674316,
+      "display": 13.72,
+      "unit": "dB",
+      "formula": "raw*28.0",
+      "formulaPrediction": 13.72,
+      "error_pct": 0,
+      "status": "EXACT"
+    },
+    {
+      "key": "comp.keyfilter",
+      "raw": 0.4950023293495178,
+      "display": 776.4,
+      "unit": "Hz",
+      "formula": "40*400^raw",
+      "formulaPrediction": 776.4,
+      "error_pct": 0,
+      "status": "NEW_FORMULA — 2-point log calibration (50% + max)"
+    }
+  ]
+}

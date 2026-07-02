@@ -662,26 +662,28 @@ export function normalizedToCompRatioX(raw: number): number {
 /**
  * Comp/gate attack time in ms.
  *
- * RECALIBRATED (2026-07-02, guided calibration with all-min/all-max dumps on 32R):
- * 3 confirmed anchors (32R Ch11, dump + UC Surface display):
- *   raw≈0     → 0.20 ms  (physical minimum stop, dump raw=0.000372)
- *   raw=0.190 → 21.8 ms  (32SC fw 3.4.0.111374 Ch11, cross-device)
+ * CONFIRMED by 3 pure 32R guided calibration anchors (2026-07-02):
+ *   raw≈0     → 0.20 ms  (physical min stop, dump raw=0.000372; formula=0.215ms, rounds to 0.20)
+ *   raw=0.525 → 23.0 ms  (32R 50% position, dump-confirmed)
  *   raw=1.000 → 150 ms   (32R all-max dump)
- * Formula: 0.20 + 149.8 × raw^1.165
- * Max error < 0.2% at all 3 anchor points.
+ * Formula: 0.20 + 149.8 × raw^2.922
+ * Max error < 0.1% at all 3 anchor points.
  *
- * Note: Phase 1 formula (0.2*exp(10.3*raw)) was WRONG — predicted 1.37ms at
- * raw=0.190 vs actual 21.8ms. Phase 1 data presumed misread.
+ * Note: Phase 1 measurement (raw=0.190 → 1.37ms) was actually CORRECT for 32R.
+ * The earlier cross-device anchor (32SC raw=0.190 → 21.8ms) was a stale-ZLIB mismatch
+ * — the 32SC ZLIB showed 0.190 but the physical knob was at a different position
+ * when the user read 21.8ms from the display. The new formula correctly predicts
+ * 1.37ms at raw=0.190 (reconciles Phase 1 measurement).
  *
- * ⚠️ INTERMEDIATE RANGE (raw 0.2–0.9): power-law interpolation, not yet verified
- *    by guided calibration points at 25%/50%/75% positions.
- * See: test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
- *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ * ⚠️ INTERMEDIATE RANGE (raw 0.1–0.5): validated only at raw=0.525.
+ *    Points at raw=0.25 and 0.75 not yet confirmed by guided calibration.
+ * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-extremes.json
+ *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
  */
 export function normalizedToAttackMs(raw: number): number {
   if (raw <= 0) return 0.20
   if (raw >= 1) return 150
-  return 0.20 + 149.8 * Math.pow(raw, 1.165)
+  return 0.20 + 149.8 * Math.pow(raw, 2.922)
 }
 
 /**
@@ -770,6 +772,26 @@ export function normalizedToGateRangeDb(raw: number): number {
  */
 export function normalizedToLimiterThresholdDb(raw: number): number {
   return (raw - 1) * 27
+}
+
+/**
+ * Comp sidechain key filter frequency in Hz.
+ *
+ * CALIBRATED_INFERRED (32R Ch11 guided calibration, 2026-07-02):
+ * 2 anchor points from 50% dump + all-max dump:
+ *   raw=0     → "off"    (no filter, bypassed; raw=0 exactly at minimum stop)
+ *   raw=0.495 → 776.4 Hz (32R 50% position, dump-confirmed; formula=776.4 Hz EXACT)
+ *   raw=1.000 → 16000 Hz (32R all-max dump; formula=16000 Hz EXACT)
+ * Formula: 40 × 400^raw Hz  (for raw > 0)
+ * Note: The ~40 Hz value at raw just above 0 is the practical lower bound of the filter
+ *   range; raw=0 exactly is treated as "off" (bypass) per user display.
+ * ⚠️ LOW CONFIDENCE: only 2 data points. Intermediate frequencies unverified.
+ * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
+ */
+export function normalizedToKeyfilterHz(raw: number): number | 'off' {
+  if (raw <= 0) return 'off'
+  if (raw >= 1) return 16000
+  return 40 * Math.pow(400, raw)
 }
 
 // ---------------------------------------------------------------------------
