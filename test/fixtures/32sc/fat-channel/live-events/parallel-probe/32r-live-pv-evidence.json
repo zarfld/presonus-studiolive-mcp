@@ -1,0 +1,444 @@
+{
+  "_meta": {
+    "device": "157.247.1.112",
+    "capturedAt": "2026-07-02T11:34:46.739Z",
+    "duration_ms": 180000,
+    "watchedKeys": [
+      "line.ch11.comp.release",
+      "line.ch11.gate.range",
+      "line.ch11.comp.ratio",
+      "line.ch11.eq.eqgain1",
+      "line.ch11.mute",
+      "line.ch11.volume"
+    ],
+    "totalRawChunks": 260,
+    "rawCodeCounts": {
+      "PV": 110,
+      "BO": 2,
+      "CK": 2,
+      "JM": 2,
+      "PL": 1,
+      "FD": 178,
+      "MS": 5
+    },
+    "decodedEventCodes": {
+      "PV": 110,
+      "data": 118,
+      "CK": 1,
+      "ZB": 1,
+      "JM": 2,
+      "connected": 1,
+      "MS": 5
+    }
+  },
+  "interpretationGuide": {
+    "liveObserved": "Decoded event AND state update seen — fully live through featherbear",
+    "decodedEventNotObserved": "No decoded featherbear event observed during probe (raw packet status unknown without raw tap evidence)",
+    "rawPacketObservedParserGap": "Raw PV packet arrived from mixer BUT featherbear did not emit a decoded event — parser/handler gap",
+    "noRawPacketObserved": "PV packets arrived for OTHER keys but NOT for this key — mixer likely did not send PV for this control",
+    "unknown": "No PV packets at all during probe — knob may not have been moved, or mixer uses different protocol"
+  },
+  "classifications": [
+    {
+      "key": "line.ch11.comp.release",
+      "rawPvPacketArrived": true,
+      "decodedEventEmitted": true,
+      "stateUpdated": true,
+      "classification": "liveObserved"
+    },
+    {
+      "key": "line.ch11.gate.range",
+      "rawPvPacketArrived": false,
+      "decodedEventEmitted": false,
+      "stateUpdated": true,
+      "classification": "liveObserved"
+    },
+    {
+      "key": "line.ch11.comp.ratio",
+      "rawPvPacketArrived": true,
+      "decodedEventEmitted": true,
+      "stateUpdated": true,
+      "classification": "liveObserved"
+    },
+    {
+      "key": "line.ch11.eq.eqgain1",
+      "rawPvPacketArrived": false,
+      "decodedEventEmitted": false,
+      "stateUpdated": true,
+      "classification": "liveObserved"
+    },
+    {
+      "key": "line.ch11.mute",
+      "rawPvPacketArrived": false,
+      "decodedEventEmitted": false,
+      "stateUpdated": true,
+      "classification": "liveObserved"
+    },
+    {
+      "key": "line.ch11.volume",
+      "rawPvPacketArrived": false,
+      "decodedEventEmitted": false,
+      "stateUpdated": true,
+      "classification": "liveObserved"
+    }
+  ],
+  "rawPvKeysObserved": [
+    "line.ch11.comp.release",
+    "line.ch11.comp.ratio"
+  ],
+  "decodedPvKeysObserved": [
+    "permissions.mix_permissions",
+    "permissions.rename",
+    "permissions.channel_source",
+    "permissions.preamps",
+    "permissions.assigns",
+    "permissions.scenes",
+    "permissions.mute_groups",
+    "permissions.channel_type",
+    "permissions.eq_dyn",
+    "permissions.geq",
+    "permissions.fx",
+    "permissions.groups",
+    "permissions.device_list",
+    "line.ch11.comp.gain",
+    "line.ch11.gain",
+    "line.ch11.comp.release",
+    "line.ch11.comp.keyfilter",
+    "line.ch11.comp.ratio",
+    "line.ch11.comp.threshold",
+    "line.ch11.comp.attack"
+  ],
+  "stateChanges": [
+    {
+      "ts": "2026-07-02T11:31:46.724Z",
+      "key": "line.ch11.comp.release",
+      "value": 0.5
+    },
+    {
+      "ts": "2026-07-02T11:31:46.724Z",
+      "key": "line.ch11.gate.range",
+      "value": 0
+    },
+    {
+      "ts": "2026-07-02T11:31:46.724Z",
+      "key": "line.ch11.comp.ratio",
+      "value": 0.8263158202171326
+    },
+    {
+      "ts": "2026-07-02T11:31:46.724Z",
+      "key": "line.ch11.eq.eqgain1",
+      "value": 0.2680412530899048
+    },
+    {
+      "ts": "2026-07-02T11:31:46.724Z",
+      "key": "line.ch11.mute",
+      "value": false
+    },
+    {
+      "ts": "2026-07-02T11:31:46.724Z",
+      "key": "line.ch11.volume",
+      "value": 0
+    },
+    {
+      "ts": "2026-07-02T11:32:44.640Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          236,
+          81,
+          248,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:44.748Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          196,
+          245,
+          232,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:44.857Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          62,
+          10,
+          151,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:44.966Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          166,
+          112,
+          61,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:45.076Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:45.296Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          91,
+          215,
+          35,
+          60
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:45.407Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          34,
+          133,
+          235,
+          61
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:45.520Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          124,
+          20,
+          46,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:45.629Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          10,
+          215,
+          163,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:45.737Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          194,
+          245,
+          168,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:45.847Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          92,
+          143,
+          194,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:46.494Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          61,
+          10,
+          215,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:46.598Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          143,
+          194,
+          245,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:46.704Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          61,
+          10,
+          23,
+          63
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:46.813Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          62,
+          10,
+          55,
+          63
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:46.922Z",
+      "key": "line.ch11.comp.release",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          236,
+          81,
+          56,
+          63
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:50.981Z",
+      "key": "line.ch11.volume",
+      "value": 0.5325398641947051
+    },
+    {
+      "ts": "2026-07-02T11:32:51.090Z",
+      "key": "line.ch11.volume",
+      "value": 48.93568322270542
+    },
+    {
+      "ts": "2026-07-02T11:32:51.198Z",
+      "key": "line.ch11.volume",
+      "value": 57.978179598687724
+    },
+    {
+      "ts": "2026-07-02T11:32:51.310Z",
+      "key": "line.ch11.volume",
+      "value": 58.51071946288243
+    },
+    {
+      "ts": "2026-07-02T11:32:56.355Z",
+      "key": "line.ch11.comp.ratio",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          140,
+          242,
+          26,
+          62
+        ]
+      }
+    },
+    {
+      "ts": "2026-07-02T11:32:56.457Z",
+      "key": "line.ch11.comp.ratio",
+      "value": {
+        "type": "Buffer",
+        "data": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "nextSteps": [
+    "If rawPacketObservedParserGap: inspect the raw packet hex and compare with featherbear handlePVPacket; check if key path format differs",
+    "If noRawPacketObserved: mixer confirmed not sending PV for this control via UC Surface; test physical knob movement separately",
+    "If unknown: re-run probe with confirmed knob movement; try pnpm probe:dev probe-raw-socket and physically move knobs during the window",
+    "For UC Surface subscription comparison: capture Wireshark traffic on tcp.port==53000 during UC Surface connect and compare JM subscribe payload with raw-outgoing.ndjson"
+  ],
+  "files": {
+    "rawIncoming": "captures\\parallel-probe\\32r\\raw-incoming.ndjson",
+    "rawOutgoing": "captures\\parallel-probe\\32r\\raw-outgoing.ndjson",
+    "decodedEvents": "captures\\parallel-probe\\32r\\decoded-events.ndjson"
+  },
+  "_meta_interpretation": {
+    "device": "StudioLive 32R RA3E18030194",
+    "condition": "UC Control closed, physical mixer knob movement",
+    "finding": "liveObserved — 32R sends live PV for comp.release and comp.ratio when UC Control is not connected",
+    "pvEventsTotal": 110,
+    "compReleaseRawValues": [
+      0.485,
+      0.455,
+      0.295,
+      0.185,
+      0,
+      0.01,
+      0.115,
+      0.17,
+      0.32,
+      0.33,
+      0.38,
+      0.42,
+      0.48,
+      0.59,
+      0.715,
+      0.72
+    ],
+    "compReleaseNote": "continuous sweep from 0.5 to 0.0 then back to 0.72 via physical knob, 100ms intervals",
+    "compRatioValues": [
+      0.151316,
+      0
+    ],
+    "volumeValues": [
+      0.53,
+      48.94,
+      57.98,
+      58.51
+    ],
+    "implication": "Fat Channel parameters DO send live PV events when UC Control is not connected. UC Control presence suppresses echoes to other clients."
+  }
+}
