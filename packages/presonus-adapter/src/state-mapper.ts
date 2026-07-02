@@ -436,7 +436,7 @@ export function extractFatChannelState(
       thresholdDb: typeof limitThreshRaw  === 'number' ? normalizedToLimiterThresholdDb(limitThreshRaw)  : undefined,
       releaseMs:   typeof limitReleaseRaw === 'number' ? normalizedToReleaseMs(limitReleaseRaw)          : undefined,
     } : undefined,
-    parameterConfidence: 'inferred',
+    parameterConfidence: 'calibrated_inferred',
   }
 }
 

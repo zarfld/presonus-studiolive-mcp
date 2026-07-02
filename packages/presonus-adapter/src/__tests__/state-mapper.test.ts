@@ -229,9 +229,9 @@ describe('extractFatChannelState', () => {
     expect(fat!.eqBands).toHaveLength(4)
   })
 
-  it('sets parameterConfidence to inferred (calibrated from HIL probe 2026-07-01)', () => {
+  it('sets parameterConfidence to calibrated_inferred (HIL-fitted formulas, Phase 1)', () => {
     const fat = extractFatChannelState(fatChannelFlat, 'line.ch1')
-    expect(fat!.parameterConfidence).toBe('inferred')
+    expect(fat!.parameterConfidence).toBe('calibrated_inferred')
   })
 
   it('decodes EQ model from opt.eqmodel.value', () => {

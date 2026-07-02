@@ -494,11 +494,21 @@ export const ChannelFatStateSchema = z.object({
     releaseMs: z.number().optional(),
   }).optional(),
   /**
-   * Calibration confidence of all continuous parameter values.
-   * 'guessed'  = best-estimate formulas; verify with probe-fat-channel.
-   * 'observed' = confirmed via probe-fat-channel on physical 32SC hardware.
+   * Calibration confidence of continuous parameter values (EQ, compressor, gate, limiter).
+   *
+   * 'guessed'             = best-estimate formula; no HIL evidence.
+   * 'calibrated_inferred'  = formula fitted from HIL anchor points on real hardware;
+   *                          validated within the measured range but NOT exhaustively.
+   * 'inferred'            = key is observed; formula/mapping is plausible but not fitted.
+   * 'probe_required'      = parameter value should not be trusted until calibrated.
+   * 'observed'            = all formulas confirmed across full range with HIL evidence.
+   *
+   * For 32SC fw 3.4.0.111374 (2026-07-01 Phase 1 calibration):
+   *   EQ gain, EQ freq (band-1), HPF freq, EQ Q, comp threshold/gain, gate threshold,
+   *   comp attack (partial range only) → 'calibrated_inferred'.
+   *   Comp ratio, release, gate range, limiter threshold → 'probe_required'.
    */
-  parameterConfidence: z.enum(['observed', 'inferred', 'guessed']),
+  parameterConfidence: z.enum(['observed', 'calibrated_inferred', 'inferred', 'probe_required', 'guessed']),
 })
 export type ChannelFatState = z.infer<typeof ChannelFatStateSchema>
 
@@ -559,9 +569,14 @@ export function normalizedToEqQ(raw: number): number {
  * EQ filter type from raw float.
  *
  * PARTIALLY OBSERVED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- *   raw=0.333 → LOW_SHELF  (confirmed — Ch1 band-1 UC Surface display)
- *   raw=1.000 → BELL       (confirmed — Ch1 bands 2-4 UC Surface display)
- *   raw=0.000, 0.667: probe_required (not observed, formula index assumed)
+ *   raw=0.333 → LOW_SHELF  (observed — Ch1 band-1 UC Surface confirmed)
+ *   raw=1.000 → BELL       (observed — Ch1 bands 2-4 UC Surface confirmed)
+ *   raw=0.000 → LOW_PASS   (probe_required — NOT YET observed in UC Surface)
+ *   raw=0.667 → HIGH_SHELF (probe_required — NOT YET observed in UC Surface)
+ *
+ * Only LOW_SHELF and BELL can be treated as observed. The other two indices
+ * (0 = LOW_PASS, 2 = HIGH_SHELF) are based on the assumed 4-type enum order
+ * but have not been verified by reading them in UC Surface.
  */
 export function normalizedToEqBandType(raw: number): EqBandType {
   // 4 types (indices 0–3), step = 1/3:
@@ -612,8 +627,12 @@ export function normalizedToCompRatioX(raw: number): number {
  * Comp/gate attack time in ms.
  *
  * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- * 2 anchor points, max error 5%. Formula: 0.2*exp(10.3*raw)
- * Validated only for raw 0.15–0.40; extrapolation outside this range is uncertain.
+ * 2 anchor points only, max error 5%. Formula: 0.2*exp(10.3*raw)
+ *
+ * ⚠️ PARTIAL RANGE ONLY: validated for raw 0.15–0.40 (1.4 ms–8 ms).
+ * Extrapolation outside this range is UNRELIABLE. At raw=1, formula predicts
+ * ~4400 ms which is likely wrong for a typical compressor attack range.
+ * More calibration points needed before trusting values outside raw 0.15–0.40.
  */
 export function normalizedToAttackMs(raw: number): number {
   return 0.2 * Math.exp(10.3 * raw)
