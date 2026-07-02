@@ -183,9 +183,9 @@ Command: `pnpm probe:dev probe-fat-write-echo --device <ip> --channel line.ch11 
 | Write-echo (display readback) | **NO** | UC Surface does not update display from probe writes |
 | Scene-save + dump (raw + display) | YES | User sets knob → saves scene → probe reads ZLIB raw. Still the required method for display calibration. |
 
-**New data point confirmed**: `raw=0.5 → 403ms` (Ch11 scene-stored, user-confirmed, 2026-07-02).
-Phase 2 formula (`2.5 + 897.5 × raw^2.605`) predicted 150ms at raw=0.5 — this is likely WRONG.
-The formula should be re-derived using scene-save anchor points.
+**Correction (2026-07-02):** The "403ms" display value reported during calibration was actually reading the **gate** parameter display, not `comp.release`. The Phase 2 formula for `comp.release` (`2.5 + 897.5 × raw^2.605`) is **not contradicted** by this run. The 403ms anchor point has been invalidated in the fixture.
+
+The Phase 2 formula remains the current best estimate for `comp.release` pending proper live-PV calibration (now possible with UC Control closed — see 32R live PV evidence above).
 
 Evidence: `test/fixtures/32sc/fat-channel/guided/comp-release.json`
 
