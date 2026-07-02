@@ -503,10 +503,12 @@ export const ChannelFatStateSchema = z.object({
    * 'probe_required'      = parameter value should not be trusted until calibrated.
    * 'observed'            = all formulas confirmed across full range with HIL evidence.
    *
-   * For 32SC fw 3.4.0.111374 (2026-07-01 Phase 1 calibration):
+   * For 32SC fw 3.4.0.111374 (Phase 1 calibration 2026-07-01; Phase 2 opportunistic 2026-07-02):
    *   EQ gain, EQ freq (band-1), HPF freq, EQ Q, comp threshold/gain, gate threshold,
    *   comp attack (partial range only) → 'calibrated_inferred'.
-   *   Comp ratio, release, gate range, limiter threshold → 'probe_required'.
+   *   Comp release, gate release, limiter threshold → 'calibrated_inferred' (opportunistic).
+   *   Comp ratio → 'calibrated_inferred' but LOW CONFIDENCE (~13% error, treat as probe_required).
+   *   Gate range → 'calibrated_inferred' (2 mid-range points only, endpoint raw values inferred).
    */
   parameterConfidence: z.enum(['observed', 'calibrated_inferred', 'inferred', 'probe_required', 'guessed']),
 })
@@ -568,19 +570,20 @@ export function normalizedToEqQ(raw: number): number {
 /**
  * EQ filter type from raw float.
  *
- * OBSERVED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 calibration, 2026-07-xx):
+ * OBSERVED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 opportunistic calibration, 2026-07-02):
  *   raw=0.333 → LOW_SHELF  (observed — band-1 only in STANDARD EQ)
  *   raw=0.667 → HIGH_SHELF (observed — band-4 only in STANDARD EQ)
  *   raw=1.000 → BELL       (observed — all bands in STANDARD EQ)
  *
- * ⚠️ STANDARD EQ has NO LOW_PASS band type. raw=0.000 does NOT occur in STANDARD EQ.
- * LOW_PASS (index 0) may exist for other EQ models but was not observed in STANDARD.
+ * ⚠️ LOW_PASS (raw=0.000) not observed during STANDARD EQ testing on 32SC fw 3.4.0.111374.
+ * It may exist in STANDARD EQ on other firmware versions, or in other EQ model types.
+ * Do not assume it is globally absent without broader multi-firmware testing.
  * LOW_SHELF is only available on band 1; HIGH_SHELF is only available on band 4.
  * All other bands use BELL only.
  */
 export function normalizedToEqBandType(raw: number): EqBandType {
   // 4 types (indices 0–3), step = 1/3:
-  // 0 = LOW_PASS (raw≈0, NOT PRESENT in STANDARD EQ)
+  // 0 = LOW_PASS (raw≈0, not observed in STANDARD EQ testing on 32SC fw 3.4.0.111374)
   // 1 = LOW_SHELF (raw≈0.333, observed — band-1 of STANDARD EQ only)
   // 2 = HIGH_SHELF (raw≈0.667, observed — band-4 of STANDARD EQ only)
   // 3 = BELL (raw≈1.0, observed — all bands)
@@ -615,11 +618,16 @@ export function normalizedToCompMakeupDb(raw: number): number {
 /**
  * STANDARD comp ratio.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
- * 7 anchor points: raw=0→1:1, raw=0.526→2.0:1, raw=0.663→2.7:1, raw=0.706→3.0:1,
- *   raw=0.826→4.7:1, raw=0.950→10.2:1, raw=1.0→Limit(∞).
+ * OPPORTUNISTIC_CALIBRATION on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-02):
+ * Only endpoints (raw=0 and raw=1) were guided probes (dump-confirmed). The 5 intermediate
+ * points are from session context (prior scene state; provenance not verified by systematic
+ * guided probe procedure with min/25%/50%/75%/max positions).
+ * 7 anchor points: raw=0→1:1 (guided), raw=0.526→2.0:1, raw=0.663→2.7:1, raw=0.706→3.0:1,
+ *   raw=0.826→4.7:1, raw=0.950→10.2:1 (session context), raw=1.0→Limit(∞) (guided).
  * Formula: 1 + 0.922 × (raw/(1-raw))^0.781
- * Max error ~13% in mid-range (raw=0.7–0.85). Asymptote at raw=1 gives ∞ (Limit mode).
+ * ⚠️ LOW CONFIDENCE: max error ~13% in mid-range (raw=0.7–0.85).
+ *    Full guided calibration (min/25%/50%/75%/max probes) not completed.
+ *    Treat mid-range values as probe_required quality until re-calibrated.
  *
  * Special cases:
  *   raw ≤ 0   → 1.0  (no compression)
@@ -649,11 +657,14 @@ export function normalizedToAttackMs(raw: number): number {
 /**
  * STANDARD compressor release time in ms.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
- * 4 anchor points (exact fit): raw=0→2.5ms, raw=0.365→67.5ms, raw=0.5→150ms, raw=1→900ms.
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 opportunistic calibration, 2026-07-02):
+ * 4 anchor points: raw=0→2.5ms (min, user-reported; raw inferred from formula fit),
+ *   raw=0.365→67.5ms (Ch27 scene-stored, UC Surface confirmed this session),
+ *   raw=0.5→150ms (Phase 1 session), raw=1→900ms (max, user-reported; raw inferred).
  * Formula: 2.5 + 897.5 × raw^2.605
- * Note: `comp.release` state key is scene-stored (not live-updated via featherbear protocol);
- * reading from state reflects last saved scene value, not the current physical knob position.
+ * sceneStored: `comp.release` is scene-stored — featherbear state reflects last saved scene
+ *   value, not the live physical knob position. Endpoint raw values (0 and 1) were not
+ *   captured from the state; they are inferred from the formula fit to reported min/max display values.
  */
 export function normalizedToReleaseMs(raw: number): number {
   return 2.5 + 897.5 * Math.pow(raw, 2.605)
@@ -662,10 +673,14 @@ export function normalizedToReleaseMs(raw: number): number {
 /**
  * Gate release time in ms.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
- * 7 anchor points (max error < 2ms): raw=0→50ms, raw=0.130→127ms, raw=0.180→179ms,
- *   raw=0.260→281ms, raw=0.447→594ms, raw=0.880→1640ms, raw=1.0→2000ms.
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 opportunistic calibration, 2026-07-02):
+ * 7 anchor points (max error < 3ms): raw=0→50ms (min, user-reported; raw inferred from formula fit),
+ *   raw=0.130→127ms, raw=0.180→179ms (Ch27, UC Surface confirmed this session),
+ *   raw=0.260→281ms, raw=0.447→594ms, raw=0.880→1640ms (existing scene-stored values),
+ *   raw=1.0→2000ms (max, user-reported; raw inferred).
  * Formula: 50 + 1950 × raw^1.583
+ * Note: gate.release scene-stored status not confirmed; intermediate values taken from
+ *   existing channel scene captures. Endpoint raw values inferred from formula fit.
  */
 export function normalizedToGateReleaseMs(raw: number): number {
   return 50 + 1950 * Math.pow(raw, 1.583)
@@ -684,12 +699,15 @@ export function normalizedToGateThresholdDb(raw: number): number {
 /**
  * Gate range/depth in dB (GATE mode only, gate.expander=false).
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
- * 4 anchor points: raw≈0.019→-84dB (min), raw=0.040→-77.14dB, raw=0.210→-51.0dB,
- *   raw=1.0→0dB (max, no gating).
+ * OPPORTUNISTIC_CALIBRATION on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-02):
+ * 2 observed intermediate points from existing scene captures (provenance from session context):
+ *   raw=0.040→-77.14dB (Ch27 scene-stored), raw=0.210→-51.0dB (session context).
+ * User-reported endpoints: min display=-84dB, max display=0dB.
+ *   raw values at endpoints not captured — raw=1.0 assumed for max (0dB); min raw inferred
+ *   from formula as ≈0.019 (not verified by guided probe).
  * Formula: 100 × (raw^0.46 - 1)
- * Max error < 1% for observed range (raw=0.04–0.21).
- * Note: raw=1.0 → 0dB (gate fully open/inactive); raw→0 → -100dB (theoretical max attenuation).
+ * Max error < 1% for the 2 observed mid-range points only.
+ * sceneStored: gate.range scene-stored status not confirmed; state not re-read at min/max positions.
  * ⚠️ Formula not validated for EXPANDER mode (gate.expander=true) — use with caution.
  */
 export function normalizedToGateRangeDb(raw: number): number {
@@ -701,9 +719,9 @@ export function normalizedToGateRangeDb(raw: number): number {
 /**
  * Limiter threshold in dBFS.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
- * 4 anchor points: raw=0.095→-24.34dB, raw=0.725→-7.7dB, raw=0.890→-3.07dB,
- *   raw=1.000→0.0dB. Formula: (raw-1)*27. Max error 0.27 dB.
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 opportunistic calibration, 2026-07-02):
+ * 4 anchor points from session context: raw=0.095→-24.34dB, raw=0.725→-7.7dB,
+ *   raw=0.890→-3.07dB, raw=1.000→0.0dB. Formula: (raw-1)*27. Max error 0.27 dB.
  */
 export function normalizedToLimiterThresholdDb(raw: number): number {
   return (raw - 1) * 27

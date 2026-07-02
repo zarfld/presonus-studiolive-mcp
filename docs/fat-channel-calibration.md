@@ -72,16 +72,18 @@ Evidence: `test/fixtures/32sc/fat-channel/fat-channel-calibration.json` (31 anch
 | Comp makeup (STANDARD) | `raw×27.6` → 0–28 dB | **calibrated\_inferred** | 2 pts; key is `comp.gain` |
 | Comp attack | `0.2×e^(10.3×raw)` ms | **calibrated\_inferred** | 3 pts; valid only raw 0.15–0.50 |
 | Gate threshold | `(raw−1)×84` → -84 to 0 dBFS | **calibrated\_inferred** | 2 pts; max 0.007 dB |
-| **Comp ratio (STANDARD)** | `1 + 0.922×(raw/(1-raw))^0.781` | **calibrated\_inferred** | 7 pts; raw=0→1:1, raw=1→Limit(∞). Max error ~13% mid-range |
+| **Comp ratio (STANDARD)** | `1 + 0.922×(raw/(1-raw))^0.781` | **opportunistic** ⚠️ | 7 pts (only endpoints guided-probed); ~13% mid-range error. Treat mid-range as probe_required |
 | **Comp release (STANDARD)** | `2.5 + 897.5×raw^2.605` ms | **calibrated\_inferred** | 4 pts exact fit: 2.5ms–900ms. State is scene-stored |
 | **Gate release** | `50 + 1950×raw^1.583` ms | **calibrated\_inferred** | 7 pts, max error <3ms: 50ms–2000ms |
 | **Gate range (GATE mode)** | `100×(raw^0.46 - 1)` dB | **calibrated\_inferred** | 2 mid-range pts + endpoints; GATE mode (expander=false) only |
 | **Limiter threshold** | `(raw−1)×27` → -27 to 0 dBFS | **calibrated\_inferred** | 4 pts, max 0.27 dB |
 | Fader taper | `volumeRaw100ToDb(v)` | **calibrated\_inferred** | `line.chN.volume` is 0–100 scene-stored; see `docs/hil/fader-preamp-calibration-notes.md` |
 
-> **Phase 2 Evidence**: `test/fixtures/32sc/fat-channel/fat-channel-phase2-calibration.json`
-> Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374.
-> Phase 2 parameters bolded above.
+> **Phase 2 Opportunistic Calibration Evidence**: `test/fixtures/32sc/fat-channel/fat-channel-phase2-calibration.json`
+> Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374, captured 2026-07-02.
+> Endpoints guided-probed; intermediate points from session context.
+> Not a full guided calibration (min/25%/50%/75%/max procedure).
+> Phase 2 parameters bolded above. Comp ratio is LOW CONFIDENCE (~13% error) — treat mid-range as probe_required.
 
 > **IMPORTANT: FET vs STANDARD compressor key difference**
 > - STANDARD/TUBE/etc.: threshold key = `comp.threshold`, makeup key = `comp.gain`

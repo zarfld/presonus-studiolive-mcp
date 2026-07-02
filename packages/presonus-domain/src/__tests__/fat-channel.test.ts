@@ -255,9 +255,10 @@ describe('normalizedToAttackMs — calibrated_inferred', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Phase 2 calibration tests
+// Phase 2 — Opportunistic Calibration
 // HIL Evidence: test/fixtures/32sc/fat-channel/fat-channel-phase2-calibration.json
-//   Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374 (2026-07-xx)
+//   Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374 (2026-07-02)
+//   Endpoints guided-probed; intermediate points from session context (see fixture).
 // ---------------------------------------------------------------------------
 import {
   normalizedToCompRatioX,
@@ -267,12 +268,11 @@ import {
   normalizedToLimiterThresholdDb,
 } from '../schemas/fat-channel.js'
 
-// ---------------------------------------------------------------------------
-// Comp ratio — calibrated_inferred (7 anchor points)
-// HIL: 1 + 0.922*(raw/(1-raw))^0.781 on 32SC fw 3.4.0.111374 (Phase 2)
-// ---------------------------------------------------------------------------
+// Comp ratio — OPPORTUNISTIC_CALIBRATION: only endpoints guided-probed;
+// 5 intermediate points from session context. ~13% mid-range error.
+// Treat mid-range assertions as probe_required quality.
 
-describe('normalizedToCompRatioX — calibrated_inferred (Phase 2, 32SC fw 3.4.0.111374)', () => {
+describe('normalizedToCompRatioX — opportunistic_calibration, ~13% mid-range error (Phase 2, 32SC fw 3.4.0.111374)', () => {
   it('raw=0 → 1.0 (exact min, 1:1 no compression)', () => {
     expect(normalizedToCompRatioX(0)).toBe(1.0)
   })
@@ -419,10 +419,8 @@ describe('normalizedToLimiterThresholdDb — calibrated_inferred (Phase 2, 32SC 
   })
 })
 
-// ---------------------------------------------------------------------------
-// EQ band type Phase 2 — HIGH_SHELF and LOW_PASS clarification
-// HIL Phase 2: raw=0.667 → HIGH_SHELF (observed); LOW_PASS does NOT occur in STANDARD EQ
-// ---------------------------------------------------------------------------
+// EQ band type Phase 2 — HIGH_SHELF confirmed observed; LOW_PASS not observed
+// in STANDARD EQ testing on 32SC fw 3.4.0.111374 (may exist in other models/firmware).
 
 describe('normalizedToEqBandType — Phase 2 updates (HIGH_SHELF observed, LOW_PASS absent)', () => {
   it('raw=0.667 → HIGH_SHELF (observed Phase 2)', () => {

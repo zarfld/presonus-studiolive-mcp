@@ -2,9 +2,9 @@
   "_meta": {
     "device": "StudioLive 32SC",
     "firmware": "3.4.0.111374",
-    "date": "2026-07-xx",
-    "phase": "Phase 2",
-    "description": "Phase 2 calibration anchors for STANDARD comp ratio, comp release, gate release, gate range, limiter threshold",
+    "date": "2026-07-02",
+    "phase": "Phase 2 — Opportunistic Calibration",
+    "description": "Phase 2 opportunistic calibration anchors for STANDARD comp ratio, comp release, gate release, gate range, limiter threshold. Endpoints guided-probed; intermediate points from session context. Not a full guided calibration (min/25%/50%/75%/max procedure).",
     "channels_tested": ["Ch11 (STANDARD comp/gate)", "Ch27 (STANDARD comp, gate enabled)", "Ch9 (gate release)"],
     "method": "Guided probe: user set parameter to specific positions in UC Surface, probe CLI captured state; comp.release and gate.range are scene-stored (not live-updated via featherbear)"
   },
@@ -12,8 +12,10 @@
   "comp_ratio_standard": {
     "description": "STANDARD comp ratio (line.chN.comp.ratio), model=0",
     "formula": "1 + 0.922 * (raw/(1-raw))^0.781  [0 < raw < 1]; 1.0 at raw=0; Infinity at raw=1 (Limit mode)",
-    "confidence": "calibrated_inferred",
+    "confidence": "opportunistic_calibration",
+    "treat_as": "probe_required for mid-range values (raw 0.4–0.95)",
     "max_error_percent": 13,
+    "calibration_gaps": "5 intermediate points from session context only; no systematic guided probes at 25%/50%/75% positions",
     "anchors": [
       { "raw": 0.000, "ratio": 1.0, "note": "exact min — 1:1, no compression. Observed: Ch11 at minimum, dump confirmed raw=0" },
       { "raw": 0.526, "ratio": 2.0, "note": "intermediate from Phase 1 session" },
@@ -85,7 +87,7 @@
   "eq_band_types_standard": {
     "description": "EQ filter type (line.chN.eq.bandN.eqtype) for STANDARD EQ model",
     "confidence": "observed",
-    "note": "STANDARD EQ has NO LOW_PASS type. Only 3 types used: BELL (all bands), LOW_SHELF (band-1 only), HIGH_SHELF (band-4 only). raw=0.0 does NOT occur in STANDARD EQ.",
+    "note": "LOW_PASS (raw=0.0) not observed during STANDARD EQ model testing on 32SC fw 3.4.0.111374. May exist in STANDARD EQ on other firmware versions, or in other EQ model types. Only 3 types confirmed in this test: BELL (all bands), LOW_SHELF (band-1 only), HIGH_SHELF (band-4 only).",
     "observed_values": [
       { "raw": 0.333, "type": "LOW_SHELF", "bands": "band-1 only", "note": "observed — Phase 2 current session" },
       { "raw": 0.667, "type": "HIGH_SHELF", "bands": "band-4 only", "note": "observed — Phase 2 current session" },
