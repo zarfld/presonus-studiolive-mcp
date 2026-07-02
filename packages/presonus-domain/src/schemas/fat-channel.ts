@@ -777,15 +777,16 @@ export function normalizedToLimiterThresholdDb(raw: number): number {
 /**
  * Comp sidechain key filter frequency in Hz.
  *
- * CALIBRATED_INFERRED (32R Ch11 guided calibration, 2026-07-02):
- * 2 anchor points from 50% dump + all-max dump:
- *   raw=0     → "off"    (no filter, bypassed; raw=0 exactly at minimum stop)
- *   raw=0.495 → 776.4 Hz (32R 50% position, dump-confirmed; formula=776.4 Hz EXACT)
- *   raw=1.000 → 16000 Hz (32R all-max dump; formula=16000 Hz EXACT)
+ * CALIBRATED (32R Ch11 guided calibration, 2026-07-02) — 3 frequency anchors:
+ *   raw=0     → 'off'      (no filter, bypassed; exact raw=0 at minimum stop)
+ *   raw=0.010 → 42.47 Hz  (minimum non-off frequency; 1st slider step above off)
+ *   raw=0.495 → 776.4 Hz  (50% position, dump-confirmed; formula=776.4 Hz EXACT)
+ *   raw=1.000 → 16000 Hz  (all-max dump; formula=16000 Hz EXACT)
  * Formula: 40 × 400^raw Hz  (for raw > 0)
- * Note: The ~40 Hz value at raw just above 0 is the practical lower bound of the filter
- *   range; raw=0 exactly is treated as "off" (bypass) per user display.
- * ⚠️ LOW CONFIDENCE: only 2 data points. Intermediate frequencies unverified.
+ * The 42.47 Hz minimum confirms the base of 40 Hz:
+ *   40 × 400^0.010 = 40 × 1.0617 = 42.47 Hz ✓
+ * ⚠️ MEDIUM CONFIDENCE: 3 data points, all exact; intermediate range
+ *   (raw 0.1–0.45, 0.55–0.9) interpolated but unverified by guided probe.
  * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
  */
 export function normalizedToKeyfilterHz(raw: number): number | 'off' {

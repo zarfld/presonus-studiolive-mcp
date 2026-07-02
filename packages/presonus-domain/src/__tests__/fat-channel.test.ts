@@ -452,9 +452,15 @@ describe('normalizedToLimiterThresholdDb — calibrated_inferred (Phase 2, 32SC 
 // ---------------------------------------------------------------------------
 import { normalizedToKeyfilterHz } from '../schemas/fat-channel.js'
 
-describe('normalizedToKeyfilterHz — calibrated_inferred (32R 50% + max dump, 2026-07-02)', () => {
+describe('normalizedToKeyfilterHz — calibrated_medium_confidence (32R guided 2026-07-02)', () => {
   it('raw=0 → "off" [empirical: min stop displayed as off]', () => {
     expect(normalizedToKeyfilterHz(0)).toBe('off')
+  })
+  it('raw=0.010 → ~42.47 Hz (±0.5 Hz) [min non-off frequency, user-confirmed]', () => {
+    const v = normalizedToKeyfilterHz(0.010)
+    expect(typeof v).toBe('number')
+    expect(v as number).toBeGreaterThan(42.0)
+    expect(v as number).toBeLessThan(43.0)
   })
   it('32R 50%: raw=0.495 → ~776 Hz (±5 Hz) [empirical anchor, EXACT]', () => {
     const v = normalizedToKeyfilterHz(0.495)
