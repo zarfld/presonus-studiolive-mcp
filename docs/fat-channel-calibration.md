@@ -177,7 +177,36 @@ Command: `pnpm probe:dev probe-fat-write-echo --device <ip> --channel line.ch11 
 
 ---
 
-## Unverified add-on model scene GUIDs
+## Related Repository Analysis (2026-07-02)
+
+Investigation of `zarfld/presonus-studiolive-api` and `zarfld/presonus-studiolive-api-c-`
+to determine whether either repo received live Fat Channel PV events.
+
+| Repo | Evidence found | Fat Channel live PV observed? | Raw packet observed? | Snapshot-only? | Classification |
+|---|---|---|---|---|---|
+| `zarfld/presonus-studiolive-api` | `transformers.ts:76` `"**.gate.*": DEFAULTS.float` (fromPV transformer); `simple/index.ts:90` `value instanceof Buffer → readFloatLE()` for unknown PV; `SubscriptionOptions.ts:23` `clientOptions: '???'` | NO — no test logs, no captured session with Fat Channel live PV | No captured evidence | No — has PV infrastructure but no snapshot-only path | `genericPVOnly` |
+| `zarfld/presonus-studiolive-api-c-` | `debug-output.log:1965-2003` — ALL Fat Channel params (comp.threshold/ratio/attack/release/gain, eqgain/eqfreq/eqtype/eqq, limit.threshold/release, gate.range/release/threshold) in ZLIB snapshot parse; `debug-output.log:27855+` uses `state.get()` snapshot fallback | NO | No | YES — application is snapshot reader + channel list exporter | `snapshotOnly` |
+
+### Evidence Details
+
+**zarfld/presonus-studiolive-api** (`repos/presonus-studiolive-api/`):
+- `src/lib/util/transformers.ts:74-76`: `"**.gate.keylisten": DEFAULTS.boolean`, `"**.gate.expander": DEFAULTS.boolean`, `"**.gate.*": DEFAULTS.float` — gate parameters have `fromPV: float` transformer; if PV arrived, they would be decoded correctly.
+- `src/lib/util/transformers.ts:71`: `"**.filter.hpf": DEFAULTS.float` — HPF has PV transformer.
+- No `comp.*`, `eq.*`, or `limit.*` transformers — these would arrive as raw Buffer.
+- `src/simple/index.ts:90-96`: Handles raw Buffer PV values with `value.readFloatLE()` — same approach confirmed by our `probe-fat-write-echo` on 32SC fw 3.4.0.111374.
+- `src/lib/types/SubscriptionOptions.ts:23`: `clientOptions: '???'` — still unknown.
+- No test session logs with Fat Channel live PV evidence.
+
+**zarfld/presonus-studiolive-api-c-** (`presonus-studiolive-api-c-/`):
+- `debug-output.log:1965-2003` (fw 3.3.0.109659): ZLIB UBJSON parsing logs `Set property: eqgain1 = 0.6855...`, `eqfreq1 = 0.2531...`, `eqtype1 = 0.333...`, `comp.threshold = 0.4440...`, `comp.ratio = 0.8629...`, `comp.release = 0.3966...`, `limit.threshold = 0.6149...`, `limit.release = 0.5`. ALL from initial snapshot.
+- `debug-output.log:27855+`: Queries use `state.get()` fallback (ZLIB snapshot only), never live PV.
+- `UBJSON_Issue_Report.md`: Documents crash on fw 3.2.0.108461 during ZLIB parse (type 0x49='I'). No live PV evidence.
+- `MixerObjectModel.cs:461-515`: EQ properties (`eqgain1`, `eqfreq1`, etc.) mapped via `[JsonPropertyName(...)]` from JSON/ZLIB only.
+- **Conclusion**: Pure snapshot reader; no live event infrastructure for Fat Channel.
+
+### Interpretation for presonus-studiolive-mcp
+
+Neither repo had encountered the live Fat Channel PV problem before. Both repos used the same snapshot-only path (ZLIB). The write-echo probe we ran on 2026-07-02 is the **first recorded evidence** that Fat Channel PV writes ARE echoed by the mixer — which no earlier repo had tested.
 
 The following model GUIDs appear in the live decoder table but have NOT been
 confirmed in scene/cache file `__classid` fields:
