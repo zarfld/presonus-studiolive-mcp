@@ -58,24 +58,37 @@
     "line.ch11.gate.release": 0.5
   },
 
+  "classification_definitions": {
+    "liveObserved":                 "Decoded featherbear event AND client.state update both observed during probe",
+    "decodedEventNotObserved":      "No decoded featherbear event during probe; raw TCP layer was NOT tapped in this probe",
+    "rawPacketObservedParserGap":   "Raw PV packet arrived at socket but featherbear did not decode/emit it",
+    "noRawPacketObserved":          "PV packets arrived for other keys but NOT for this key; mixer likely not sending PV for this control",
+    "sceneSnapshotOnly":            "Value visible only in initial ZLIB snapshot; no PV in either raw or decoded path",
+    "unknown":                      "Probe inconclusive; knob may not have been moved during window"
+  },
+  "probe_raw_socket_pending": {
+    "note": "The probe-live-events command only monitored featherbear DECODED events. It could not distinguish between: (A) mixer sent no raw PV packet, or (B) mixer sent raw PV but featherbear failed to decode/emit it. The probe-raw-socket command must be run to resolve this distinction.",
+    "command": "pnpm probe:dev probe-raw-socket --device 157.247.3.12 --duration 60000 --filter 'line.ch11.comp.release,line.ch11.gate.range,line.ch11.comp.ratio,line.ch11.limit.threshold'"
+  },
+
   "results": [
     {
       "key": "line.ch11.comp.release",
-      "pv_event_arrived": false,
+      "pv_decoded_event_arrived": false,
+      "pv_raw_socket_arrived": "not_yet_probed",
       "state_updated_live": false,
       "snapshot_unchanged_after_movement": true,
-      "classification": "sceneStored",
-      "confidence": "confirmed",
-      "interpretation": "comp.release is scene-stored. The featherbear ZLIB snapshot reflects the last saved scene value, not the live DSP position. Moving the knob in UC Surface changes the live audio DSP but does NOT send a PV event and does NOT update the featherbear state. The state only changes when a scene is explicitly saved/stored."
+      "classification": "decodedEventNotObserved",
+      "interpretation": "No PV/JM/data event for comp.release was observed through featherbear decoded event path during 60-second probe (UC Surface, 32SC fw 3.4.0.111374). Raw TCP layer was not tapped in this probe. Run probe-raw-socket to determine if mixer sends a raw PV packet that featherbear fails to decode."
     },
     {
       "key": "line.ch11.gate.range",
-      "pv_event_arrived": false,
+      "pv_decoded_event_arrived": false,
+      "pv_raw_socket_arrived": "not_yet_probed",
       "state_updated_live": false,
       "snapshot_unchanged_after_movement": true,
-      "classification": "sceneStored",
-      "confidence": "confirmed",
-      "interpretation": "Same as comp.release — gate.range is scene-stored."
+      "classification": "decodedEventNotObserved",
+      "interpretation": "Same as comp.release. Run probe-raw-socket to distinguish rawPacketObservedParserGap vs noRawPacketObserved."
     },
     {
       "key": "line.ch11.comp.ratio",
