@@ -15,6 +15,7 @@
  *   presonus-probe probe-live-events --device <ip> --duration <ms> --filter <keys>
  *   presonus-probe probe-raw-socket --device <ip> --duration <ms> --filter <keys>
  *   presonus-probe probe-fat-write-echo --device <ip> --channel <ch> --key <param> [--dry-run]
+ *   presonus-probe probe-fat-guided-calibration --device <ip> --channel <ch> --key <param> --points 0,0.25,0.5,0.75,1
  */
 import { Command } from 'commander'
 import { registerDiscoverCommand } from './commands/discover.js'
@@ -28,6 +29,7 @@ import { registerProbeRoutingCommand } from './commands/probe-routing.js'
 import { registerProbeLiveEventsCommand } from './commands/probe-live-events.js'
 import { registerProbeRawSocketCommand } from './commands/probe-raw-socket.js'
 import { registerProbeFatWriteEchoCommand } from './commands/probe-fat-write-echo.js'
+import { registerProbeFatGuidedCalibrationCommand } from './commands/probe-fat-guided-calibration.js'
 
 const program = new Command()
 
@@ -47,6 +49,7 @@ registerProbeRoutingCommand(program)
 registerProbeLiveEventsCommand(program)
 registerProbeRawSocketCommand(program)
 registerProbeFatWriteEchoCommand(program)
+registerProbeFatGuidedCalibrationCommand(program)
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error('Error:', err instanceof Error ? err.message : String(err))

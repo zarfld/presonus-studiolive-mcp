@@ -166,14 +166,28 @@ Command: `pnpm probe:dev probe-fat-write-echo --device <ip> --channel line.ch11 
 |---|---|---|---|---|---|---|
 | `line.ch11.comp.release` | YES | YES | YES | YES (decoded 0.51) | YES (decoded 0.5) | `writeAccepted_echoObserved` |
 
-**Implications:**
-- Fat Channel PV writes ARE accepted by the mixer and echoed back.
-- The echo arrives as a decoded featherbear `PV` event with the raw 4-byte LE float value.
-- `client.state` updates on echo (as Buffer; featherbear has no float transformer for this key).
-- Float decode: `Buffer.from(state.value.data).readFloatLE(0)` → correct float.
-- **Passive observation still shows no echoes** — the mixer only echoes writes from connected clients, not UC Surface-originated changes.
-- Fat Channel write support remains **disabled in production** pending further safety review.
-- The probe command `probe-fat-write-echo` is available for further testing of other parameter keys.
+### Revised Write-Echo Calibration Status (2026-07-02)
+
+**New command**: `pnpm probe:dev probe-fat-guided-calibration --device <ip> --channel line.ch11 --key comp.release --points 0,0.25,0.5,0.75,1 --restore`
+
+**Additional findings from guided calibration run** (32SC SD7E21010066 fw 3.4.0.111374):
+- Only the first echo was received (1/5); TCP reconnection disrupted subsequent echoes in multi-point sequences. Echo reliability across reconnects is low.
+- UC Surface display did **NOT** update in response to probe PV writes. The display showed 403ms regardless of written raw value (0, 0.25, 0.5). This confirms UC Surface reflects its own local scene-stored state, not the probe's writes.
+- The display value 403ms for Ch11 comp.release at raw=0.5 is a **valid scene-stored anchor** (`raw=0.5 → 403ms`). This contradicts the Phase 2 formula prediction of 150ms at raw=0.5 — the formula likely needs re-derivation.
+
+**Revised calibration status for `comp.release`:**
+
+| Approach | Works? | Notes |
+|---|---|---|
+| Write-echo (raw confirmation) | YES — for single writes | Only confirms raw accepted; reliable for single probe, not multi-point sequences |
+| Write-echo (display readback) | **NO** | UC Surface does not update display from probe writes |
+| Scene-save + dump (raw + display) | YES | User sets knob → saves scene → probe reads ZLIB raw. Still the required method for display calibration. |
+
+**New data point confirmed**: `raw=0.5 → 403ms` (Ch11 scene-stored, user-confirmed, 2026-07-02).
+Phase 2 formula (`2.5 + 897.5 × raw^2.605`) predicted 150ms at raw=0.5 — this is likely WRONG.
+The formula should be re-derived using scene-save anchor points.
+
+Evidence: `test/fixtures/32sc/fat-channel/guided/comp-release.json`
 
 ---
 

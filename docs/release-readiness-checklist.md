@@ -117,8 +117,13 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
   investigation before HIL is safe to run. Do not mark complete until verified._
 
 - [ ] **Fat Channel write HIL**: EQ/comp/gate parameter write tested on hardware.
-  _Status: ⛔ Deferred — all EQ/Fat Channel formulas are `guessed`; write safety requires
-  calibration probe first. Do not mark complete until observed._
+  _Status: ⛔ Deferred — protocol investigation in progress (2026-07-02):_
+  - _PV write is accepted by mixer (comp.release confirmed — `probe-fat-write-echo`)_
+  - _Echo is received by featherbear client but UC Surface display does NOT update from probe writes_
+  - _Write-echo approach cannot provide display-value calibration; scene-save+dump still required_
+  - _Fat Channel formulas are `calibrated_inferred` (opportunistic); some Phase 2 data points may be wrong_
+  - _`comp.release` Phase 2 formula contradicted by new data (raw=0.5 → 403ms vs formula prediction 150ms)_
+  - _Do not enable Fat Channel write tools until formulas are re-validated via scene-save calibration_
 
 - [ ] **Write-tool global safety gate**: All write paths (mute, fader, aux send, Fat Channel)
   HIL-verified or explicitly excluded from supported write scope.

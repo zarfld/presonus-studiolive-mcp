@@ -1,0 +1,100 @@
+{
+  "_meta": {
+    "device": "StudioLive 32SC SD7E21010066",
+    "firmware": "3.4.0.111374",
+    "capturedAt": "2026-07-02",
+    "channel": "line.ch11",
+    "key": "comp.release",
+    "fullKey": "line.ch11.comp.release",
+    "slashKey": "line/ch11/comp/release",
+    "probeMethod": "pv_write_echo",
+    "echoPath": "active_write_only",
+    "passiveEchoStatus": "noLiveEventObserved — mixer does not echo UC Surface-originated changes to featherbear clients",
+    "note": "calibrated via write-echo path; do not count as passive live observation",
+    "findingsFromThisRun": [
+      "WRITE ACCEPTED: raw=0 PV write confirmed accepted via echo (echo=0.0)",
+      "ECHO INTERMITTENT: only 1/5 echoes received; TCP reconnection disrupted subsequent echoes",
+      "UC_SURFACE_DISPLAY_FROZEN: UC Surface showed 403ms at ALL written raw values (0.0, 0.25, 0.5)",
+      "This confirms UC Surface does NOT update its display in response to featherbear PV writes",
+      "Write-echo approach CANNOT be used for display-value readback calibration",
+      "The 403ms display at raw=0.5 is the scene-stored value for Ch11 comp.release; this IS a valid anchor point"
+    ],
+    "revisedApproach": "For display-value calibration: user must set knob in UC Surface, save scene, then probe reads raw from ZLIB dump. Write-echo verifies raw acceptance only."
+  },
+  "anchors": [
+    {
+      "rawPoint": 0,
+      "rawWritten": 0,
+      "pvEchoObserved": true,
+      "rawEcho": 0,
+      "displayValue": "403ms",
+      "displayUnit": "ms",
+      "displayNumeric": 403,
+      "writeAccepted": true
+    },
+    {
+      "rawPoint": 0.25,
+      "rawWritten": 0.25,
+      "pvEchoObserved": false,
+      "rawEcho": null,
+      "displayValue": "403ms",
+      "displayUnit": "ms",
+      "displayNumeric": 403,
+      "writeAccepted": true
+    },
+    {
+      "rawPoint": 0.5,
+      "rawWritten": 0.5,
+      "pvEchoObserved": false,
+      "rawEcho": null,
+      "displayValue": "403ms",
+      "displayUnit": "ms",
+      "displayNumeric": 403,
+      "writeAccepted": true,
+      "anchorSource": "scene_stored_current",
+      "note": "UC Surface shows 403ms for Ch11 comp.release at raw=0.5 (scene-stored). Display did NOT reflect probe write — this is scene value, not write-echo display."
+    },
+    {
+      "rawPoint": 0.75,
+      "rawWritten": 0.75,
+      "pvEchoObserved": false,
+      "rawEcho": null,
+      "displayValue": null,
+      "displayUnit": null,
+      "displayNumeric": null,
+      "writeAccepted": true
+    },
+    {
+      "rawPoint": 1,
+      "rawWritten": 1,
+      "pvEchoObserved": false,
+      "rawEcho": null,
+      "displayValue": null,
+      "displayUnit": null,
+      "displayNumeric": null,
+      "writeAccepted": true
+    }
+  ],
+  "keyClassification": {
+    "writeAccepted": true,
+    "pvEchoObserved": true,
+    "echoDecoded": true,
+    "restoreVerified": true,
+    "calibrationMethod": "write_echo",
+    "confidence": "write_echo_partial",
+    "readyForPromotion": false,
+    "promotionRequires": "min/max/mid/25%/75% coverage + formula fit",
+    "anchorsWithEcho": 1,
+    "totalAnchors": 5,
+    "displayReadback": "invalidated_write_echo_only",
+    "displayReadbackNote": "UC Surface does not update its display in response to featherbear PV writes. Display values in anchors reflect scene-stored values, not probe-written values.",
+    "validSceneAnchor": {
+      "raw": 0.5,
+      "display": "403ms",
+      "source": "scene_stored",
+      "confirmed": true
+    },
+    "echoReliability": "unreliable_across_reconnect — only first echo received; TCP reconnect disrupts multi-point echo sequence",
+    "recommendedCalibrationMethod": "scene_save_dump — user sets knob, saves scene, probe reads ZLIB raw value"
+  }
+}
