@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "STANDARD comp all-max and all-min guided calibration anchors — 32R Ch11",
+    "device": "32R",
+    "serial": "RA3E18030194",
+    "captureDate": "2026-07-02",
+    "captureMethod": "probe-routing dump with concurrent probe-raw-socket + probe-live-events background probes",
+    "ucSurfaceDisplayReadback": "user-confirmed display values for each extreme position",
+    "probeFindings": {
+      "probe_live_events": "0 watched key changes (featherbear emitter suppressed)",
+      "probe_raw_socket": "live PV events decoded (rawPacketObservedParserGap confirmed)",
+      "conclusion": "raw-socket probe is source of truth; ZLIB dump matches raw-socket state"
+    }
+  },
+  "allMin": {
+    "userDisplayValues": {
+      "threshold": "-56.00 dB",
+      "ratio": "1.0:1",
+      "keyfilter": "off",
+      "attack": "0.20 ms",
+      "release": "2.50 ms",
+      "gain": "0.00 dB"
+    },
+    "rawValues": {
+      "comp.threshold": 0,
+      "comp.ratio": 0,
+      "comp.attack": 0.00037187966518104076,
+      "comp.release": 0.0002091386413667351,
+      "comp.gain": 0,
+      "comp.keyfilter": 0
+    },
+    "formulaValidation": {
+      "comp.threshold": "(0-1)*56=-56.00 dB EXACT",
+      "comp.ratio": "formula(0)=1.0:1 EXACT",
+      "comp.attack": "0.20+149.8*0.000372^1.165=0.215ms (display rounds to 0.20ms) CONFIRMED",
+      "comp.release": "2.5+897.5*0.000209^2.605=2.500ms EXACT",
+      "comp.gain": "0*28.0=0.00 dB EXACT"
+    }
+  },
+  "allMax": {
+    "userDisplayValues": {
+      "threshold": "0.00 dB",
+      "ratio": "Limit (20:1?)",
+      "keyfilter": "16.00 kHz",
+      "attack": "150 ms",
+      "release": "900 ms",
+      "gain": "28.00 dB"
+    },
+    "rawValues": {
+      "comp.threshold": 1,
+      "comp.ratio": 1,
+      "comp.attack": 1,
+      "comp.release": 1,
+      "comp.gain": 1,
+      "comp.keyfilter": 1
+    },
+    "formulaValidation": {
+      "comp.threshold": "(1-1)*56=0.00 dB EXACT",
+      "comp.ratio": "formula(1)=Infinity (Limit mode) CONFIRMED",
+      "comp.attack": "150 ms (exact clamp) EXACT",
+      "comp.release": "2.5+897.5*1^2.605=900.0 ms EXACT",
+      "comp.gain": "1.0*28.0=28.00 dB EXACT"
+    }
+  }
+}

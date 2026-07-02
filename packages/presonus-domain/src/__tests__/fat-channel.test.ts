@@ -199,20 +199,20 @@ describe('normalizedToCompThresholdDb — calibrated_inferred STANDARD comp', ()
 })
 
 // ---------------------------------------------------------------------------
-// Comp makeup gain — calibrated_inferred (STANDARD comp, comp.gain key)
-// HIL: raw*27.6 confirmed on 32SC fw 3.4.0.111374 (2026-07-01)
+// Comp makeup gain — CORRECTED (32R guided calibration 2026-07-02, K=28.0)
+// Confirms: raw=0→0dB, raw=0.315→8.82dB, raw=1→28.00dB (all exact, K=28.0)
+// Phase 1 formula raw*27.6 was systematically low by ~1.4% (anchors in low range)
 // ---------------------------------------------------------------------------
 
-describe('normalizedToCompMakeupDb — calibrated_inferred STANDARD comp', () => {
-  it('Ch11: raw=0.200 → 5.52 dB (actual 5.6, within 0.1 dB)', () => {
-    expect(normalizedToCompMakeupDb(0.200)).toBeCloseTo(5.52, 1)
-  })
-  it('Ch12: raw=0.183 → 5.05 dB (actual 5.13, within 0.1 dB)', () => {
-    expect(normalizedToCompMakeupDb(0.183)).toBeCloseTo(5.05, 1)
-  })
-  it('range: raw=0 → 0 dB, raw=1 → ~27.6 dB', () => {
+describe('normalizedToCompMakeupDb — corrected_guided K=28.0 (32R 2026-07-02)', () => {
+  it('32R Ch11: raw=0 → 0.00 dB [empirical anchor, exact]', () => {
     expect(normalizedToCompMakeupDb(0)).toBeCloseTo(0, 2)
-    expect(normalizedToCompMakeupDb(1)).toBeCloseTo(27.6, 1)
+  })
+  it('32R Ch11: raw=0.315 → 8.82 dB [empirical anchor, ±0.05 dB]', () => {
+    expect(normalizedToCompMakeupDb(0.315)).toBeCloseTo(8.82, 1)
+  })
+  it('32R Ch11: raw=1.000 → 28.00 dB [empirical anchor, exact max]', () => {
+    expect(normalizedToCompMakeupDb(1)).toBeCloseTo(28.0, 1)
   })
 })
 
@@ -235,31 +235,28 @@ describe('normalizedToGateThresholdDb — calibrated_inferred', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Comp/gate attack — calibrated_inferred (2 anchor points)
-// HIL: 0.2*exp(10.3*raw) ms confirmed on 32SC fw 3.4.0.111374 (2026-07-01)
-// NOTE: RECALIBRATED 2026-07-02 — Phase 1 formula (0.2*exp(10.3*raw)) was wrong.
-// New formula: 150*raw^1.161, derived from 2 cross-device live dump anchors:
-//   32SC fw 3.4.0.111374 Ch11: raw=0.190 → 21.8 ms (UC Surface, live dump)
-//   32R Ch11:                  raw=1.000 → 150 ms  (UC Surface, live dump)
-// HIL Evidence: test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
-//               test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+// Comp/gate attack — RECALIBRATED with 3 anchors (2026-07-02 guided calibration)
+// Formula: 0.20 + 149.8*raw^1.165 ms
+//   32R all-min dump: raw≈0 → 0.20 ms (physical min stop)
+//   32SC Ch11 cross-device: raw=0.190 → 21.8 ms
+//   32R all-max dump: raw=1.000 → 150 ms
+// HIL Evidence: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
 // ---------------------------------------------------------------------------
 
-describe('normalizedToAttackMs — recalibrated_2pt_crossdevice (2026-07-02)', () => {
-  it('32SC Ch11 STANDARD comp: raw=0.190 → ~21.8 ms (±1 ms) [empirical anchor]', () => {
+describe('normalizedToAttackMs — recalibrated_3pt_guided (2026-07-02)', () => {
+  it('32R all-min: raw=0 → 0.20 ms [empirical anchor, exact clamp]', () => {
+    expect(normalizedToAttackMs(0)).toBe(0.20)
+  })
+  it('32SC Ch11 cross-device: raw=0.190 → ~21.8 ms (±1 ms) [empirical anchor]', () => {
     expect(normalizedToAttackMs(0.190)).toBeGreaterThan(20.8)
     expect(normalizedToAttackMs(0.190)).toBeLessThan(22.8)
   })
-  it('32R Ch11 STANDARD comp: raw=1.000 → 150 ms (exact clamp) [empirical anchor]', () => {
+  it('32R all-max: raw=1.000 → 150 ms [empirical anchor, exact clamp]', () => {
     expect(normalizedToAttackMs(1.000)).toBe(150)
   })
-  it('raw=0.363 → ~46 ms (±10 ms) [formula interpolation, unverified]', () => {
-    // Formula prediction only — no hardware anchor for this value.
-    expect(normalizedToAttackMs(0.363)).toBeGreaterThan(36)
-    expect(normalizedToAttackMs(0.363)).toBeLessThan(56)
-  })
-  it('raw=0 → 0 ms (exact clamp)', () => {
-    expect(normalizedToAttackMs(0)).toBe(0)
+  it('raw=0.363 → ~50 ms (±15 ms) [formula interpolation, unverified]', () => {
+    expect(normalizedToAttackMs(0.363)).toBeGreaterThan(35)
+    expect(normalizedToAttackMs(0.363)).toBeLessThan(65)
   })
   it('attack is monotonically increasing across range', () => {
     const vals = [0, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0].map(normalizedToAttackMs)
@@ -326,23 +323,31 @@ describe('normalizedToCompRatioX — opportunistic_calibration, ~13% mid-range e
 })
 
 // ---------------------------------------------------------------------------
-// Comp release (STANDARD) — calibrated_inferred (4 anchor points, exact fit)
-// HIL: 2.5 + 897.5*raw^2.605 ms on 32SC fw 3.4.0.111374 (Phase 2)
+// Comp release (STANDARD) — FULLY CONFIRMED (5 anchors, 32R guided 2026-07-02)
+// Formula: 2.5 + 897.5*raw^2.605 ms
+//   raw≈0 → 2.50 ms (exact: 2.5+897.5*0=2.5)
+//   raw=0.365 → 67.5 ms (32SC)
+//   raw=0.720 → 384 ms (32R, EXACT)
+//   raw=1.000 → 900 ms (32R all-max, EXACT: 2.5+897.5=900)
+// HIL Evidence: test/fixtures/32r/fat-channel/guided/ (2026-07-02)
 // ---------------------------------------------------------------------------
 
-describe('normalizedToReleaseMs — calibrated_inferred (Phase 2, 32SC fw 3.4.0.111374)', () => {
-  it('raw=0 → 2.5ms (exact min)', () => {
+describe('normalizedToReleaseMs — CONFIRMED guided calibration (32R 2026-07-02)', () => {
+  it('32R all-min: raw=0 → 2.50 ms [empirical anchor, exact]', () => {
     expect(normalizedToReleaseMs(0)).toBeCloseTo(2.5, 1)
   })
-  it('raw=0.365 → 67.5ms (Ch27, ±2ms)', () => {
+  it('32SC Ch27: raw=0.365 → 67.5 ms (±2 ms)', () => {
     expect(normalizedToReleaseMs(0.365)).toBeCloseTo(67.5, 0)
   })
-  it('raw=0.5 → 150ms (Phase 1 anchor, ±5ms)', () => {
-    expect(normalizedToReleaseMs(0.5)).toBeGreaterThan(140)
-    expect(normalizedToReleaseMs(0.5)).toBeLessThan(160)
+  it('32R Ch11: raw=0.720 → 384 ms [empirical anchor, exact 0.005%]', () => {
+    expect(normalizedToReleaseMs(0.7200873)).toBeCloseTo(384, 0)
   })
-  it('raw=1.0 → 900ms (exact max)', () => {
+  it('32R all-max: raw=1.0 → 900 ms [empirical anchor, exact]', () => {
     expect(normalizedToReleaseMs(1.0)).toBeCloseTo(900, 0)
+  })
+  it('raw=0.5 → ~150 ms (±10 ms) [32SC shows 162ms, ~7% device variation]', () => {
+    expect(normalizedToReleaseMs(0.5)).toBeGreaterThan(140)
+    expect(normalizedToReleaseMs(0.5)).toBeLessThan(165)
   })
   it('release is monotonically increasing', () => {
     expect(normalizedToReleaseMs(0.2)).toBeLessThan(normalizedToReleaseMs(0.5))

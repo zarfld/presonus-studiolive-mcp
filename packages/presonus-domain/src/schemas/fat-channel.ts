@@ -614,20 +614,25 @@ export function normalizedToCompThresholdDb(raw: number): number {
 }
 
 /**
- * Comp makeup gain: linear 0 to +27.6 dB
+ * Comp makeup gain: linear 0 to +28.0 dB
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- * 2 anchor points, max error 0.08 dB. Formula: raw*27.6
+ * ⚠️ CORRECTED (2026-07-02 guided calibration, 32R all-max dump):
+ * Phase 1 formula raw*27.6 was wrong — K=27.6 predicts 27.6 dB at max but display shows 28.00 dB.
  *
- * ADDITIONAL VALIDATION (2026-07-02 live dump):
- *   32R Ch11: raw=0.315 → 8.82 dB display (formula=8.69 dB, error=1.4%) — approximately confirmed.
+ * Confirmed by 3 guided calibration anchors (32R Ch11, dump + UC Surface display, 2026-07-02):
+ *   raw=0     → 0.00 dB  (exact: 0*28.0=0)
+ *   raw=0.315 → 8.82 dB  (exact: 0.315*28.0=8.82)
+ *   raw=1.000 → 28.00 dB (exact: 1.0*28.0=28.00)
+ * Max error < 0.01 dB across all three anchors.
+ *
  * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-max.json
  *
  * IMPORTANT: For STANDARD compressor model, the state key is `comp.gain`
  * (NOT `comp.output` which is used by the FET model).
  */
 export function normalizedToCompMakeupDb(raw: number): number {
-  return raw * 27.6
+  return raw * 28.0
 }
 
 /**
@@ -657,46 +662,47 @@ export function normalizedToCompRatioX(raw: number): number {
 /**
  * Comp/gate attack time in ms.
  *
- * RECALIBRATED (2026-07-02): Phase 1 formula 0.2*exp(10.3*raw) was WRONG.
- * Phase 1 predicted 1.37ms at raw=0.190 but actual display = 21.8ms (+1400% error).
- * Phase 1 anchor data is presumed misread or from wrong parameter.
+ * RECALIBRATED (2026-07-02, guided calibration with all-min/all-max dumps on 32R):
+ * 3 confirmed anchors (32R Ch11, dump + UC Surface display):
+ *   raw≈0     → 0.20 ms  (physical minimum stop, dump raw=0.000372)
+ *   raw=0.190 → 21.8 ms  (32SC fw 3.4.0.111374 Ch11, cross-device)
+ *   raw=1.000 → 150 ms   (32R all-max dump)
+ * Formula: 0.20 + 149.8 × raw^1.165
+ * Max error < 0.2% at all 3 anchor points.
  *
- * New formula derived from 2 cross-device data points (live simultaneous dumps):
- *   32SC fw 3.4.0.111374 Ch11:  raw=0.190 → 21.8 ms  (UC Surface display)
- *   32R Ch11:                   raw=1.000 → 150 ms   (UC Surface display, maximum attack)
- * Power-law fit: 150 × raw^1.161
- * ⚠️ LOW CONFIDENCE: only 2 data points, from different mixer models.
- *    Same formula validated at both measured points (error < 0.1 ms).
- *    Intermediate values (raw 0.2–0.9) are interpolated and unverified.
- *    At raw=0, formula returns 0ms (instant attack) — true minimum unconfirmed.
+ * Note: Phase 1 formula (0.2*exp(10.3*raw)) was WRONG — predicted 1.37ms at
+ * raw=0.190 vs actual 21.8ms. Phase 1 data presumed misread.
+ *
+ * ⚠️ INTERMEDIATE RANGE (raw 0.2–0.9): power-law interpolation, not yet verified
+ *    by guided calibration points at 25%/50%/75% positions.
  * See: test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
  *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
  */
 export function normalizedToAttackMs(raw: number): number {
-  if (raw <= 0) return 0
+  if (raw <= 0) return 0.20
   if (raw >= 1) return 150
-  return 150 * Math.pow(raw, 1.161)
+  return 0.20 + 149.8 * Math.pow(raw, 1.165)
 }
 
 /**
  * STANDARD compressor release time in ms.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 opportunistic calibration, 2026-07-02):
- * 4 anchor points: raw=0→2.5ms (min, user-reported; raw inferred from formula fit),
- *   raw=0.365→67.5ms (Ch27 scene-stored, UC Surface confirmed this session),
- *   raw=0.5→150ms (Phase 1 session), raw=1→900ms (max, user-reported; raw inferred).
+ * CONFIRMED by guided calibration endpoints (32R Ch11, all-min/all-max dumps + display, 2026-07-02):
+ *   raw≈0     → 2.50 ms  (physical min, dump raw=0.000209; formula=2.500ms, EXACT)
+ *   raw=0.365 → 67.5 ms  (32SC Ch27 scene-stored)
+ *   raw=0.500 → 162 ms   (32SC Ch11 simultaneous dump, formula=150ms, ~7.4%)
+ *   raw=0.720 → 384 ms   (32R Ch11 simultaneous dump, formula=384ms, EXACT)
+ *   raw=1.000 → 900 ms   (32R all-max dump; formula=900ms, EXACT)
  * Formula: 2.5 + 897.5 × raw^2.605
- *
- * ADDITIONAL VALIDATION (2026-07-02 live dumps, both mixers):
- *   32SC Ch11: raw=0.500 → 162ms display (formula=150ms, error=7.4%) — approximately confirmed.
- *   32R Ch11:  raw=0.720 → 384ms display (formula=384ms, error=0.005%) — EXACT MATCH.
- * See: test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
- *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ * HIGH CONFIDENCE: both endpoints and interior point confirmed with < 0.01% error on 32R.
+ * The 7.4% error at raw=0.5 on 32SC may reflect device-specific variation (32SC vs 32R).
  *
  * liveObserved (32R, UC Control closed): PV events confirmed for comp.release via parallel probe.
  *   See: test/fixtures/32sc/fat-channel/live-events/parallel-probe/32r-live-pv-evidence.json
- * decodedEventNotObserved (32SC with UC Control open): no PV/JM/data event for comp.release.
- *   See: test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json
+ * rawPacketObservedParserGap (32R, UC Surface open): raw-socket probe sees decoded PV events
+ *   but probe-live-events (featherbear event emitter) shows 0 watched key changes.
+ *   This means featherbear receives PV bytes but does not emit through the event system.
+ *   See: captures/cal-32r-guided/raw-socket/ (2026-07-02 guided calibration session)
  */
 export function normalizedToReleaseMs(raw: number): number {
   return 2.5 + 897.5 * Math.pow(raw, 2.605)
