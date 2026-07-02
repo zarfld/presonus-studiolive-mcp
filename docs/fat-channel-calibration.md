@@ -106,6 +106,55 @@ uncertainty to consumers. Raw state values are accessible via the
 
 ---
 
+## SL-Edit Reference Investigation (2026-07-02)
+
+Reference: `featherbear/SL-Edit` (GitHub) + pinned `presonus-studiolive-api@fb289d4`
+
+### What SL-Edit is
+
+A **prototype web UI** for StudioLive III (SvelteKit, 5 years old). Most routes are stubs.
+It wraps the same `presonus-studiolive-api` library — no proprietary extensions.
+Classification: **prototype observer + limited writer** (not offline editor; not a live DSP reference).
+
+### Findings Table
+
+| Finding | Source | Evidence | Impact for MCP |
+|---|---|---|---|
+| `clientOptions` is `???` | `MessageProtocol.ts` | Field documented as unknown even by API author | Cannot confidently add DSP subscription tokens; unknown effect |
+| Write path via PV packets | `Client.ts:setMuteState()` | `sendPacket(MESSAGETYPES.Setting, key+\0+value)` | Fat Channel writes are technically feasible using PV |
+| Boolean encoding: `[0x00,0x00,0x80,0x3f]` = true | `MessageProtocol.ts:onOffCode()` | Returns 1.0f LE for true, 0.0f LE for false | Mute/on-off writes use 4-byte LE float encoding |
+| Float encoding: 4-byte LE float | `Client.ts:onOffEval()` | Returns raw bytes when not boolean | Normalized (0–1) params written as `Buffer.from(new Float32Array([value]).buffer)` |
+| `ACTIONS` enum only: MUTE, VOLUME(DCA), GAIN(preamp) | `constants/actions.ts` | No comp/gate/EQ action keys defined | Fat Channel write actions not implemented in reference; must implement our own |
+| `GateValues` confirmed: `range, release, threshold, attack, ratio, reduction` | `zlibType.ts:GateValues` | TypeScript interface matches state dump keys | Confirms valid ZLIB key names |
+| `LimitValues` missing `release` (old firmware) | `zlibType.ts:LimitValues` | Only `limiteron, threshold, reduction` — no `release` | `limit.release` likely added in later firmware; treat as present in 3.4.0.111374 |
+| STANDARD comp GUID confirmed | `zlibType.ts:CompClassID` | `{870D04F7-212E-4F9C-ADBB-39A97216433F}` = STANDARD | Matches `COMPRESSOR_MODEL_BY_CLASSID` in codebase ✓ |
+| STANDARD EQ GUID confirmed | `zlibType.ts:EqClassID` | `{A0A8A068-14F0-4B04-BB6F-AF8329D0E8EE}` = STANDARD | Matches `EQ_MODEL_BY_CLASSID` in codebase ✓ |
+| **No Fat Channel formulas found** | All SL-Edit files | No `Math.pow`, `Math.exp`, `log`, Hz, ms conversion code | No formula reference to compare against MCP formulas |
+| No FR/FD path for Fat Channel | `Client.ts:sendList()` | `sendList` uses FR only for scene file directory listing | Fat Channel is NOT accessible via FR/FD requests |
+| Mute echo hypothesis | `Client.ts` IDEA comment | "Send unmute and see if there's a response" — author expected PV echo from writes | Writes via PV likely DO get echoed back; live read possible via write-and-observe |
+
+### Formula Comparison
+No Fat Channel formulas found in SL-Edit. All formulas remain `reference_inferred` or better per existing HIL evidence.
+
+### Protocol Paths Not Used by MCP
+
+The write path (`MESSAGETYPES.Setting` / `PV` with `key\x00\x00\x00value`) is not yet
+used by the MCP for Fat Channel parameters. Float value encoding:
+```typescript
+// Write normalized float param (e.g. comp.release = 0.5)
+const buf = Buffer.allocUnsafe(4)
+buf.writeFloatLE(normalizedValue, 0)
+sendPacket('PV', Buffer.concat([Buffer.from(`${key}\x00\x00\x00`), buf]))
+```
+**Do not implement Fat Channel writes until the write path is verified with a dedicated probe.**
+
+### Next Steps from SL-Edit Analysis
+1. **Test write-triggered PV echo**: Write a known-safe value (mute) and watch if PV echo arrives for other monitored keys simultaneously.
+2. **`clientOptions` investigation**: Try variants beyond `"perm users levl redu rtan"` to see if DSP echoes become available.
+3. **limit.release key**: Confirm `line.chN.limit.release` is present in 3.4.0.111374 state (it IS — confirmed in session dumps).
+
+---
+
 ## Unverified add-on model scene GUIDs
 
 The following model GUIDs appear in the live decoder table but have NOT been
