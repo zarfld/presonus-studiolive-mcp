@@ -67,7 +67,7 @@ Evidence: `test/fixtures/32sc/fat-channel/fat-channel-calibration.json` (31 anch
 | EQ frequency | `36×502^raw` → 36 Hz–18 kHz | **calibrated\_inferred** | 5 pts band-1, max 0.013% |
 | HPF frequency | `24×42^raw` → 24 Hz–1 kHz | **calibrated\_inferred** | 6 pts, max 0.46% |
 | EQ Q factor | `0.028×466^raw` → 0.03–13 | **calibrated\_inferred** | 5 pts, max 0.17 Q units |
-| EQ band type | `round(raw×3)` → 3 types in STANDARD EQ | **observed** | BELL(1.0), LOW\_SHELF(0.333), HIGH\_SHELF(0.667) confirmed. ⚠️ LOW\_PASS (raw=0.0) does NOT occur in STANDARD EQ |
+| EQ band type | `round(raw×3)` → 3 types in STANDARD EQ | **observed** | BELL(1.0), LOW\_SHELF(0.333), HIGH\_SHELF(0.667) confirmed. LOW\_PASS (raw=0.0) not observed in STANDARD EQ testing on 32SC fw 3.4.0.111374 |
 | Comp threshold (STANDARD) | `(raw−1)×56` → -56 to 0 dBFS | **calibrated\_inferred** | 2 pts; key is `comp.threshold` |
 | Comp makeup (STANDARD) | `raw×27.6` → 0–28 dB | **calibrated\_inferred** | 2 pts; key is `comp.gain` |
 | Comp attack | `0.2×e^(10.3×raw)` ms | **calibrated\_inferred** | 3 pts; valid only raw 0.15–0.50 |
@@ -86,9 +86,13 @@ Evidence: `test/fixtures/32sc/fat-channel/fat-channel-calibration.json` (31 anch
 > Phase 2 parameters bolded above. Comp ratio is LOW CONFIDENCE (~13% error) — treat mid-range as probe_required.
 >
 > **Live Event Probe Evidence** (2026-07-02): `test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json`
-> Confirms that Fat Channel DSP parameters (comp.release, gate.range, comp.ratio, etc.) do **not** emit PV events
-> when knobs are moved in UC Surface. The featherbear ZLIB snapshot reflects the last saved scene value only.
-> Classification: `sceneStored` (confirmed). See fixture for full protocol analysis.
+> No PV/JM/data event for the watched `line.*` Fat Channel keys was observed through featherbear
+> during a 60-second UC Surface knob-movement probe on 32SC fw 3.4.0.111374.
+> The featherbear ZLIB snapshot reflects the last saved scene value, not the live knob position.
+> Classification: `sceneStored` — confirmed through featherbear live-event probing on 32SC fw 3.4.0.111374 (UC Surface).
+> ⚠️ Scope: UC Surface knob movement only. Physical mixer knob movement and raw packet layer not independently tested.
+> Not automatically proven for other StudioLive III models or other firmware versions.
+> See fixture for full analysis and scope limitations.
 
 > **IMPORTANT: FET vs STANDARD compressor key difference**
 > - STANDARD/TUBE/etc.: threshold key = `comp.threshold`, makeup key = `comp.gain`
@@ -119,12 +123,33 @@ models active is collected and the `__classid` field confirmed.
 
 To promote parameter calibration from `guessed` to `observed`:
 
-### Prerequisites
+### Guided calibration for `sceneStored` DSP parameters
 
-- Physical StudioLive 32SC (or other III-series) connected to LAN
-- UC Surface running and showing the mixer
+Fat Channel DSP parameters (`comp.release`, `gate.range`, `limiter.threshold`, etc.) are confirmed
+`sceneStored` through featherbear live-event probing on 32SC fw 3.4.0.111374.
+The featherbear state reflects the **last saved scene**, not the live knob position.
 
-### Procedure
+**Required sequence for each calibration anchor point:**
+
+1. Set control to target position in UC Surface
+2. Record the visible UC Surface display value (e.g. "150ms")
+3. **Save the scene** (Store Scene in UC Surface or via the mixer hardware Store button)
+4. Wait for save/settle (~1 second)
+5. Capture state dump: `pnpm probe:dev probe-routing dump --device <ip> --out <file>`
+6. Extract raw value for the key (e.g. `line.ch11.comp.release`)
+7. Store matched pair: `{ display: "150ms", raw: 0.5, source: "sceneStored" }`
+
+> ⚠️ If step 3 (scene save) is **skipped**, the dump will show the **old scene value**,
+> not the current knob position. This was the root cause of conflicting readings in Phase 2.
+
+### Guided calibration for live-updated parameters (EQ, threshold, etc.)
+
+Parameters that emit PV events (EQ gain, HPF, comp threshold, comp makeup, gate threshold) update
+`client.state` immediately. No scene save is required for these.
+
+### Procedure for all parameters
+
+**Prerequisites**: Physical StudioLive 32SC (or other III-series) connected to LAN; UC Surface running.
 
 For each parameter (e.g. EQ band 1 gain):
 

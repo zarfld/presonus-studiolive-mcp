@@ -116,16 +116,35 @@
   ],
 
   "conclusion": {
-    "fat_channel_parameters_emit_pv_events": false,
-    "fat_channel_state_source": "sceneStored — ZLIB snapshot only",
-    "protocol_behaviour": "The StudioLive 32SC (fw 3.4.0.111374) does NOT send PV/MessageCode.Setting events for Fat Channel DSP parameters (comp.release, gate.range, etc.) when knobs are moved in UC Surface. The featherbear state for these parameters is populated exclusively from the initial ZLIB compressed state snapshot, which reflects the last saved scene. The live DSP value changes immediately on knob movement but is not observable through the featherbear subscription protocol without an explicit scene save.",
+    "probe_scope": {
+      "hardware": "StudioLive 32SC SD7E21010066",
+      "firmware": "3.4.0.111374",
+      "movement_method_tested": "UC Surface knob movement only",
+      "not_tested": [
+        "physical mixer hardware knob movement",
+        "raw packet layer below featherbear decoding",
+        "other StudioLive III models",
+        "other firmware versions"
+      ],
+      "event_subscription": "PV/JM/ZB/PC/PS/data via @featherbear/presonus-studiolive-api"
+    },
+    "fat_channel_pv_events_observed": false,
+    "fat_channel_state_source": "sceneStored — ZLIB snapshot only (tested scope)",
+    "protocol_behaviour": "No PV/JM/data event for the watched line.* Fat Channel keys was observed through featherbear during the 60-second UC Surface knob-movement probe on StudioLive 32SC fw 3.4.0.111374. The featherbear ZLIB snapshot reflects the last saved scene value, not the live knob position. This confirms the sceneStored classification for the tested scope. It does not prove absence of PV events at the raw packet layer or for physical mixer knob movement, which were not tested.",
     "implications_for_calibration": [
       "Raw values read via state dump reflect the last saved scene, not the current physical knob position.",
-      "Calibration anchor points (raw → display value) are valid IF the scene was saved with that knob position.",
-      "Min/max endpoint probes where the user reports the display value but no state capture was made have uncertain raw values.",
-      "Future calibration should: set knob, save scene, then capture dump — to get both display value AND raw value."
+      "Calibration anchor points (raw to display value) are valid only when the scene was saved at that knob position.",
+      "Required calibration sequence for sceneStored parameters:",
+      "  1. Set control to target position in UC Surface",
+      "  2. Record the visible UC Surface display value (e.g. '150ms')",
+      "  3. Save the scene (Store Scene in UC Surface or via the mixer hardware Store button)",
+      "  4. Wait for save/settle (~1 second)",
+      "  5. Capture state dump: pnpm probe:dev probe-routing dump --device <ip> --out <file>",
+      "  6. Extract raw value for the target key (e.g. line.ch11.comp.release)",
+      "  7. Store matched pair: { display: '150ms', raw: 0.5, source: 'sceneStored' }",
+      "If step 3 (scene save) is skipped, the dump shows the OLD scene value, not the current knob position."
     ],
-    "previous_sceneStored_claim": "The original premature claim of 'scene-stored' based on snapshot non-update was CORRECT in conclusion, though the evidence was incomplete at the time. This probe provides the HIL evidence that confirms it.",
-    "watch_events_bug_fixed": "The existing watch-events command used event code 'setting' which is not a valid featherbear event name. The correct code is 'PV' (MessageCode.ParamValue/Setting). This has been fixed in the updated watch-events.ts."
+    "previous_sceneStored_claim": "The earlier sceneStored classification (based on snapshot non-update) was correct in conclusion. This probe provides explicit featherbear-path evidence, scoped as noted above.",
+    "watch_events_bug_fixed": "The existing watch-events command used event code 'setting' which is not a valid featherbear event name. The correct code is 'PV' (MessageCode.ParamValue/Setting). Fixed in watch-events.ts."
   }
 }
