@@ -67,23 +67,26 @@ Evidence: `test/fixtures/32sc/fat-channel/fat-channel-calibration.json` (31 anch
 | EQ frequency | `36×502^raw` → 36 Hz–18 kHz | **calibrated\_inferred** | 5 pts band-1, max 0.013% |
 | HPF frequency | `24×42^raw` → 24 Hz–1 kHz | **calibrated\_inferred** | 6 pts, max 0.46% |
 | EQ Q factor | `0.028×466^raw` → 0.03–13 | **calibrated\_inferred** | 5 pts, max 0.17 Q units |
-| EQ band type | `round(raw×3)` → 4 types | **calibrated\_inferred** | BELL (1.0) and LOW\_SHELF (0.333) confirmed; others probe\_required |
+| EQ band type | `round(raw×3)` → 3 types in STANDARD EQ | **observed** | BELL(1.0), LOW\_SHELF(0.333), HIGH\_SHELF(0.667) confirmed. ⚠️ LOW\_PASS (raw=0.0) does NOT occur in STANDARD EQ |
 | Comp threshold (STANDARD) | `(raw−1)×56` → -56 to 0 dBFS | **calibrated\_inferred** | 2 pts; key is `comp.threshold` |
 | Comp makeup (STANDARD) | `raw×27.6` → 0–28 dB | **calibrated\_inferred** | 2 pts; key is `comp.gain` |
-| Comp attack | `0.2×e^(10.3×raw)` ms | **calibrated\_inferred** | 2 pts; valid only raw 0.15–0.40 |
+| Comp attack | `0.2×e^(10.3×raw)` ms | **calibrated\_inferred** | 3 pts; valid only raw 0.15–0.50 |
 | Gate threshold | `(raw−1)×84` → -84 to 0 dBFS | **calibrated\_inferred** | 2 pts; max 0.007 dB |
-| Comp ratio | probe\_required | **probe\_required** | 2 pts only (4.7:1, 10.2:1); range unconfirmed |
-| Comp/gate release | probe\_required | **probe\_required** | 1 data point only |
-| Gate range/depth | probe\_required | **probe\_required** | no calibration data |
-| Limiter threshold | probe\_required | **probe\_required** | no calibration data |
+| **Comp ratio (STANDARD)** | `1 + 0.922×(raw/(1-raw))^0.781` | **calibrated\_inferred** | 7 pts; raw=0→1:1, raw=1→Limit(∞). Max error ~13% mid-range |
+| **Comp release (STANDARD)** | `2.5 + 897.5×raw^2.605` ms | **calibrated\_inferred** | 4 pts exact fit: 2.5ms–900ms. State is scene-stored |
+| **Gate release** | `50 + 1950×raw^1.583` ms | **calibrated\_inferred** | 7 pts, max error <3ms: 50ms–2000ms |
+| **Gate range (GATE mode)** | `100×(raw^0.46 - 1)` dB | **calibrated\_inferred** | 2 mid-range pts + endpoints; GATE mode (expander=false) only |
+| **Limiter threshold** | `(raw−1)×27` → -27 to 0 dBFS | **calibrated\_inferred** | 4 pts, max 0.27 dB |
 | Fader taper | `volumeRaw100ToDb(v)` | **calibrated\_inferred** | `line.chN.volume` is 0–100 scene-stored; see `docs/hil/fader-preamp-calibration-notes.md` |
+
+> **Phase 2 Evidence**: `test/fixtures/32sc/fat-channel/fat-channel-phase2-calibration.json`
+> Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374.
+> Phase 2 parameters bolded above.
 
 > **IMPORTANT: FET vs STANDARD compressor key difference**
 > - STANDARD/TUBE/etc.: threshold key = `comp.threshold`, makeup key = `comp.gain`
 > - FET model: threshold-like key = `comp.input`, gain-like key = `comp.output`
 > - The adapter now tries `comp.threshold` first, falls back to `comp.input`.
-| Limiter threshold | `(raw - 1) × 20` → −20 to 0 dBFS | state-mapper.ts | `guessed` |
-| Fader taper | Log law assumed (0.75 ≈ unity) | state-mapper.ts | `guessed` |
 
 The `ChannelFatStateSchema.parameterConfidence` field in
 `packages/presonus-domain/src/schemas/fat-channel.ts` propagates this

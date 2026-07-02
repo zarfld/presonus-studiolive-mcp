@@ -1,0 +1,95 @@
+{
+  "_meta": {
+    "device": "StudioLive 32SC",
+    "firmware": "3.4.0.111374",
+    "date": "2026-07-xx",
+    "phase": "Phase 2",
+    "description": "Phase 2 calibration anchors for STANDARD comp ratio, comp release, gate release, gate range, limiter threshold",
+    "channels_tested": ["Ch11 (STANDARD comp/gate)", "Ch27 (STANDARD comp, gate enabled)", "Ch9 (gate release)"],
+    "method": "Guided probe: user set parameter to specific positions in UC Surface, probe CLI captured state; comp.release and gate.range are scene-stored (not live-updated via featherbear)"
+  },
+
+  "comp_ratio_standard": {
+    "description": "STANDARD comp ratio (line.chN.comp.ratio), model=0",
+    "formula": "1 + 0.922 * (raw/(1-raw))^0.781  [0 < raw < 1]; 1.0 at raw=0; Infinity at raw=1 (Limit mode)",
+    "confidence": "calibrated_inferred",
+    "max_error_percent": 13,
+    "anchors": [
+      { "raw": 0.000, "ratio": 1.0, "note": "exact min — 1:1, no compression. Observed: Ch11 at minimum, dump confirmed raw=0" },
+      { "raw": 0.526, "ratio": 2.0, "note": "intermediate from Phase 1 session" },
+      { "raw": 0.663, "ratio": 2.7, "note": "intermediate from Phase 1 session" },
+      { "raw": 0.706, "ratio": 3.0, "note": "intermediate from Phase 1 session" },
+      { "raw": 0.826, "ratio": 4.7, "note": "intermediate from Phase 1 session" },
+      { "raw": 0.950, "ratio": 10.2, "note": "intermediate from Phase 1 session" },
+      { "raw": 1.000, "ratio": null, "display": "Limit", "note": "exact max — Limit mode (infinite ratio). Observed: Ch11 at maximum, dump confirmed raw=1" }
+    ]
+  },
+
+  "comp_release_standard": {
+    "description": "STANDARD comp release (line.chN.comp.release), model=0",
+    "formula": "2.5 + 897.5 * raw^2.605",
+    "confidence": "calibrated_inferred",
+    "max_error_ms": 0.5,
+    "note": "comp.release is scene-stored — state reflects last saved scene value, not live knob position",
+    "anchors": [
+      { "raw": 0.000, "release_ms": 2.5, "note": "exact min — user confirmed Ch11 at minimum in UC Surface" },
+      { "raw": 0.365, "release_ms": 67.5, "note": "observed — Ch27 scene-stored value, confirmed in UC Surface (current session)" },
+      { "raw": 0.500, "release_ms": 150, "note": "observed — Phase 1 session, various channels with default scene value" },
+      { "raw": 1.000, "release_ms": 900, "note": "exact max — user confirmed Ch11 at maximum in UC Surface" }
+    ]
+  },
+
+  "gate_release": {
+    "description": "Gate release (line.chN.gate.release)",
+    "formula": "50 + 1950 * raw^1.583",
+    "confidence": "calibrated_inferred",
+    "max_error_ms": 2,
+    "anchors": [
+      { "raw": 0.000, "release_ms": 50, "note": "exact min — user confirmed Ch27 at minimum in UC Surface" },
+      { "raw": 0.130, "release_ms": 127, "note": "observed — Ch9 scene-stored value (from Phase 1 session)" },
+      { "raw": 0.180, "release_ms": 179, "note": "observed — Ch27 scene-stored value, confirmed in UC Surface (current session)" },
+      { "raw": 0.260, "release_ms": 281, "note": "observed — scene-stored value from Phase 1 session" },
+      { "raw": 0.447, "release_ms": 594, "note": "observed — Ch4 scene-stored value from Phase 1 session" },
+      { "raw": 0.880, "release_ms": 1640, "note": "observed — Ch10 scene-stored value from Phase 1 session" },
+      { "raw": 1.000, "release_ms": 2000, "note": "exact max — user confirmed Ch27 at maximum in UC Surface" }
+    ]
+  },
+
+  "gate_range_gate_mode": {
+    "description": "Gate range/depth in GATE mode (gate.expander=false), line.chN.gate.range",
+    "formula": "100 * (raw^0.46 - 1)  [dB]",
+    "confidence": "calibrated_inferred",
+    "max_error_db": 1.0,
+    "note": "gate.range is scene-stored. Formula validated for gate.expander=false only. raw=1->0dB (no gating); raw->0 -> -100dB (formula), actual min display is -84dB at raw~0.019",
+    "anchors": [
+      { "raw": 0.019, "range_db": -84, "note": "approx min position — user confirmed Ch27 minimum shows -84dB; raw inferred from formula since state not live-updated" },
+      { "raw": 0.040, "range_db": -77.14, "note": "observed — Ch27 scene-stored value (Phase 1 session)" },
+      { "raw": 0.210, "range_db": -51.0, "note": "observed — from Phase 1 session" },
+      { "raw": 1.000, "range_db": 0, "note": "exact max — user confirmed Ch27 maximum shows 0.00 dB" }
+    ]
+  },
+
+  "limiter_threshold": {
+    "description": "Limiter threshold (line.chN.limit.threshold or equivalent)",
+    "formula": "(raw - 1) * 27  [dBFS]",
+    "confidence": "calibrated_inferred",
+    "max_error_db": 0.27,
+    "anchors": [
+      { "raw": 0.095, "threshold_db": -24.34, "note": "observed from Phase 1 session" },
+      { "raw": 0.725, "threshold_db": -7.7, "note": "observed from Phase 1 session" },
+      { "raw": 0.890, "threshold_db": -3.07, "note": "observed from Phase 1 session" },
+      { "raw": 1.000, "threshold_db": 0.0, "note": "exact max — 0 dBFS at raw=1" }
+    ]
+  },
+
+  "eq_band_types_standard": {
+    "description": "EQ filter type (line.chN.eq.bandN.eqtype) for STANDARD EQ model",
+    "confidence": "observed",
+    "note": "STANDARD EQ has NO LOW_PASS type. Only 3 types used: BELL (all bands), LOW_SHELF (band-1 only), HIGH_SHELF (band-4 only). raw=0.0 does NOT occur in STANDARD EQ.",
+    "observed_values": [
+      { "raw": 0.333, "type": "LOW_SHELF", "bands": "band-1 only", "note": "observed — Phase 2 current session" },
+      { "raw": 0.667, "type": "HIGH_SHELF", "bands": "band-4 only", "note": "observed — Phase 2 current session" },
+      { "raw": 1.000, "type": "BELL", "bands": "all bands", "note": "observed — Phase 1 session" }
+    ]
+  }
+}

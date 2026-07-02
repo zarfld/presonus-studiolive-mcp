@@ -568,22 +568,22 @@ export function normalizedToEqQ(raw: number): number {
 /**
  * EQ filter type from raw float.
  *
- * PARTIALLY OBSERVED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- *   raw=0.333 → LOW_SHELF  (observed — Ch1 band-1 UC Surface confirmed)
- *   raw=1.000 → BELL       (observed — Ch1 bands 2-4 UC Surface confirmed)
- *   raw=0.000 → LOW_PASS   (probe_required — NOT YET observed in UC Surface)
- *   raw=0.667 → HIGH_SHELF (probe_required — NOT YET observed in UC Surface)
+ * OBSERVED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 calibration, 2026-07-xx):
+ *   raw=0.333 → LOW_SHELF  (observed — band-1 only in STANDARD EQ)
+ *   raw=0.667 → HIGH_SHELF (observed — band-4 only in STANDARD EQ)
+ *   raw=1.000 → BELL       (observed — all bands in STANDARD EQ)
  *
- * Only LOW_SHELF and BELL can be treated as observed. The other two indices
- * (0 = LOW_PASS, 2 = HIGH_SHELF) are based on the assumed 4-type enum order
- * but have not been verified by reading them in UC Surface.
+ * ⚠️ STANDARD EQ has NO LOW_PASS band type. raw=0.000 does NOT occur in STANDARD EQ.
+ * LOW_PASS (index 0) may exist for other EQ models but was not observed in STANDARD.
+ * LOW_SHELF is only available on band 1; HIGH_SHELF is only available on band 4.
+ * All other bands use BELL only.
  */
 export function normalizedToEqBandType(raw: number): EqBandType {
   // 4 types (indices 0–3), step = 1/3:
-  // 0 = LOW_PASS (raw≈0, not yet observed)
-  // 1 = LOW_SHELF (raw≈0.333, confirmed)
-  // 2 = HIGH_SHELF (raw≈0.667, not yet observed)
-  // 3 = BELL (raw≈1.0, confirmed)
+  // 0 = LOW_PASS (raw≈0, NOT PRESENT in STANDARD EQ)
+  // 1 = LOW_SHELF (raw≈0.333, observed — band-1 of STANDARD EQ only)
+  // 2 = HIGH_SHELF (raw≈0.667, observed — band-4 of STANDARD EQ only)
+  // 3 = BELL (raw≈1.0, observed — all bands)
   const types: EqBandType[] = ['LOW_PASS', 'LOW_SHELF', 'HIGH_SHELF', 'BELL']
   return types[Math.round(raw * 3)] ?? 'UNKNOWN'
 }
@@ -613,14 +613,22 @@ export function normalizedToCompMakeupDb(raw: number): number {
 }
 
 /**
- * Comp ratio: probe_required — formula still guessed
- * 2 HIL data points observed (4.7:1 and 10.2:1) but range not confirmed.
- * Do not use until full calibration is complete.
+ * STANDARD comp ratio.
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
+ * 7 anchor points: raw=0→1:1, raw=0.526→2.0:1, raw=0.663→2.7:1, raw=0.706→3.0:1,
+ *   raw=0.826→4.7:1, raw=0.950→10.2:1, raw=1.0→Limit(∞).
+ * Formula: 1 + 0.922 × (raw/(1-raw))^0.781
+ * Max error ~13% in mid-range (raw=0.7–0.85). Asymptote at raw=1 gives ∞ (Limit mode).
+ *
+ * Special cases:
+ *   raw ≤ 0   → 1.0  (no compression)
+ *   raw ≥ 1   → Infinity  (Limit mode — brick-wall limiter, displayed as "Limit" in UC Surface)
  */
 export function normalizedToCompRatioX(raw: number): number {
-  // PROBE_REQUIRED: 2 data points only (raw=0.826→4.7:1, raw=0.950→10.2:1)
-  // Formula below is provisional and should not be trusted outside raw=0.8–1.0
-  return 1 + raw * 15
+  if (raw <= 0) return 1.0
+  if (raw >= 1) return Infinity
+  return 1 + 0.922 * Math.pow(raw / (1 - raw), 0.781)
 }
 
 /**
@@ -639,14 +647,28 @@ export function normalizedToAttackMs(raw: number): number {
 }
 
 /**
- * Comp/gate/limiter release time in ms.
- * PROBE_REQUIRED: only one HIL data point (raw=0.5 → 150 ms).
- * Do not use until full calibration is complete.
+ * STANDARD compressor release time in ms.
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
+ * 4 anchor points (exact fit): raw=0→2.5ms, raw=0.365→67.5ms, raw=0.5→150ms, raw=1→900ms.
+ * Formula: 2.5 + 897.5 × raw^2.605
+ * Note: `comp.release` state key is scene-stored (not live-updated via featherbear protocol);
+ * reading from state reflects last saved scene value, not the current physical knob position.
  */
 export function normalizedToReleaseMs(raw: number): number {
-  // PROBE_REQUIRED: 1 data point only (raw=0.5 → 150 ms)
-  // Provisional linear estimate; actual taper is unknown
-  return raw * 2000
+  return 2.5 + 897.5 * Math.pow(raw, 2.605)
+}
+
+/**
+ * Gate release time in ms.
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
+ * 7 anchor points (max error < 2ms): raw=0→50ms, raw=0.130→127ms, raw=0.180→179ms,
+ *   raw=0.260→281ms, raw=0.447→594ms, raw=0.880→1640ms, raw=1.0→2000ms.
+ * Formula: 50 + 1950 × raw^1.583
+ */
+export function normalizedToGateReleaseMs(raw: number): number {
+  return 50 + 1950 * Math.pow(raw, 1.583)
 }
 
 /**
@@ -660,19 +682,31 @@ export function normalizedToGateThresholdDb(raw: number): number {
 }
 
 /**
- * Gate range/depth in dB.
- * PROBE_REQUIRED: no calibration data.
+ * Gate range/depth in dB (GATE mode only, gate.expander=false).
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
+ * 4 anchor points: raw≈0.019→-84dB (min), raw=0.040→-77.14dB, raw=0.210→-51.0dB,
+ *   raw=1.0→0dB (max, no gating).
+ * Formula: 100 × (raw^0.46 - 1)
+ * Max error < 1% for observed range (raw=0.04–0.21).
+ * Note: raw=1.0 → 0dB (gate fully open/inactive); raw→0 → -100dB (theoretical max attenuation).
+ * ⚠️ Formula not validated for EXPANDER mode (gate.expander=true) — use with caution.
  */
 export function normalizedToGateRangeDb(raw: number): number {
-  return raw * -80
+  if (raw <= 0) return -100
+  if (raw >= 1) return 0
+  return 100 * (Math.pow(raw, 0.46) - 1)
 }
 
 /**
  * Limiter threshold in dBFS.
- * PROBE_REQUIRED: no calibration data.
+ *
+ * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-xx):
+ * 4 anchor points: raw=0.095→-24.34dB, raw=0.725→-7.7dB, raw=0.890→-3.07dB,
+ *   raw=1.000→0.0dB. Formula: (raw-1)*27. Max error 0.27 dB.
  */
 export function normalizedToLimiterThresholdDb(raw: number): number {
-  return (raw - 1) * 20
+  return (raw - 1) * 27
 }
 
 // ---------------------------------------------------------------------------

@@ -253,3 +253,185 @@ describe('normalizedToAttackMs — calibrated_inferred', () => {
     expect(normalizedToAttackMs(0)).toBeLessThan(0.5)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Phase 2 calibration tests
+// HIL Evidence: test/fixtures/32sc/fat-channel/fat-channel-phase2-calibration.json
+//   Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374 (2026-07-xx)
+// ---------------------------------------------------------------------------
+import {
+  normalizedToCompRatioX,
+  normalizedToReleaseMs,
+  normalizedToGateReleaseMs,
+  normalizedToGateRangeDb,
+  normalizedToLimiterThresholdDb,
+} from '../schemas/fat-channel.js'
+
+// ---------------------------------------------------------------------------
+// Comp ratio — calibrated_inferred (7 anchor points)
+// HIL: 1 + 0.922*(raw/(1-raw))^0.781 on 32SC fw 3.4.0.111374 (Phase 2)
+// ---------------------------------------------------------------------------
+
+describe('normalizedToCompRatioX — calibrated_inferred (Phase 2, 32SC fw 3.4.0.111374)', () => {
+  it('raw=0 → 1.0 (exact min, 1:1 no compression)', () => {
+    expect(normalizedToCompRatioX(0)).toBe(1.0)
+  })
+  it('raw=1 → Infinity (Limit mode)', () => {
+    expect(normalizedToCompRatioX(1)).toBe(Infinity)
+  })
+  it('raw=0.526 → ~2.0:1 (±5%)', () => {
+    expect(normalizedToCompRatioX(0.526)).toBeGreaterThan(1.9)
+    expect(normalizedToCompRatioX(0.526)).toBeLessThan(2.1)
+  })
+  it('raw=0.663 → ~2.7:1 (±15%)', () => {
+    expect(normalizedToCompRatioX(0.663)).toBeGreaterThan(2.2)
+    expect(normalizedToCompRatioX(0.663)).toBeLessThan(3.2)
+  })
+  it('raw=0.706 → ~3.0:1 (±15%)', () => {
+    expect(normalizedToCompRatioX(0.706)).toBeGreaterThan(2.5)
+    expect(normalizedToCompRatioX(0.706)).toBeLessThan(3.5)
+  })
+  it('raw=0.826 → ~4.7:1 (±15%)', () => {
+    expect(normalizedToCompRatioX(0.826)).toBeGreaterThan(3.9)
+    expect(normalizedToCompRatioX(0.826)).toBeLessThan(5.5)
+  })
+  it('raw=0.950 → ~10.2:1 (±20%)', () => {
+    expect(normalizedToCompRatioX(0.950)).toBeGreaterThan(8)
+    expect(normalizedToCompRatioX(0.950)).toBeLessThan(15)
+  })
+  it('ratio is monotonically increasing across range', () => {
+    const r1 = normalizedToCompRatioX(0.3)
+    const r2 = normalizedToCompRatioX(0.5)
+    const r3 = normalizedToCompRatioX(0.7)
+    const r4 = normalizedToCompRatioX(0.9)
+    expect(r1).toBeLessThan(r2)
+    expect(r2).toBeLessThan(r3)
+    expect(r3).toBeLessThan(r4)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Comp release (STANDARD) — calibrated_inferred (4 anchor points, exact fit)
+// HIL: 2.5 + 897.5*raw^2.605 ms on 32SC fw 3.4.0.111374 (Phase 2)
+// ---------------------------------------------------------------------------
+
+describe('normalizedToReleaseMs — calibrated_inferred (Phase 2, 32SC fw 3.4.0.111374)', () => {
+  it('raw=0 → 2.5ms (exact min)', () => {
+    expect(normalizedToReleaseMs(0)).toBeCloseTo(2.5, 1)
+  })
+  it('raw=0.365 → 67.5ms (Ch27, ±2ms)', () => {
+    expect(normalizedToReleaseMs(0.365)).toBeCloseTo(67.5, 0)
+  })
+  it('raw=0.5 → 150ms (Phase 1 anchor, ±5ms)', () => {
+    expect(normalizedToReleaseMs(0.5)).toBeGreaterThan(140)
+    expect(normalizedToReleaseMs(0.5)).toBeLessThan(160)
+  })
+  it('raw=1.0 → 900ms (exact max)', () => {
+    expect(normalizedToReleaseMs(1.0)).toBeCloseTo(900, 0)
+  })
+  it('release is monotonically increasing', () => {
+    expect(normalizedToReleaseMs(0.2)).toBeLessThan(normalizedToReleaseMs(0.5))
+    expect(normalizedToReleaseMs(0.5)).toBeLessThan(normalizedToReleaseMs(0.8))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Gate release — calibrated_inferred (7 anchor points, max error < 2ms)
+// HIL: 50 + 1950*raw^1.583 ms on 32SC fw 3.4.0.111374 (Phase 2)
+// ---------------------------------------------------------------------------
+
+describe('normalizedToGateReleaseMs — calibrated_inferred (Phase 2, 32SC fw 3.4.0.111374)', () => {
+  it('raw=0 → 50ms (exact min)', () => {
+    expect(normalizedToGateReleaseMs(0)).toBeCloseTo(50, 0)
+  })
+  it('raw=0.130 → 127ms (Ch9, ±2ms)', () => {
+    expect(normalizedToGateReleaseMs(0.130)).toBeCloseTo(127, 0)
+  })
+  it('raw=0.180 → 179ms (Ch27, ±2ms)', () => {
+    expect(normalizedToGateReleaseMs(0.180)).toBeCloseTo(179, 0)
+  })
+  it('raw=0.260 → 281ms (±2ms)', () => {
+    expect(normalizedToGateReleaseMs(0.260)).toBeCloseTo(281, 0)
+  })
+  it('raw=0.447 → 594ms (±5ms)', () => {
+    expect(normalizedToGateReleaseMs(0.447)).toBeGreaterThan(589)
+    expect(normalizedToGateReleaseMs(0.447)).toBeLessThan(599)
+  })
+  it('raw=0.880 → 1640ms (Ch10, ±5ms)', () => {
+    expect(normalizedToGateReleaseMs(0.880)).toBeGreaterThan(1635)
+    expect(normalizedToGateReleaseMs(0.880)).toBeLessThan(1648)
+  })
+  it('raw=1.0 → 2000ms (exact max)', () => {
+    expect(normalizedToGateReleaseMs(1.0)).toBeCloseTo(2000, 0)
+  })
+  it('gate release is monotonically increasing', () => {
+    expect(normalizedToGateReleaseMs(0.2)).toBeLessThan(normalizedToGateReleaseMs(0.5))
+    expect(normalizedToGateReleaseMs(0.5)).toBeLessThan(normalizedToGateReleaseMs(0.8))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Gate range (GATE mode, expander=false) — calibrated_inferred (2 mid-range points)
+// HIL: 100*(raw^0.46 - 1) dB on 32SC fw 3.4.0.111374 (Phase 2)
+// ---------------------------------------------------------------------------
+
+describe('normalizedToGateRangeDb — calibrated_inferred gate mode (Phase 2, 32SC fw 3.4.0.111374)', () => {
+  it('raw=0 → -100dB (floor)', () => {
+    expect(normalizedToGateRangeDb(0)).toBe(-100)
+  })
+  it('raw=0.040 → ~-77.14dB (Ch27, ±1dB)', () => {
+    expect(normalizedToGateRangeDb(0.040)).toBeGreaterThan(-78.5)
+    expect(normalizedToGateRangeDb(0.040)).toBeLessThan(-75.5)
+  })
+  it('raw=0.210 → ~-51.0dB (±1dB)', () => {
+    expect(normalizedToGateRangeDb(0.210)).toBeGreaterThan(-52.5)
+    expect(normalizedToGateRangeDb(0.210)).toBeLessThan(-49.5)
+  })
+  it('raw=1.0 → 0dB (exact max, no gating)', () => {
+    expect(normalizedToGateRangeDb(1.0)).toBe(0)
+  })
+  it('range is monotonically increasing (less negative toward raw=1)', () => {
+    expect(normalizedToGateRangeDb(0.1)).toBeLessThan(normalizedToGateRangeDb(0.5))
+    expect(normalizedToGateRangeDb(0.5)).toBeLessThan(normalizedToGateRangeDb(0.9))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Limiter threshold — calibrated_inferred (4 anchor points, max error 0.27 dB)
+// HIL: (raw-1)*27 dBFS on 32SC fw 3.4.0.111374 (Phase 2)
+// ---------------------------------------------------------------------------
+
+describe('normalizedToLimiterThresholdDb — calibrated_inferred (Phase 2, 32SC fw 3.4.0.111374)', () => {
+  it('raw=0.095 → ~-24.34 dBFS (±0.3 dB)', () => {
+    expect(normalizedToLimiterThresholdDb(0.095)).toBeCloseTo(-24.34, 0)
+  })
+  it('raw=0.725 → ~-7.7 dBFS (±0.3 dB)', () => {
+    expect(normalizedToLimiterThresholdDb(0.725)).toBeCloseTo(-7.7, 0)
+  })
+  it('raw=0.890 → ~-3.07 dBFS (±0.3 dB)', () => {
+    expect(normalizedToLimiterThresholdDb(0.890)).toBeCloseTo(-3.07, 0)
+  })
+  it('raw=1.0 → 0.0 dBFS (exact max)', () => {
+    expect(normalizedToLimiterThresholdDb(1.0)).toBe(0)
+  })
+  it('raw=0 → -27 dBFS (formula floor)', () => {
+    expect(normalizedToLimiterThresholdDb(0)).toBeCloseTo(-27, 1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// EQ band type Phase 2 — HIGH_SHELF and LOW_PASS clarification
+// HIL Phase 2: raw=0.667 → HIGH_SHELF (observed); LOW_PASS does NOT occur in STANDARD EQ
+// ---------------------------------------------------------------------------
+
+describe('normalizedToEqBandType — Phase 2 updates (HIGH_SHELF observed, LOW_PASS absent)', () => {
+  it('raw=0.667 → HIGH_SHELF (observed Phase 2)', () => {
+    expect(normalizedToEqBandType(0.667)).toBe('HIGH_SHELF')
+  })
+  it('raw=0.333 → LOW_SHELF (observed Phase 1)', () => {
+    expect(normalizedToEqBandType(0.333)).toBe('LOW_SHELF')
+  })
+  it('raw=1.000 → BELL (observed Phase 1)', () => {
+    expect(normalizedToEqBandType(1.000)).toBe('BELL')
+  })
+})
