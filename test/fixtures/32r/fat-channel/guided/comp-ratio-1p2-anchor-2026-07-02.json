@@ -1,0 +1,32 @@
+{
+  "_meta": {
+    "description": "comp.ratio 1.2:1 guided calibration anchor — 32R Ch11",
+    "device": "32R",
+    "serial": "RA3E18030194",
+    "captureDate": "2026-07-02",
+    "captureMethod": "probe-routing dump concurrent with probe-raw-socket"
+  },
+  "anchor": {
+    "key": "comp.ratio",
+    "raw": 0.17543861269950867,
+    "display": 1.2,
+    "unit": ":1",
+    "formulaOld": "1+0.922*(raw/(1-raw))^0.781",
+    "formulaOldPrediction": 1.2753,
+    "formulaOldError_pct": 6.3,
+    "status": "OLD_FORMULA_WRONG_AT_LOW_RANGE",
+    "notes": [
+      "Confirmed by dump (ZLIB matches raw-socket live state).",
+      "Old formula predicts 1.275:1 at this raw (6.3% error).",
+      "New 2-anchor formula 1+0.907*(raw/(1-raw))^0.975 fits this point exactly but diverges 65% at raw=0.950.",
+      "Formula shape is uncertain — more anchors needed in high range (raw 0.7-0.95) before re-deriving.",
+      "Also confirmed by probe-raw-socket: all 8 comp+gate params are liveObserved (rawPacketObservedParserGap)."
+    ]
+  },
+  "otherParamsAtThisSnapshot": {
+    "comp.threshold": 0.5049999952316284,
+    "comp.attack": 0.52475506067276,
+    "comp.release": 0.5297870635986328,
+    "comp.gain": 0.49000000953674316
+  }
+}
