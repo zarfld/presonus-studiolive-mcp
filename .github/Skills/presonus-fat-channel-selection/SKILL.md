@@ -56,7 +56,7 @@ Ask for clarification only when a missing input changes the recommendation mater
 
 ## Gotchas
 
-- **No write tools currently exist** in the described MCP server. Do not claim that the agent can set Fat Channel models or parameters autonomously. Advise the human operator what to change manually unless a future write tool is explicitly present.
+- Approved limited write-gated tools exist for non-DSP workflows. Fat Channel/DSP write tools remain disabled/not_registered. Do not claim autonomous Fat Channel write capability.
 - `presonus://mixer/{deviceId}/channels` exposes decoded model names only. It does **not** expose threshold, ratio, attack, release, EQ frequency, or Q values.
 - Use `presonus://mixer/{deviceId}/raw/state` for actual parameter values such as `line.chN.comp.input`, `line.chN.comp.ratio`, `line.chN.eq.eqfreq1-4`, and `line.chN.eq.eqq1-4`.
 - `line.chN.opt.compmodel.value` decodes as `Math.round(value * 10)` → compressor index `0..10`.

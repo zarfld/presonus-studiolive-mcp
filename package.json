@@ -11,6 +11,7 @@
   "scripts": {
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
+    "check:agent-context": "tsx scripts/check-agent-context.ts",
     "clean": "pnpm -r exec rimraf dist tsconfig.tsbuildinfo",
     "test": "vitest run",
     "test:watch": "vitest",
