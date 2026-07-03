@@ -655,12 +655,25 @@ export function normalizedToCompMakeupDb(raw: number): number {
  * Max error at confirmed anchors: 3.1%  (raw=0.947/10.0:1)
  * RMS error:  1.6%
  *
+ * Guided dense re-validation on 32R (line.ch11, 2026-07-03):
+ *   raw=0.000 -> 1.0:1
+ *   raw=0.010 -> 1.0:1
+ *   raw=0.100 -> 1.1:1
+ *   raw=0.250 -> 1.3:1
+ *   raw=0.500 -> 1.9:1
+ *   raw=0.750 -> 3.5:1
+ *   raw=1.000 -> limit (20:1)
+ * Fit vs dense anchors: max relative error ~1.97% (at raw=0.5), confirming the
+ * existing quadratic-log mapping remains valid.
+ *
  * The simple 2-param power law 1+A*(r/(1-r))^B cannot fit this range below 12% max error;
  * the quadratic term captures the taper characteristic of this control.
  *
  * Special cases:
  *   raw ≤ 0   → 1.0  (no compression)
  *   raw ≥ 1   → Infinity  (Limit mode — brick-wall limiter, displayed as "Limit" in UC Surface)
+ *
+ * See: captures/cal-32r-guided/comp-ratio-dense/comp-ratio.json
  */
 export function normalizedToCompRatioX(raw: number): number {
   if (raw <= 0) return 1.0

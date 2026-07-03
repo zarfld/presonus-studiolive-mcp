@@ -420,6 +420,34 @@ describe('normalizedToCompRatioX — quadratic-log calibrated 10-anchor (32R 202
   })
 })
 
+// Comp ratio — guided dense re-validation (32R 2026-07-03)
+// Formula retained: 1 + exp(-0.0647 + 0.9332*x - 0.0481*x^2), x=ln(r/(1-r)).
+// HIL Evidence: captures/cal-32r-guided/comp-ratio-dense/comp-ratio.json
+
+describe('normalizedToCompRatioX — guided dense anchors (32R 2026-07-03)', () => {
+  it('raw=0.000 → 1.0:1 [guided anchor]', () => {
+    expect(normalizedToCompRatioX(0.000)).toBeCloseTo(1.0, 2)
+  })
+  it('raw=0.010 → 1.0:1 [guided anchor]', () => {
+    expect(normalizedToCompRatioX(0.010)).toBeCloseTo(1.0, 1)
+  })
+  it('raw=0.100 → 1.1:1 [guided anchor]', () => {
+    expect(normalizedToCompRatioX(0.100)).toBeCloseTo(1.1, 1)
+  })
+  it('raw=0.250 → 1.3:1 [guided anchor]', () => {
+    expect(normalizedToCompRatioX(0.250)).toBeCloseTo(1.3, 1)
+  })
+  it('raw=0.500 → 1.9:1 [guided anchor]', () => {
+    expect(normalizedToCompRatioX(0.500)).toBeCloseTo(1.9, 1)
+  })
+  it('raw=0.750 → 3.5:1 [guided anchor]', () => {
+    expect(normalizedToCompRatioX(0.750)).toBeCloseTo(3.5, 1)
+  })
+  it('raw=1.000 → limit (20:1 in UI), mapped as Infinity', () => {
+    expect(normalizedToCompRatioX(1.000)).toBe(Infinity)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Comp release (STANDARD) — guided calibration (32R dense anchors 2026-07-03)
 // Formula: 2.5 + 897.5*raw^2.605 ms
