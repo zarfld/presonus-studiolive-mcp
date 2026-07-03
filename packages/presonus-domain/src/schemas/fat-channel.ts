@@ -526,24 +526,43 @@ export type ChannelFatState = z.infer<typeof ChannelFatStateSchema>
 // ---------------------------------------------------------------------------
 
 /**
- * EQ gain: linear ±15 dB.  raw=0→-15 dB, raw=0.5→0 dB, raw=1→+15 dB
+ * EQ gain: linear ±15 dB. raw=0→-15 dB, raw=0.5→0 dB, raw=1→+15 dB.
  *
- * OBSERVED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- * 5 anchor points, max error 0.005 dB. Formula: (raw-0.5)*30
+ * GUIDED_CALIBRATION on 32R (line.ch11.eq.eqgain1, dense anchors, 2026-07-03):
+ *   raw=0.000 -> -15.00 dB
+ *   raw=0.010 -> -14.70 dB
+ *   raw=0.100 -> -12.00 dB
+ *   raw=0.250 ->  -7.50 dB
+ *   raw=0.500 ->   0.00 dB
+ *   raw=0.750 ->   7.50 dB
+ *   raw=1.000 ->  15.00 dB
+ *
+ * Formula: (raw - 0.5) * 30
+ * Fit vs dense anchors: exact at all anchor points (display precision level).
+ * See: captures/cal-32r-guided/eq-eqgain1-dense/eq-eqgain1.json
  */
 export function normalizedToEqGainDb(raw: number): number {
   return (raw - 0.5) * 30
 }
 
 /**
- * EQ frequency: log scale ~36 Hz – ~18 kHz.  raw=0→36 Hz, raw=0.5→850 Hz, raw=1→18 kHz
+ * EQ frequency: log scale ~36 Hz – ~18 kHz. raw=0→36 Hz, raw=0.5→805 Hz, raw=1→18 kHz.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- * 5 anchor points (band 1 data), max error 0.013%. Formula: 36*502^raw
- * Note: calibrated from band-1 low-frequency data; apply to all bands.
+ * GUIDED_CALIBRATION on 32R (line.ch11.eq.eqfreq1, dense anchors, 2026-07-03):
+ *   raw=0.000 ->    36.00 Hz
+ *   raw=0.010 ->    38.31 Hz
+ *   raw=0.100 ->    67.02 Hz
+ *   raw=0.250 ->   170.2 Hz
+ *   raw=0.500 ->   805.0 Hz
+ *   raw=0.750 ->     3.81 kHz
+ *   raw=1.000 ->    18.00 kHz
+ *
+ * Formula: 36 * 500^raw
+ * Fit vs dense anchors: max abs error ~3.46 Hz, RMSE ~1.31 Hz.
+ * See: captures/cal-32r-guided/eq-eqfreq1-dense/eq-eqfreq1.json
  */
 export function normalizedToEqFreqHz(raw: number): number {
-  return 36 * Math.pow(502, raw)
+  return 36 * Math.pow(500, raw)
 }
 
 /**
@@ -558,13 +577,23 @@ export function normalizedToHpfFreqHz(raw: number): number {
 }
 
 /**
- * EQ Q factor: log scale ~0.03 – ~13.  raw=0→0.03, raw=0.5→0.60, raw=1→13
+ * EQ Q factor: display range ~0.10 – 10.00.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- * 5 anchor points, max error 0.16 Q units. Formula: 0.028*466^raw
+ * GUIDED_CALIBRATION on 32R (line.ch11.eq.eqq1, dense anchors, 2026-07-03):
+ *   raw=0.000 -> 0.10
+ *   raw=0.010 -> 0.10
+ *   raw=0.100 -> 0.10
+ *   raw=0.250 -> 0.13
+ *   raw=0.500 -> 0.60
+ *   raw=0.750 -> 2.97
+ *   raw=1.000 -> 10.00
+ *
+ * Formula (display-aligned): clamp(0.0272 * 522^raw, 0.10, 10.00)
+ * Fit vs dense anchors: max abs error ~0.021 Q, RMSE ~0.008.
+ * See: captures/cal-32r-guided/eq-eqq1-dense/eq-eqq1.json
  */
 export function normalizedToEqQ(raw: number): number {
-  return 0.028 * Math.pow(466, raw)
+  return Math.min(10, Math.max(0.1, 0.0272 * Math.pow(522, raw)))
 }
 
 /**
@@ -956,10 +985,10 @@ export function eqGainDbToNormalized(db: number): number {
   return Math.max(0, Math.min(1, db / 30 + 0.5))
 }
 
-/** EQ frequency Hz → raw 0–1. Clamps to 36–18000 Hz range. CALIBRATED_INFERRED. */
+/** EQ frequency Hz → raw 0–1. Clamps to 36–18000 Hz range. GUIDED_CALIBRATION (32R, 2026-07-03). */
 export function eqFreqHzToNormalized(hz: number): number {
   const clamped = Math.max(36, Math.min(18000, hz))
-  return Math.log(clamped / 36) / Math.log(502)
+  return Math.log(clamped / 36) / Math.log(500)
 }
 
 /** HPF frequency Hz → raw 0–1. Clamps to 24–1000 Hz range. CALIBRATED_INFERRED. */
@@ -968,10 +997,10 @@ export function hpfFreqHzToNormalized(hz: number): number {
   return Math.log(clamped / 24) / Math.log(42)
 }
 
-/** EQ Q factor → raw 0–1. Clamps to 0.028–13 range. CALIBRATED_INFERRED. */
+/** EQ Q factor → raw 0–1. Clamps to 0.10–10.00 display range. GUIDED_CALIBRATION (32R, 2026-07-03). */
 export function eqQToNormalized(q: number): number {
-  const clamped = Math.max(0.028, Math.min(13, q))
-  return Math.log(clamped / 0.028) / Math.log(466)
+  const clamped = Math.max(0.1, Math.min(10, q))
+  return Math.log(clamped / 0.0272) / Math.log(522)
 }
 
 /** Comp threshold dBFS → raw 0–1. Clamps to -56–0 dBFS. CALIBRATED_INFERRED (STANDARD comp). */

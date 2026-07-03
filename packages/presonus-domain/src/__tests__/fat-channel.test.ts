@@ -31,39 +31,41 @@ import {
   normalizedToAttackMs,
   eqGainDbToNormalized,
   eqFreqHzToNormalized,
+  eqQToNormalized,
   hpfFreqHzToNormalized,
 } from '../schemas/fat-channel.js'
 
 // ---------------------------------------------------------------------------
-// EQ gain — OBSERVED (5 anchor points, max error < 0.005 dB)
-// HIL: (raw-0.5)*30 confirmed exactly on 32SC fw 3.4.0.111374 (2026-07-01)
+// EQ gain — guided calibration (32R dense anchors 2026-07-03)
 // ---------------------------------------------------------------------------
 
-describe('normalizedToEqGainDb — observed (32SC fw 3.4.0.111374)', () => {
-  it('Ch9 band-1: raw=0.3454 → -4.64 dB', () => {
-    expect(normalizedToEqGainDb(0.3454)).toBeCloseTo(-4.64, 1)
+describe('normalizedToEqGainDb — guided calibration (32R dense anchors 2026-07-03)', () => {
+  it('raw=0.000 → -15.00 dB [guided anchor]', () => {
+    expect(normalizedToEqGainDb(0.000)).toBeCloseTo(-15.00, 2)
   })
-  it('Ch12 band-1: raw=0.2474 → -7.58 dB', () => {
-    expect(normalizedToEqGainDb(0.2474)).toBeCloseTo(-7.58, 1)
+  it('raw=0.010 → -14.70 dB [guided anchor]', () => {
+    expect(normalizedToEqGainDb(0.010)).toBeCloseTo(-14.70, 2)
   })
-  it('Ch11 band-1: raw=0.2680 → -6.96 dB', () => {
-    expect(normalizedToEqGainDb(0.2680)).toBeCloseTo(-6.96, 1)
+  it('raw=0.100 → -12.00 dB [guided anchor]', () => {
+    expect(normalizedToEqGainDb(0.100)).toBeCloseTo(-12.00, 2)
   })
-  it('Ch1 band-1: raw=0.5412 → +1.24 dB', () => {
-    expect(normalizedToEqGainDb(0.5412)).toBeCloseTo(1.24, 1)
+  it('raw=0.250 → -7.50 dB [guided anchor]', () => {
+    expect(normalizedToEqGainDb(0.250)).toBeCloseTo(-7.50, 2)
   })
-  it('Ch2 band-1: raw=0.6495 → +4.48 dB', () => {
-    expect(normalizedToEqGainDb(0.6495)).toBeCloseTo(4.48, 1)
+  it('raw=0.500 → 0.00 dB [guided anchor]', () => {
+    expect(normalizedToEqGainDb(0.500)).toBeCloseTo(0.00, 2)
   })
-  it('raw=0.5 → 0 dB (unity)', () => {
-    expect(normalizedToEqGainDb(0.5)).toBeCloseTo(0, 2)
+  it('raw=0.750 → 7.50 dB [guided anchor]', () => {
+    expect(normalizedToEqGainDb(0.750)).toBeCloseTo(7.50, 2)
   })
-  it('range extremes: raw=0 → −15 dB, raw=1 → +15 dB', () => {
-    expect(normalizedToEqGainDb(0)).toBeCloseTo(-15, 1)
-    expect(normalizedToEqGainDb(1)).toBeCloseTo(15, 1)
+  it('raw=1.000 → 15.00 dB [guided anchor]', () => {
+    expect(normalizedToEqGainDb(1.000)).toBeCloseTo(15.00, 2)
   })
   it('inverse: eqGainDbToNormalized rounds-trip', () => {
-    expect(eqGainDbToNormalized(normalizedToEqGainDb(0.3454))).toBeCloseTo(0.3454, 3)
+    const raws = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0]
+    for (const raw of raws) {
+      expect(eqGainDbToNormalized(normalizedToEqGainDb(raw))).toBeCloseTo(raw, 3)
+    }
   })
 })
 
@@ -106,62 +108,70 @@ describe('normalizedToHpfFreqHz — calibrated_inferred (32SC fw 3.4.0.111374)',
 })
 
 // ---------------------------------------------------------------------------
-// EQ frequency — calibrated_inferred (5 anchor points, max error < 0.013%)
-// HIL: 36*502^raw confirmed for band 1 on 32SC fw 3.4.0.111374 (2026-07-01)
+// EQ frequency — guided calibration (32R dense anchors 2026-07-03)
 // ---------------------------------------------------------------------------
 
-describe('normalizedToEqFreqHz — calibrated_inferred (32SC fw 3.4.0.111374)', () => {
-  it('Ch9 band-1: raw=0.2297 → 150.1 Hz', () => {
-    expect(normalizedToEqFreqHz(0.2297)).toBeCloseTo(150.1, 0)
+describe('normalizedToEqFreqHz — guided calibration (32R dense anchors 2026-07-03)', () => {
+  it('raw=0.000 → 36.00 Hz [guided anchor]', () => {
+    expect(normalizedToEqFreqHz(0.000)).toBeCloseTo(36.00, 2)
   })
-  it('Ch12 band-1: raw=0.1188 → 75.31 Hz', () => {
-    expect(normalizedToEqFreqHz(0.1188)).toBeCloseTo(75.31, 0)
+  it('raw=0.010 → 38.31 Hz [guided anchor]', () => {
+    expect(normalizedToEqFreqHz(0.010)).toBeCloseTo(38.31, 2)
   })
-  it('Ch11 band-1: raw=0.1337 → 82.63 Hz', () => {
-    expect(normalizedToEqFreqHz(0.1337)).toBeCloseTo(82.63, 0)
+  it('raw=0.100 → 67.02 Hz [guided anchor]', () => {
+    expect(normalizedToEqFreqHz(0.100)).toBeCloseTo(67.02, 2)
   })
-  it('Ch1 band-1: raw=0.1081 → 70.48 Hz', () => {
-    expect(normalizedToEqFreqHz(0.1081)).toBeCloseTo(70.48, 0)
+  it('raw=0.250 → 170.2 Hz [guided anchor]', () => {
+    expect(normalizedToEqFreqHz(0.250)).toBeCloseTo(170.2, 1)
   })
-  it('Ch2 band-1: raw=0.1209 → 76.31 Hz', () => {
-    expect(normalizedToEqFreqHz(0.1209)).toBeCloseTo(76.31, 0)
+  it('raw=0.500 → 805.0 Hz [guided anchor]', () => {
+    expect(normalizedToEqFreqHz(0.500)).toBeCloseTo(805.0, 1)
   })
-  it('range: raw=0 → ~36 Hz, raw=1 → ~18 kHz', () => {
-    expect(normalizedToEqFreqHz(0)).toBeCloseTo(36, 0)
-    expect(normalizedToEqFreqHz(1)).toBeGreaterThan(15000)
-    expect(normalizedToEqFreqHz(1)).toBeLessThan(20000)
+  it('raw=0.750 → 3.81 kHz [guided anchor]', () => {
+    expect(normalizedToEqFreqHz(0.750)).toBeCloseTo(3810, -1)
+  })
+  it('raw=1.000 → 18.00 kHz [guided anchor]', () => {
+    expect(normalizedToEqFreqHz(1.000)).toBeCloseTo(18000, 0)
   })
   it('inverse: eqFreqHzToNormalized round-trips within ±1%', () => {
-    const raw = eqFreqHzToNormalized(normalizedToEqFreqHz(0.2297))
-    expect(raw).toBeCloseTo(0.2297, 2)
+    const raws = [0.01, 0.1, 0.25, 0.5, 0.75, 1.0]
+    for (const raw of raws) {
+      expect(eqFreqHzToNormalized(normalizedToEqFreqHz(raw))).toBeCloseTo(raw, 2)
+    }
   })
 })
 
 // ---------------------------------------------------------------------------
-// EQ Q factor — calibrated_inferred (5 anchor points, max error < 0.17)
-// HIL: 0.028*466^raw on 32SC fw 3.4.0.111374 (2026-07-01)
+// EQ Q factor — guided calibration (32R dense anchors 2026-07-03)
 // ---------------------------------------------------------------------------
 
-describe('normalizedToEqQ — calibrated_inferred (32SC fw 3.4.0.111374)', () => {
-  it('Ch2 band-1: raw=0.500 → Q≈0.6 (±0.05)', () => {
-    expect(normalizedToEqQ(0.500)).toBeCloseTo(0.60, 1)
+describe('normalizedToEqQ — guided calibration (32R dense anchors 2026-07-03)', () => {
+  it('raw=0.000 → 0.10 [guided anchor]', () => {
+    expect(normalizedToEqQ(0.000)).toBeCloseTo(0.10, 2)
   })
-  it('Ch1 band-1: raw=0.750 → Q≈2.97 (±0.2)', () => {
-    expect(normalizedToEqQ(0.750)).toBeGreaterThan(2.7)
-    expect(normalizedToEqQ(0.750)).toBeLessThan(3.3)
+  it('raw=0.010 → 0.10 [guided anchor]', () => {
+    expect(normalizedToEqQ(0.010)).toBeCloseTo(0.10, 2)
   })
-  it('Ch11 band-1: raw=0.820 → Q≈4.31 (±0.3)', () => {
-    expect(normalizedToEqQ(0.820)).toBeGreaterThan(4.0)
-    expect(normalizedToEqQ(0.820)).toBeLessThan(4.7)
+  it('raw=0.100 → 0.10 [guided anchor]', () => {
+    expect(normalizedToEqQ(0.100)).toBeCloseTo(0.10, 2)
   })
-  it('Ch9 band-1: raw=0.827 → Q≈4.46 (±0.3)', () => {
-    expect(normalizedToEqQ(0.827)).toBeGreaterThan(4.1)
-    expect(normalizedToEqQ(0.827)).toBeLessThan(4.8)
+  it('raw=0.250 → 0.13 [guided anchor]', () => {
+    expect(normalizedToEqQ(0.250)).toBeCloseTo(0.13, 2)
   })
-  it('range: raw=0 → min Q<0.1, raw=1 → max Q~13', () => {
-    expect(normalizedToEqQ(0)).toBeLessThan(0.1)
-    expect(normalizedToEqQ(1)).toBeGreaterThan(10)
-    expect(normalizedToEqQ(1)).toBeLessThan(20)
+  it('raw=0.500 → 0.60 [guided anchor]', () => {
+    expect(normalizedToEqQ(0.500)).toBeCloseTo(0.60, 2)
+  })
+  it('raw=0.750 → 2.97 [guided anchor]', () => {
+    expect(normalizedToEqQ(0.750)).toBeCloseTo(2.97, 2)
+  })
+  it('raw=1.000 → 10.00 [guided anchor]', () => {
+    expect(normalizedToEqQ(1.000)).toBeCloseTo(10.00, 2)
+  })
+  it('inverse: eqQToNormalized round-trips for representative interior values', () => {
+    const qs = [0.13, 0.60, 2.97, 10.0]
+    for (const q of qs) {
+      expect(normalizedToEqQ(eqQToNormalized(q))).toBeCloseTo(q, 2)
+    }
   })
 })
 
