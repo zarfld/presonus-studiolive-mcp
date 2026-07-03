@@ -746,52 +746,97 @@ export function normalizedToGateThresholdDb(raw: number): number {
 /**
  * Gate range/depth in dB (GATE mode only, gate.expander=false).
  *
- * OPPORTUNISTIC_CALIBRATION on StudioLive 32SC fw 3.4.0.111374 (Phase 2, 2026-07-02):
- * 2 observed intermediate points from existing scene captures (provenance from session context):
- *   raw=0.040→-77.14dB (Ch27 scene-stored), raw=0.210→-51.0dB (session context).
- * User-reported endpoints: min display=-84dB, max display=0dB.
- *   raw values at endpoints not captured — raw=1.0 assumed for max (0dB); min raw inferred
- *   from formula as ≈0.019 (not verified by guided probe).
- * Formula: 100 × (raw^0.46 - 1)
- * Max error < 1% for the 2 observed mid-range points only.
- * decodedEventNotObserved: no PV/JM/data event for gate.range was observed through
- *   featherbear decoded event path during a 60-second probe (UC Surface, 32SC fw 3.4.0.111374).
- *   Raw TCP layer not tapped in that probe. Use pnpm probe:dev probe-raw-socket to determine
- *   rawPacketObservedParserGap vs noRawPacketObserved.
- *   See: test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json
- * ⚠️ Formula not validated for EXPANDER mode (gate.expander=true) — use with caution.
+ * GUIDED_CALIBRATION on StudioLive 32R fw 3.4.0.111374 (2026-07-03):
+ * 16 verified anchors with PV echo + UC Surface display readback.
+ * Dense mid/high sweep confirmed the old power law is invalid on 32R Gate mode:
+ *   old formula max error 87.8%, RMS 51.5% (anchors 0.55–0.95 included).
+ *
+ * Mapping strategy:
+ * - Piecewise linear interpolation between verified anchors.
+ * - Exact at each anchor, monotonic between anchors, no extrapolation beyond [0,1].
+ *
+ * Anchors (raw → dB):
+ *   0.000→-84.00, 0.100→-67.29, 0.250→-46.50, 0.500→-21.00,
+ *   0.550→-17.43, 0.600→-14.29, 0.625→-14.00, 0.650→-11.57,
+ *   0.700→-9.43, 0.750→-6.60, 0.800→-5.38, 0.850→-4.62,
+ *   0.875→-4.23, 0.900→-3.50, 0.950→-1.43, 1.000→0.00
+ *
+ * See:
+ * - captures/cal-32r-guided/gate-range/gate-range.json
+ * - captures/cal-32r-guided/gate-range-extra/gate-range.json
+ * - captures/cal-32r-guided/gate-range-recheck/gate-range.json
+ * - captures/cal-32r-guided/gate-range-dense/gate-range.json
+ *
+ * ⚠️ This mapping is validated for GATE mode (gate.expander=false) on 32R.
+ *   EXPANDER mode remains unverified.
  */
 export function normalizedToGateRangeDb(raw: number): number {
-  if (raw <= 0) return -100
-  if (raw >= 1) return 0
-  return 100 * (Math.pow(raw, 0.46) - 1)
+  const anchors: Array<{ raw: number; db: number }> = [
+    { raw: 0.0, db: -84.0 },
+    { raw: 0.1, db: -67.29 },
+    { raw: 0.25, db: -46.5 },
+    { raw: 0.5, db: -21.0 },
+    { raw: 0.55, db: -17.43 },
+    { raw: 0.6, db: -14.29 },
+    { raw: 0.625, db: -14.0 },
+    { raw: 0.65, db: -11.57 },
+    { raw: 0.7, db: -9.43 },
+    { raw: 0.75, db: -6.6 },
+    { raw: 0.8, db: -5.38 },
+    { raw: 0.85, db: -4.62 },
+    { raw: 0.875, db: -4.23 },
+    { raw: 0.9, db: -3.5 },
+    { raw: 0.95, db: -1.43 },
+    { raw: 1.0, db: 0.0 },
+  ]
+
+  if (raw <= anchors[0].raw) return anchors[0].db
+  if (raw >= anchors[anchors.length - 1].raw) return anchors[anchors.length - 1].db
+
+  for (let i = 1; i < anchors.length; i++) {
+    const left = anchors[i - 1]
+    const right = anchors[i]
+    if (raw <= right.raw) {
+      const t = (raw - left.raw) / (right.raw - left.raw)
+      return left.db + t * (right.db - left.db)
+    }
+  }
+
+  return anchors[anchors.length - 1].db
 }
 
 /**
  * Limiter threshold in dBFS.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 opportunistic calibration, 2026-07-02):
- * 4 anchor points from session context: raw=0.095→-24.34dB, raw=0.725→-7.7dB,
- *   raw=0.890→-3.07dB, raw=1.000→0.0dB. Formula: (raw-1)*27. Max error 0.27 dB.
+ * GUIDED_CALIBRATION on StudioLive 32R fw 3.4.0.111374 (2026-07-03):
+ * 7 verified anchors (PV echo + UC Surface readback):
+ *   raw=0.000→-28.00dB, raw=0.100→-25.20dB, raw=0.250→-21.00dB,
+ *   raw=0.500→-14.00dB, raw=0.725→-7.70dB, raw=0.890→-3.08dB,
+ *   raw=1.000→0.00dB.
+ * Formula: (raw-1)*28. Exact match on all guided anchors (max abs error 0.00 dB).
+ *
+ * NOTE: This supersedes earlier 32SC opportunistic slope-27 estimate.
  */
 export function normalizedToLimiterThresholdDb(raw: number): number {
-  return (raw - 1) * 27
+  return (raw - 1) * 28
 }
 
 /**
  * Comp sidechain key filter frequency in Hz.
  *
- * CALIBRATED (32R Ch11 guided calibration, 2026-07-02) — 3 frequency anchors:
- *   raw=0     → 'off'      (no filter, bypassed; exact raw=0 at minimum stop)
- *   raw=0.010 → 42.47 Hz  (minimum non-off frequency; 1st slider step above off)
- *   raw=0.495 → 776.4 Hz  (50% position, dump-confirmed; formula=776.4 Hz EXACT)
- *   raw=1.000 → 16000 Hz  (all-max dump; formula=16000 Hz EXACT)
+ * GUIDED_CALIBRATION (32R Ch11, 2026-07-03) — 7 verified anchors:
+ *   raw=0.000 → off
+ *   raw=0.010 → 42.47 Hz
+ *   raw=0.100 → 72.82 Hz
+ *   raw=0.250 → 178.9 Hz
+ *   raw=0.500 → 800.0 Hz
+ *   raw=0.750 → 3.58 kHz
+ *   raw=1.000 → 16.00 kHz
+ *
  * Formula: 40 × 400^raw Hz  (for raw > 0)
- * The 42.47 Hz minimum confirms the base of 40 Hz:
- *   40 × 400^0.010 = 40 × 1.0617 = 42.47 Hz ✓
- * ⚠️ MEDIUM CONFIDENCE: 3 data points, all exact; intermediate range
- *   (raw 0.1–0.45, 0.55–0.9) interpolated but unverified by guided probe.
- * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
+ * Error versus guided anchors: max abs 2.29 Hz, max relative 0.064%, RMS 0.94 Hz.
+ * Confidence: high (dense guided coverage including min/25/50/75/max + off threshold).
+ * See: captures/cal-32r-guided/comp-keyfilter-dense/comp-keyfilter.json
  */
 export function normalizedToKeyfilterHz(raw: number): number | 'off' {
   if (raw <= 0) return 'off'

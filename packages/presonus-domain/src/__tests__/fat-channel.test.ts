@@ -412,76 +412,113 @@ describe('normalizedToGateReleaseMs — calibrated_inferred (Phase 2, 32SC fw 3.
 })
 
 // ---------------------------------------------------------------------------
-// Gate range (GATE mode, expander=false) — calibrated_inferred (2 mid-range points)
-// HIL: 100*(raw^0.46 - 1) dB on 32SC fw 3.4.0.111374 (Phase 2)
+// Gate range (GATE mode, expander=false) — guided calibration (32R, 2026-07-03)
+// Piecewise interpolation anchored by dense PV-echo + display readback points.
 // ---------------------------------------------------------------------------
 
-describe('normalizedToGateRangeDb — calibrated_inferred gate mode (Phase 2, 32SC fw 3.4.0.111374)', () => {
-  it('raw=0 → -100dB (floor)', () => {
-    expect(normalizedToGateRangeDb(0)).toBe(-100)
+describe('normalizedToGateRangeDb — guided calibration (32R dense anchors)', () => {
+  it('raw=0 → -84dB (exact min)', () => {
+    expect(normalizedToGateRangeDb(0)).toBe(-84)
   })
-  it('raw=0.040 → ~-77.14dB (Ch27, ±1dB)', () => {
-    expect(normalizedToGateRangeDb(0.040)).toBeGreaterThan(-78.5)
-    expect(normalizedToGateRangeDb(0.040)).toBeLessThan(-75.5)
-  })
-  it('raw=0.210 → ~-51.0dB (±1dB)', () => {
-    expect(normalizedToGateRangeDb(0.210)).toBeGreaterThan(-52.5)
-    expect(normalizedToGateRangeDb(0.210)).toBeLessThan(-49.5)
-  })
-  it('raw=1.0 → 0dB (exact max, no gating)', () => {
+
+  it('matches sparse anchors from initial + recheck sweeps', () => {
+    expect(normalizedToGateRangeDb(0.1)).toBeCloseTo(-67.29, 2)
+    expect(normalizedToGateRangeDb(0.25)).toBeCloseTo(-46.5, 2)
+    expect(normalizedToGateRangeDb(0.5)).toBeCloseTo(-21.0, 2)
+    expect(normalizedToGateRangeDb(0.625)).toBeCloseTo(-14.0, 2)
+    expect(normalizedToGateRangeDb(0.75)).toBeCloseTo(-6.6, 2)
+    expect(normalizedToGateRangeDb(0.875)).toBeCloseTo(-4.23, 2)
+    expect(normalizedToGateRangeDb(0.9)).toBeCloseTo(-3.5, 2)
     expect(normalizedToGateRangeDb(1.0)).toBe(0)
   })
-  it('range is monotonically increasing (less negative toward raw=1)', () => {
-    expect(normalizedToGateRangeDb(0.1)).toBeLessThan(normalizedToGateRangeDb(0.5))
-    expect(normalizedToGateRangeDb(0.5)).toBeLessThan(normalizedToGateRangeDb(0.9))
+
+  it('matches dense sweep anchors', () => {
+    expect(normalizedToGateRangeDb(0.55)).toBeCloseTo(-17.43, 2)
+    expect(normalizedToGateRangeDb(0.6)).toBeCloseTo(-14.29, 2)
+    expect(normalizedToGateRangeDb(0.65)).toBeCloseTo(-11.57, 2)
+    expect(normalizedToGateRangeDb(0.7)).toBeCloseTo(-9.43, 2)
+    expect(normalizedToGateRangeDb(0.8)).toBeCloseTo(-5.38, 2)
+    expect(normalizedToGateRangeDb(0.85)).toBeCloseTo(-4.62, 2)
+    expect(normalizedToGateRangeDb(0.95)).toBeCloseTo(-1.43, 2)
+  })
+
+  it('is monotonically increasing (less negative toward raw=1)', () => {
+    expect(normalizedToGateRangeDb(0.55)).toBeLessThan(normalizedToGateRangeDb(0.7))
+    expect(normalizedToGateRangeDb(0.7)).toBeLessThan(normalizedToGateRangeDb(0.85))
+    expect(normalizedToGateRangeDb(0.85)).toBeLessThan(normalizedToGateRangeDb(0.95))
+  })
+
+  it('clamps outside range [0,1]', () => {
+    expect(normalizedToGateRangeDb(-1)).toBe(-84)
+    expect(normalizedToGateRangeDb(2)).toBe(0)
   })
 })
 
 // ---------------------------------------------------------------------------
-// Limiter threshold — calibrated_inferred (4 anchor points, max error 0.27 dB)
-// HIL: (raw-1)*27 dBFS on 32SC fw 3.4.0.111374 (Phase 2)
+// Limiter threshold — guided calibration (32R, dense anchors 2026-07-03)
+// HIL: (raw-1)*28 dBFS
 // ---------------------------------------------------------------------------
 
-describe('normalizedToLimiterThresholdDb — calibrated_inferred (Phase 2, 32SC fw 3.4.0.111374)', () => {
-  it('raw=0.095 → ~-24.34 dBFS (±0.3 dB)', () => {
-    expect(normalizedToLimiterThresholdDb(0.095)).toBeCloseTo(-24.34, 0)
+describe('normalizedToLimiterThresholdDb — guided calibration (32R dense anchors)', () => {
+  it('raw=0.000 → -28.00 dBFS (exact min)', () => {
+    expect(normalizedToLimiterThresholdDb(0.0)).toBeCloseTo(-28.0, 2)
   })
-  it('raw=0.725 → ~-7.7 dBFS (±0.3 dB)', () => {
-    expect(normalizedToLimiterThresholdDb(0.725)).toBeCloseTo(-7.7, 0)
+  it('raw=0.100 → -25.20 dBFS (exact)', () => {
+    expect(normalizedToLimiterThresholdDb(0.1)).toBeCloseTo(-25.2, 2)
   })
-  it('raw=0.890 → ~-3.07 dBFS (±0.3 dB)', () => {
-    expect(normalizedToLimiterThresholdDb(0.890)).toBeCloseTo(-3.07, 0)
+  it('raw=0.250 → -21.00 dBFS (exact)', () => {
+    expect(normalizedToLimiterThresholdDb(0.25)).toBeCloseTo(-21.0, 2)
   })
-  it('raw=1.0 → 0.0 dBFS (exact max)', () => {
+  it('raw=0.500 → -14.00 dBFS (exact)', () => {
+    expect(normalizedToLimiterThresholdDb(0.5)).toBeCloseTo(-14.0, 2)
+  })
+  it('raw=0.725 → -7.70 dBFS (exact)', () => {
+    expect(normalizedToLimiterThresholdDb(0.725)).toBeCloseTo(-7.7, 2)
+  })
+  it('raw=0.890 → -3.08 dBFS (exact)', () => {
+    expect(normalizedToLimiterThresholdDb(0.89)).toBeCloseTo(-3.08, 2)
+  })
+  it('raw=1.000 → 0.00 dBFS (exact max)', () => {
     expect(normalizedToLimiterThresholdDb(1.0)).toBe(0)
   })
-  it('raw=0 → -27 dBFS (formula floor)', () => {
-    expect(normalizedToLimiterThresholdDb(0)).toBeCloseTo(-27, 1)
-  })
 })
 
 // ---------------------------------------------------------------------------
-// Comp keyfilter frequency — CALIBRATED_INFERRED (32R guided calibration 2026-07-02)
+// Comp keyfilter frequency — guided calibration (32R dense anchors 2026-07-03)
 // Formula: 40 × 400^raw Hz  (raw > 0); raw=0 → 'off'
-// HIL Evidence: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
+// HIL Evidence: captures/cal-32r-guided/comp-keyfilter-dense/comp-keyfilter.json
 // ---------------------------------------------------------------------------
 import { normalizedToKeyfilterHz } from '../schemas/fat-channel.js'
 
-describe('normalizedToKeyfilterHz — calibrated_medium_confidence (32R guided 2026-07-02)', () => {
+describe('normalizedToKeyfilterHz — guided calibration (32R dense anchors 2026-07-03)', () => {
   it('raw=0 → "off" [empirical: min stop displayed as off]', () => {
     expect(normalizedToKeyfilterHz(0)).toBe('off')
   })
-  it('raw=0.010 → ~42.47 Hz (±0.5 Hz) [min non-off frequency, user-confirmed]', () => {
+  it('raw=0.010 → 42.47 Hz (±0.05 Hz) [guided anchor]', () => {
     const v = normalizedToKeyfilterHz(0.010)
     expect(typeof v).toBe('number')
-    expect(v as number).toBeGreaterThan(42.0)
-    expect(v as number).toBeLessThan(43.0)
+    expect(v as number).toBeCloseTo(42.47, 1)
   })
-  it('32R 50%: raw=0.495 → ~776 Hz (±5 Hz) [empirical anchor, EXACT]', () => {
-    const v = normalizedToKeyfilterHz(0.495)
+  it('raw=0.100 → 72.82 Hz (±0.05 Hz) [guided anchor]', () => {
+    const v = normalizedToKeyfilterHz(0.100)
     expect(typeof v).toBe('number')
-    expect(v as number).toBeGreaterThan(771)
-    expect(v as number).toBeLessThan(782)
+    expect(v as number).toBeCloseTo(72.82, 1)
+  })
+  it('raw=0.250 → 178.9 Hz (±0.1 Hz) [guided anchor]', () => {
+    const v = normalizedToKeyfilterHz(0.250)
+    expect(typeof v).toBe('number')
+    expect(v as number).toBeCloseTo(178.9, 1)
+  })
+  it('raw=0.500 → 800.0 Hz [guided anchor, exact]', () => {
+    const v = normalizedToKeyfilterHz(0.500)
+    expect(typeof v).toBe('number')
+    expect(v as number).toBeCloseTo(800.0, 1)
+  })
+  it('raw=0.750 → 3.58 kHz (3580 Hz) (±3 Hz) [guided anchor]', () => {
+    const v = normalizedToKeyfilterHz(0.750)
+    expect(typeof v).toBe('number')
+    expect(v as number).toBeGreaterThan(3577)
+    expect(v as number).toBeLessThan(3583)
   })
   it('32R all-max: raw=1.0 → 16000 Hz [empirical anchor, exact clamp]', () => {
     expect(normalizedToKeyfilterHz(1.0)).toBe(16000)
