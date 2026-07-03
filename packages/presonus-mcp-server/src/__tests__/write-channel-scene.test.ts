@@ -110,6 +110,40 @@ describe('list_sub_groups — mocked CI (REQ-F-WRITE-005b #86)', () => {
   })
 })
 
+// ─── Production write guards (read-only registration) ─────────────────────
+
+describe('production write guards — Fat Channel write safety', () => {
+  it('does not register Fat Channel write/prep tools in production read-only mode', () => {
+    const { manager } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: false })
+
+    expect(tools.has('prepare_fat_channel_change_set')).toBe(false)
+    expect(tools.has('apply_change_set')).toBe(false)
+  })
+
+  it('does not register any stale-inverse-helper consumer tools in production read-only mode', () => {
+    const { manager } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: false })
+
+    // These write tools consume inverse helpers currently marked TODO(PROBE_REQUIRED).
+    expect(tools.has('prepare_fat_channel_change_set')).toBe(false)
+    expect(tools.has('prepare_fader_change_set')).toBe(false)
+    expect(tools.has('prepare_aux_send_change_set')).toBe(false)
+    expect(tools.has('propose_eq_change')).toBe(false)
+  })
+
+  it('keeps probe-only routing tools available in production read-only mode', () => {
+    const { manager } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: false })
+
+    expect(tools.has('start_routing_probe')).toBe(true)
+    expect(tools.has('complete_routing_probe')).toBe(true)
+  })
+})
+
 // ─── prepare_channel_rename_change_set ───────────────────────────────────────
 
 describe('prepare_channel_rename_change_set — mocked CI (REQ-F-WRITE-005a #86)', () => {
@@ -364,7 +398,7 @@ describe('get_routing_graph enhancement — fxreturn + sub channels (REQ-F-READ-
 //      rollbackHint are implemented in apply_change_set.
 // ---------------------------------------------------------------------------
 
-describe('apply_change_set safety semantics (dry-run / post-write / rollback) � REQ-F-WRITE-005', () => {
+describe('apply_change_set safety semantics (dry-run / post-write / rollback) � REQ-F-WRITE-005', () => {
   const DEVICE_ID = 'serial:SD7E21010066'
   const CHANNEL_ID = 'line.ch11'  // safe test channel (Klick)
 

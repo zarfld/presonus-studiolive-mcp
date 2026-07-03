@@ -1479,7 +1479,7 @@ export function registerTools(
   // @implements #95 REQ-F-FAT-001
   server.tool(
     'get_fat_channel',
-    'Return the Fat Channel DSP state (EQ model, compressor, gate, limiter, HPF frequency) for a single channel. Faster than reading the full channel list when only Fat Channel data is needed for one channel. Parameter confidence is "guessed" until probe-fat-channel calibration is run.',
+    'Return the Fat Channel DSP state (EQ model, compressor, gate, limiter, HPF frequency) for a single channel. Faster than reading the full channel list when only Fat Channel data is needed for one channel. parameterConfidence is calibrated_inferred for guided-calibrated formulas, with model/firmware scope caveats.',
     {
       deviceId: z.string(),
       channelId: z.string().describe('Channel ID, e.g. "line.ch1", "line.ch8"'),

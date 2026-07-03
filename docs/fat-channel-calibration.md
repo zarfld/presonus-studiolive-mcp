@@ -95,10 +95,16 @@ behavior (including 32SC) is currently assumed compatible but not fully proven.
 > No PV/JM/data event for the watched `line.*` Fat Channel keys was observed through featherbear
 > during a 60-second UC Surface knob-movement probe on 32SC fw 3.4.0.111374.
 > The featherbear ZLIB snapshot reflects the last saved scene value, not the live knob position.
-> Classification: `sceneStored` — confirmed through featherbear live-event probing on 32SC fw 3.4.0.111374 (UC Surface).
+> Classification: `passiveUcSurfaceEchoNotObserved` on 32SC fw 3.4.0.111374.
 > ⚠️ Scope: UC Surface knob movement only. Physical mixer knob movement and raw packet layer not independently tested.
 > Not automatically proven for other StudioLive III models or other firmware versions.
 > See fixture for full analysis and scope limitations.
+
+### Event-behavior classification (do not collapse)
+
+- `activePvWriteEchoObserved`: confirmed on 32SC fw 3.4.0.111374 for explicit probe writes (`probe-fat-write-echo`).
+- `physical32rKnobPvObservedWithUcControlClosed`: confirmed on 32R fw 3.4.0.111374 when UC Control is closed.
+- `passiveUcSurfaceEchoNotObserved`: confirmed on 32SC fw 3.4.0.111374 during passive UC Surface knob movement monitoring.
 
 > **IMPORTANT: FET vs STANDARD compressor key difference**
 > - STANDARD/TUBE/etc.: threshold key = `comp.threshold`, makeup key = `comp.gain`
@@ -243,10 +249,10 @@ models active is collected and the `__classid` field confirmed.
 
 To promote parameter calibration from `guessed` to `observed`:
 
-### Guided calibration for `sceneStored` DSP parameters
+### Guided calibration for `passiveUcSurfaceEchoNotObserved` DSP parameters (32SC UC Surface path)
 
 Fat Channel DSP parameters (`comp.release`, `gate.range`, `limiter.threshold`, etc.) are confirmed
-`sceneStored` through featherbear live-event probing on 32SC fw 3.4.0.111374.
+`passiveUcSurfaceEchoNotObserved` through featherbear live-event probing on 32SC fw 3.4.0.111374.
 The featherbear state reflects the **last saved scene**, not the live knob position.
 
 **Required sequence for each calibration anchor point:**
@@ -257,7 +263,20 @@ The featherbear state reflects the **last saved scene**, not the live knob posit
 4. Wait for save/settle (~1 second)
 5. Capture state dump: `pnpm probe:dev probe-routing dump --device <ip> --out <file>`
 6. Extract raw value for the key (e.g. `line.ch11.comp.release`)
-7. Store matched pair: `{ display: "150ms", raw: 0.5, source: "sceneStored" }`
+7. Store matched pair: `{ display: "150ms", raw: 0.5, source: "passiveUcSurfaceEchoNotObserved" }`
+
+---
+
+## TODO — inverse helper safety backlog (writes remain deferred)
+
+Until this list is completed and write HIL is re-run, keep Fat Channel production writes disabled.
+
+- `compMakeupDbToNormalized`: update to 28.0 slope or derive exact inverse from the finalized forward mapping.
+- `compRatioXToNormalized`: derive inverse of the quadratic-log STANDARD ratio curve, or implement a stable numeric solver.
+- `attackMsToNormalized`: split compressor and gate attack inverses (do not share one inverse).
+- `releaseMsToNormalized`: derive compressor and gate release inverses separately.
+- `gateRangeDbToNormalized`: implement inverse piecewise interpolation for the 16-anchor GATE mapping.
+- `limiterThresholdDbToNormalized`: update to `/28 + 1` to match current forward mapping.
 
 > ⚠️ If step 3 (scene save) is **skipped**, the dump will show the **old scene value**,
 > not the current knob position. This was the root cause of conflicting readings in Phase 2.
