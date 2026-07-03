@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "description": "Single-point anchor for comp.ratio at 1.1:1 (32R Ch11 STANDARD)",
+    "device": "32R",
+    "serial": "RA3E18030194",
+    "captureDate": "2026-07-02",
+    "sourceDump": "captures/cal-32r-guided/dump-ratio-1p1.json",
+    "formula": "1 + exp(-0.0647 + 0.9332*x - 0.0481*x^2), x = ln(raw/(1-raw))"
+  },
+  "anchor": {
+    "key": "comp.ratio",
+    "display": 1.1,
+    "unit": ":1",
+    "raw": 0.09569381177425385,
+    "predicted": 1.0903902868643543,
+    "errorPct": 0.8736102850587008
+  }
+}
