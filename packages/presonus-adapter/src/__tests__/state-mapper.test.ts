@@ -389,6 +389,17 @@ describe('fader normalization and dB conversion � HIL 2026-07-01', () => {
     expect(ch3.preampGainDb).toBeCloseTo(22, 0)
   })
 
+  it('preampGainDb extracted correctly from preampgain (no .value suffix)', () => {
+    const livePreampState: Record<string, unknown> = {
+      'line.ch11.mute': false,
+      'line.ch11.volume': 50,
+      'line.ch11.preampgain': 0.75, // -> 45 dB
+    }
+    const chs = extractLineChannels(livePreampState)
+    const ch11 = chs.find(c => c.id === 'line.ch11')!
+    expect(ch11.preampGainDb).toBeCloseTo(45, 0)
+  })
+
   it('preampGainDb is undefined when preampgain key is absent', () => {
     const noPreamp: Record<string, unknown> = { 'line.ch4.mute': false, 'line.ch4.volume': 50 }
     const chs = extractLineChannels(noPreamp)

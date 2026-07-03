@@ -369,8 +369,10 @@ import {
   normalizedToGateAttackMs,
   normalizedToReleaseMs,
   normalizedToGateReleaseMs,
+  normalizedToDelayMs,
   normalizedToGateRangeDb,
   normalizedToLimiterThresholdDb,
+  delayMsToNormalized,
 } from '../schemas/fat-channel.js'
 
 // Comp ratio — FULL CALIBRATION from 10 confirmed 32R anchors (2026-07-02)
@@ -546,6 +548,42 @@ describe('normalizedToGateReleaseMs — guided calibration (32R dense anchors 20
   it('gate release is monotonically increasing', () => {
     expect(normalizedToGateReleaseMs(0.2)).toBeLessThan(normalizedToGateReleaseMs(0.5))
     expect(normalizedToGateReleaseMs(0.5)).toBeLessThan(normalizedToGateReleaseMs(0.8))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Channel delay — guided calibration (32R dense anchors 2026-07-03)
+// Formula: raw * 85 ms
+// HIL Evidence: captures/cal-32r-guided/delay-dense/delay.json
+// ---------------------------------------------------------------------------
+
+describe('normalizedToDelayMs — guided calibration (32R dense anchors 2026-07-03)', () => {
+  it('raw=0.000 → 0.0 ms [guided anchor]', () => {
+    expect(normalizedToDelayMs(0.000)).toBeCloseTo(0.0, 2)
+  })
+  it('raw=0.010 → 0.8 ms display (0.85 ms exact) [guided anchor]', () => {
+    expect(normalizedToDelayMs(0.010)).toBeCloseTo(0.85, 2)
+  })
+  it('raw=0.100 → 8.5 ms [guided anchor]', () => {
+    expect(normalizedToDelayMs(0.100)).toBeCloseTo(8.5, 2)
+  })
+  it('raw=0.250 → 21.2 ms display (21.25 ms exact) [guided anchor]', () => {
+    expect(normalizedToDelayMs(0.250)).toBeCloseTo(21.25, 2)
+  })
+  it('raw=0.500 → 42.5 ms [guided anchor]', () => {
+    expect(normalizedToDelayMs(0.500)).toBeCloseTo(42.5, 2)
+  })
+  it('raw=0.750 → 63.8 ms display (63.75 ms exact) [guided anchor]', () => {
+    expect(normalizedToDelayMs(0.750)).toBeCloseTo(63.75, 2)
+  })
+  it('raw=1.000 → 85.0 ms [guided anchor]', () => {
+    expect(normalizedToDelayMs(1.000)).toBeCloseTo(85.0, 2)
+  })
+  it('inverse: delayMsToNormalized round-trips dense points', () => {
+    const raws = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0]
+    for (const raw of raws) {
+      expect(delayMsToNormalized(normalizedToDelayMs(raw))).toBeCloseTo(raw, 3)
+    }
   })
 })
 

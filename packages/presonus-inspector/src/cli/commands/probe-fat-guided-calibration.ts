@@ -217,8 +217,7 @@ export function registerProbeFatGuidedCalibrationCommand(program: Command): void
       // ── Read original value ────────────────────────────────────────────────
       const snapState = (): unknown => { try { return client.state?.get(fullKey) ?? null } catch { return null } }
       const originalRaw  = decodeStateValue(snapState())
-      const muteState    = snapState.call(null) === null ? null :
-        (() => { try { return client.state?.get(muteKey) ?? null } catch { return null } })()
+      const muteState    = (() => { try { return client.state?.get(muteKey) ?? null } catch { return null } })()
 
       console.error(`  Original ${fullKey} = ${originalRaw}`)
       console.error(`  Mute state = ${JSON.stringify(muteState)}`)
@@ -231,10 +230,15 @@ export function registerProbeFatGuidedCalibrationCommand(program: Command): void
       }
 
       if (originalRaw === null) {
-        console.error('\n[STOP] Could not read original raw value from state.')
-        console.error('  This key may not be in the ZLIB snapshot (wrong key path?).')
-        await client.close?.()
-        return
+        if (opts.restore) {
+          console.error('\n[STOP] Could not read original raw value from state.')
+          console.error('  This key may not be in the ZLIB snapshot (wrong key path?).')
+          console.error('  Retry without --restore to run calibration without automatic rollback.')
+          await client.close?.()
+          return
+        }
+        console.error('\n[WARN] Could not read original raw value from state; continuing without restore.')
+        console.error('  Use this mode only for probe workflows where manual rollback is acceptable.')
       }
 
       if (opts.dryRun) {
@@ -249,7 +253,7 @@ export function registerProbeFatGuidedCalibrationCommand(program: Command): void
 
       // ── Calibration loop ───────────────────────────────────────────────────
       const anchors: CalibrationAnchor[] = []
-      let lastWriteRaw = originalRaw
+      let lastWriteRaw = originalRaw ?? 0
 
       try {
         console.error(`\nStarting calibration for ${fullKey}`)
@@ -317,7 +321,7 @@ export function registerProbeFatGuidedCalibrationCommand(program: Command): void
 
       } finally {
         // ── RESTORE (unconditional) ───────────────────────────────────────────
-        if (opts.restore && lastWriteRaw !== originalRaw) {
+        if (opts.restore && originalRaw !== null && lastWriteRaw !== originalRaw) {
           console.error(`\n[RESTORE] Restoring ${fullKey} ← ${originalRaw}`)
           try {
             const restorePayload = buildPVPayload(slashKey, originalRaw)
@@ -330,6 +334,8 @@ export function registerProbeFatGuidedCalibrationCommand(program: Command): void
           } catch (err) {
             console.error(`  [RESTORE ERROR] ${err}`)
           }
+        } else if (opts.restore && originalRaw === null) {
+          console.error('\n[WARN] Skipped restore: original raw value was unavailable at start.')
         }
 
         await client.close?.()

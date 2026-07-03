@@ -112,10 +112,17 @@ export const MixerChannelSchema = z.object({
   eqModelName: z.string().optional(),
   /**
    * Preamp gain in dB (0–60 dB range).
-   * Key: line.chN.preampgain.value (normalized 0–1), formula: dB = value × 60 (linear).
+    * Keys observed: line.chN.preampgain and line.chN.preampgain.value
+    * (both normalized 0–1), formula: dB = value × 60 (linear).
    * OBSERVED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01): 5 anchor points match exactly.
    */
   preampGainDb: z.number().min(0).max(60).optional(),
+  /**
+   * Channel delay in milliseconds (0–85 ms).
+   * Key: line.chN.delay (normalized 0–1), formula: ms = value * 85.
+   * GUIDED_CALIBRATION on StudioLive 32R fw 3.4.0.111374 (2026-07-03).
+   */
+  delayMs: z.number().min(0).max(85).optional(),
   /**
    * Normalized Fat Channel DSP state: EQ bands, compressor, gate, limiter.
    * Values in real units (dB, Hz, ms). parameterConfidence='guessed' until

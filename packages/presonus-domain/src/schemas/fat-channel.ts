@@ -852,6 +852,24 @@ export function normalizedToGateReleaseMs(raw: number): number {
 }
 
 /**
+ * Channel delay in milliseconds.
+ *
+ * GUIDED_CALIBRATION on StudioLive 32R fw 3.4.0.111374 (2026-07-03):
+ * 7 verified anchors (PV echo + UC Surface readback):
+ *   raw=0.000→0.0ms, raw=0.010→0.8ms, raw=0.100→8.5ms,
+ *   raw=0.250→21.2ms, raw=0.500→42.5ms, raw=0.750→63.8ms,
+ *   raw=1.000→85.0ms.
+ *
+ * Formula: raw × 85 ms. Display values are one-decimal rounded.
+ * Error versus guided anchors: max abs 0.05 ms (display quantization bound).
+ *
+ * See: captures/cal-32r-guided/delay-dense/delay.json
+ */
+export function normalizedToDelayMs(raw: number): number {
+  return Math.max(0, Math.min(1, raw)) * 85
+}
+
+/**
  * Gate threshold in dBFS.
  *
  * GUIDED_CALIBRATION_CONFIRMED on StudioLive 32R fw 3.4.0.111374 (2026-07-03)
@@ -1027,6 +1045,11 @@ export function attackMsToNormalized(ms: number): number {
 /** Release ms → raw 0–1. PROBE_REQUIRED — provisional. */
 export function releaseMsToNormalized(ms: number): number {
   return Math.max(0, Math.min(1, ms / 2000))
+}
+
+/** Delay ms → raw 0–1. GUIDED_CALIBRATION (32R, 2026-07-03). */
+export function delayMsToNormalized(ms: number): number {
+  return Math.max(0, Math.min(1, ms / 85))
 }
 
 /** Gate threshold dBFS → raw 0–1. Clamps to -84–0 dBFS. CALIBRATED_INFERRED. */

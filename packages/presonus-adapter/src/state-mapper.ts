@@ -30,6 +30,7 @@ import {
   normalizedToCompRatioX,
   normalizedToAttackMs,
   normalizedToReleaseMs,
+  normalizedToDelayMs,
   normalizedToGateReleaseMs,
   normalizedToGateThresholdDb,
   normalizedToGateRangeDb,
@@ -507,6 +508,7 @@ export function extractLineChannels(flat: Record<string, unknown>): MixerChannel
     const solo = flat[`${prefix}${KNOWN_CHANNEL_KEY_SUFFIXES.SOLO}`]
     const volume = flat[`${prefix}${KNOWN_CHANNEL_KEY_SUFFIXES.VOLUME}`]
     const pan = flat[`${prefix}${KNOWN_CHANNEL_KEY_SUFFIXES.PAN}`]
+    const delay = flat[`${prefix}${KNOWN_CHANNEL_KEY_SUFFIXES.DELAY}`]
     const linked = flat[`${prefix}${KNOWN_CHANNEL_KEY_SUFFIXES.LINK}`]
     const color = flat[`${prefix}${KNOWN_CHANNEL_KEY_SUFFIXES.COLOR}`]
 
@@ -542,12 +544,15 @@ export function extractLineChannels(flat: Record<string, unknown>): MixerChannel
         : undefined,
       // Pan: 0.0 = full left, 0.5 = center, 1.0 = full right — OBSERVED 32SC fw 3.3.0.109659
       pan: typeof pan === 'number' ? Math.max(0, Math.min(1, pan)) : undefined,
+      delayMs: typeof delay === 'number' ? normalizedToDelayMs(delay) : undefined,
       linked: typeof linked === 'boolean' ? linked : undefined,
       color: typeof color === 'string' ? color : undefined,
       compModelName: compModelResult?.normalized,
       eqModelName: eqModelResult?.normalized,
       preampGainDb: (() => {
-        const pgRaw = flat[`${prefix}${KNOWN_PREAMP_KEY_SUFFIXES.PREAMPGAIN_VALUE}`]
+        const pgRaw =
+          flat[`${prefix}${KNOWN_PREAMP_KEY_SUFFIXES.PREAMPGAIN}`] ??
+          flat[`${prefix}${KNOWN_PREAMP_KEY_SUFFIXES.PREAMPGAIN_VALUE}`]
         return typeof pgRaw === 'number'
           ? Math.max(0, Math.min(PREAMP_GAIN_RANGE_MAX, pgRaw * PREAMP_GAIN_RANGE_MAX))
           : undefined

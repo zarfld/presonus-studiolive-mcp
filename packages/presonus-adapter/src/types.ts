@@ -87,6 +87,7 @@ export const KNOWN_CHANNEL_KEY_SUFFIXES = {
   SOLO: '.solo',
   VOLUME: '.volume',
   PAN: '.pan',
+  DELAY: '.delay',
   LINK: '.link',
   COLOR: '.color',
   /** Phantom power (48V) — field name is "48v" on mixer */
@@ -201,6 +202,8 @@ export const OUTPUT_PATCH_KEY_PATTERNS = {
  * range.curve = linear; formula: dB = value × PREAMP_GAIN_RANGE_MAX.
  */
 export const KNOWN_PREAMP_KEY_SUFFIXES = {
+  /** Live-emitted normalized 0–1 value observed on 32R guided probe (2026-07-03). */
+  PREAMPGAIN: '.preampgain',
   /** Normalized 0–1. Formula: dB = value × 60. Curve: linear. */
   PREAMPGAIN_VALUE: '.preampgain.value',
 } as const
