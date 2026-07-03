@@ -59,16 +59,16 @@ describe('registerTools â€” REQ-NF-002: zero write tools in default config'
 })
 
 describe('registerTools â€” ADR-006: write tools available when writeEnabled=true', () => {
-  it('registers exactly 44 tools when writeEnabled=true (34 read + 10 write: propose_eq + apply + prepare_mute + prepare_fader + prepare_aux_send + prepare_fat_channel + validate_change_set + prepare_channel_rename + prepare_sub_group_membership + prepare_aux_assignment)', () => {
+  it('registers exactly 40 tools when writeEnabled=true (34 read + 6 approved write tools)', () => {
     const { server, registeredTools } = makeMockServer()
     registerTools(server, makeMockManager(), { writeEnabled: true })
-    expect(registeredTools).toHaveLength(44)
+    expect(registeredTools).toHaveLength(40)
   })
 
-  it('registers propose_eq_change when writeEnabled=true', () => {
+  it('does NOT register propose_eq_change when writeEnabled=true (experimental DSP write helper disabled)', () => {
     const { server, registeredTools } = makeMockServer()
     registerTools(server, makeMockManager(), { writeEnabled: true })
-    expect(registeredTools).toContain('propose_eq_change')
+    expect(registeredTools).not.toContain('propose_eq_change')
   })
 
   it('registers apply_change_set when writeEnabled=true', () => {

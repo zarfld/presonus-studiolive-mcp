@@ -1621,6 +1621,11 @@ export function registerTools(
     //   3. Full audit log + expiry on changeSetId
     //   4. Tests covering the unhappy path (expired set, invalid value, write-disabled)
 
+    // Experimental DSP write helpers remain hard-disabled until inverse helpers are
+    // re-derived and HIL-gated. Keep unreachable from production MCP tools.
+    const enableExperimentalDspWriteTools = false
+
+    if (enableExperimentalDspWriteTools) {
     // ─── propose_eq_change ─────────────────────────────────────────────────────
     server.tool(
       'propose_eq_change',
@@ -1720,6 +1725,8 @@ export function registerTools(
         }
       },
     )
+
+    }
 
     // ─── apply_change_set ──────────────────────────────────────────────────────
     server.tool(
@@ -1891,6 +1898,7 @@ export function registerTools(
       },
     )
 
+    if (enableExperimentalDspWriteTools) {
     // ─── prepare_fader_change_set ─────────────────────────────────────────
     server.tool(
       'prepare_fader_change_set',
@@ -2058,6 +2066,8 @@ export function registerTools(
         return { content: [{ type: 'text' as const, text: JSON.stringify(changeSet, null, 2) }] }
       },
     )
+
+    }
 
     // ─── validate_change_set ──────────────────────────────────────────────────
     server.tool(

@@ -142,6 +142,41 @@ describe('production write guards — Fat Channel write safety', () => {
     expect(tools.has('start_routing_probe')).toBe(true)
     expect(tools.has('complete_routing_probe')).toBe(true)
   })
+
+  it('with writeEnabled=true, keeps stale-inverse DSP/Fat helpers unreachable from production MCP tools', () => {
+    const { manager } = makeMockManager()
+    const { server, tools } = makeMockServer()
+    registerTools(server, manager, { writeEnabled: true })
+
+    // Why this exists: stale inverse helpers remain in code for future work,
+    // but they must not be reachable via production MCP tool registration.
+    expect(tools.has('prepare_fat_channel_change_set')).toBe(false)
+    expect(tools.has('prepare_eq_change_set')).toBe(false)
+    expect(tools.has('prepare_comp_change_set')).toBe(false)
+    expect(tools.has('prepare_gate_change_set')).toBe(false)
+    expect(tools.has('prepare_limiter_change_set')).toBe(false)
+
+    const blockedPattern = /fat|eq|comp|gate|limiter/i
+    const writeLikeName = /(prepare|propose|apply)_/i
+    const approvedWriteTools = new Set([
+      'prepare_mute_change_set',
+      'prepare_channel_rename_change_set',
+      'prepare_sub_group_membership_change_set',
+      'prepare_aux_assignment_change_set',
+      'validate_change_set',
+      'apply_change_set',
+    ])
+
+    const riskyWriteNames = [...tools.keys()].filter(
+      (name) => writeLikeName.test(name) && blockedPattern.test(name) && !approvedWriteTools.has(name),
+    )
+    expect(riskyWriteNames).toEqual([])
+
+    // Approved write paths remain available and are already covered by existing mocked/HIL tests.
+    for (const name of approvedWriteTools) {
+      expect(tools.has(name)).toBe(true)
+    }
+  })
 })
 
 // ─── prepare_channel_rename_change_set ───────────────────────────────────────

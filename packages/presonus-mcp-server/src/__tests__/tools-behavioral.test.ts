@@ -838,23 +838,19 @@ describe('prepare_mute_change_set (ADR-006)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Phase 6: prepare_fader_change_set (ADR-006)
+// Phase 6 safety policy: experimental DSP prep tools are intentionally disabled
+// until inverse helpers are re-derived and HIL-gated.
 // ---------------------------------------------------------------------------
 
-describe('prepare_fader_change_set (ADR-006)', () => {
-  it('returns changeSet with rawKeyPath=channelId.volume and proposedRawValue=levelLinear', async () => {
+describe('prepare_fader_change_set (ADR-006 safety policy)', () => {
+  it('is not registered when writeEnabled=true', () => {
     const snapshot = makeSnapshot({
       channels: [{ id: 'line.ch1', name: 'Kick', mute: false }],
       flatState: { 'line.ch1.volume': 0.75 },
     })
     const { server, tools } = makeMockServer()
     registerTools(server, makeMockManager(snapshot), { writeEnabled: true })
-    const result = await callTool(tools, 'prepare_fader_change_set', {
-      deviceId: DEVICE_ID, channelId: 'line.ch1', levelLinear: 0.5,
-    })
-    const changes = body(result).changes as Array<{ rawKeyPath: string; proposedRawValue: number }>
-    expect(changes[0]!.rawKeyPath).toBe('line.ch1.volume')
-    expect(changes[0]!.proposedRawValue).toBe(0.5)
+    expect(tools.has('prepare_fader_change_set')).toBe(false)
   })
 })
 
@@ -862,20 +858,15 @@ describe('prepare_fader_change_set (ADR-006)', () => {
 // Phase 6: prepare_aux_send_change_set (ADR-006)
 // ---------------------------------------------------------------------------
 
-describe('prepare_aux_send_change_set (ADR-006)', () => {
-  it('returns changeSet with rawKeyPath = channelId.auxN for the specified auxBus', async () => {
+describe('prepare_aux_send_change_set (ADR-006 safety policy)', () => {
+  it('is not registered when writeEnabled=true', () => {
     const snapshot = makeSnapshot({
       channels: [{ id: 'line.ch1', name: 'Kick', mute: false }],
       flatState: { 'line.ch1.aux3': 0.5, 'line.ch1.assign_aux3': true },
     })
     const { server, tools } = makeMockServer()
     registerTools(server, makeMockManager(snapshot), { writeEnabled: true })
-    const result = await callTool(tools, 'prepare_aux_send_change_set', {
-      deviceId: DEVICE_ID, channelId: 'line.ch1', auxBus: 3, levelLinear: 0.8,
-    })
-    const changes = body(result).changes as Array<{ rawKeyPath: string; proposedRawValue: number }>
-    expect(changes[0]!.rawKeyPath).toBe('line.ch1.aux3')
-    expect(changes[0]!.proposedRawValue).toBe(0.8)
+    expect(tools.has('prepare_aux_send_change_set')).toBe(false)
   })
 })
 
@@ -883,11 +874,9 @@ describe('prepare_aux_send_change_set (ADR-006)', () => {
 // Phase 6: prepare_fat_channel_change_set (ADR-006)
 // ---------------------------------------------------------------------------
 
-describe('prepare_fat_channel_change_set (ADR-006)', () => {
-  let snapshot: MixerSnapshot
-
-  beforeEach(() => {
-    snapshot = makeSnapshot({
+describe('prepare_fat_channel_change_set (ADR-006 safety policy)', () => {
+  it('is not registered when writeEnabled=true', () => {
+    const snapshot: MixerSnapshot = makeSnapshot({
       channels: [{ id: 'line.ch1', name: 'Kick', mute: false }],
       flatState: {
         'line.ch1.comp.on': 0,
@@ -895,54 +884,9 @@ describe('prepare_fat_channel_change_set (ADR-006)', () => {
         'line.ch1.gate.on': 0,
       },
     })
-  })
-
-  it('returns a changeSet with comp.enabled change when compressor.enabled is specified', async () => {
     const { server, tools } = makeMockServer()
     registerTools(server, makeMockManager(snapshot), { writeEnabled: true })
-    const result = await callTool(tools, 'prepare_fat_channel_change_set', {
-      deviceId: DEVICE_ID, channelId: 'line.ch1',
-      compressor: { enabled: true },
-    })
-    const changes = body(result).changes as Array<{ parameter: string; rawKeyPath: string; proposedRawValue: number }>
-    const enabledChange = changes.find((c) => c.parameter === 'comp.enabled')
-    expect(enabledChange).toBeDefined()
-    expect(enabledChange!.rawKeyPath).toBe('line.ch1.comp.on')
-    expect(enabledChange!.proposedRawValue).toBe(1)
-  })
-
-  it('returns a changeSet with comp.threshold change and uses inverse normalization', async () => {
-    const { server, tools } = makeMockServer()
-    registerTools(server, makeMockManager(snapshot), { writeEnabled: true })
-    const result = await callTool(tools, 'prepare_fat_channel_change_set', {
-      deviceId: DEVICE_ID, channelId: 'line.ch1',
-      compressor: { thresholdDb: -30 },  // → (−30/56 + 1) ≈ 0.464 (calibrated formula)
-    })
-    const changes = body(result).changes as Array<{ parameter: string; proposedRawValue: number }>
-    const threshChange = changes.find((c) => c.parameter === 'comp.threshold')
-    expect(threshChange).toBeDefined()
-    expect(threshChange!.proposedRawValue).toBeCloseTo(0.464, 2)
-  })
-
-  it('returns error when no parameters are specified', async () => {
-    const { server, tools } = makeMockServer()
-    registerTools(server, makeMockManager(snapshot), { writeEnabled: true })
-    const result = await callTool(tools, 'prepare_fat_channel_change_set', {
-      deviceId: DEVICE_ID, channelId: 'line.ch1',
-      // no compressor, gate, or limiter
-    })
-    expect(result.isError).toBe(true)
-  })
-
-  it('description includes CONFIDENCE: guessed warning', async () => {
-    const { server, tools } = makeMockServer()
-    registerTools(server, makeMockManager(snapshot), { writeEnabled: true })
-    const result = await callTool(tools, 'prepare_fat_channel_change_set', {
-      deviceId: DEVICE_ID, channelId: 'line.ch1',
-      compressor: { enabled: true },
-    })
-    const { description } = body(result) as { description: string }
-    expect(description).toContain('guessed')
+    expect(tools.has('prepare_fat_channel_change_set')).toBe(false)
   })
 })
 

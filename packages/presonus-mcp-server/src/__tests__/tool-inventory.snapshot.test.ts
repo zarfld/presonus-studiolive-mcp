@@ -104,12 +104,8 @@ Run: pnpm inventory
     }
 
     const EXPECTED_WRITE_GATED = [
-      'propose_eq_change',
       'apply_change_set',
       'prepare_mute_change_set',
-      'prepare_fader_change_set',
-      'prepare_aux_send_change_set',
-      'prepare_fat_channel_change_set',
       'validate_change_set',
       'prepare_channel_rename_change_set',
       'prepare_sub_group_membership_change_set',
