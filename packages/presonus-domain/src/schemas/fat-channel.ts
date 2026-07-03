@@ -592,44 +592,50 @@ export function normalizedToEqBandType(raw: number): EqBandType {
 }
 
 /**
- * Comp threshold: linear N to 0 dBFS.
+ * STANDARD comp threshold: linear N to 0 dBFS.
  *
- * ⚠️ DEVICE-DEPENDENT RANGE — two contradictory anchors:
+ * GUIDED_CALIBRATION on 32R (line.ch11, dense anchors, 2026-07-03):
+ *   raw=0.000 -> -56.00 dBFS
+ *   raw=0.010 -> -55.44 dBFS
+ *   raw=0.100 -> -50.40 dBFS
+ *   raw=0.250 -> -42.00 dBFS
+ *   raw=0.500 -> -28.00 dBFS
+ *   raw=0.750 -> -14.00 dBFS
+ *   raw=1.000 -> 0.00 dBFS
  *
- *   32R STANDARD (serial RA3E18030194, 2026-07-02 live dump):
- *     raw=0 → -56 dBFS  →  K=56  (exact match for formula (raw-1)*56)
- *
- *   32SC STANDARD (serial SD7E21010066, fw 3.4.0.111374, 2026-07-02 live dump):
- *     raw=0.493 → -41.45 dBFS  →  K≈81.76  (formula (raw-1)*81.76)
- *     This CONTRADICTS Phase 1 formula (K=56). Phase 1 data is presumed misread.
- *
- * Current implementation uses K=56 (validated exactly on 32R).
- * ⚠️ May be wrong for 32SC — see test/fixtures/32sc/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
+ * Formula: (raw - 1) * 56
+ * Fit vs dense anchors: exact at all anchor points (display-precision level).
  *
  * IMPORTANT: For STANDARD compressor model, the state key is `comp.threshold`
  * (NOT `comp.input` which is used by the FET model).
+ *
+ * See: captures/cal-32r-guided/comp-threshold-dense/comp-threshold.json
  */
 export function normalizedToCompThresholdDb(raw: number): number {
   return (raw - 1) * 56
 }
 
 /**
- * Comp makeup gain: linear 0 to +28.0 dB
+ * STANDARD comp makeup gain: linear 0 to +28.0 dB.
  *
- * ⚠️ CORRECTED (2026-07-02 guided calibration, 32R all-max dump):
- * Phase 1 formula raw*27.6 was wrong — K=27.6 predicts 27.6 dB at max but display shows 28.00 dB.
+ * GUIDED_CALIBRATION on 32R (line.ch11, dense anchors, 2026-07-03):
+ *   raw=0.000 -> 0.00 dB
+ *   raw=0.010 -> 0.28 dB
+ *   raw=0.100 -> 2.80 dB
+ *   raw=0.250 -> 7.00 dB
+ *   raw=0.500 -> 14.00 dB
+ *   raw=0.750 -> 21.00 dB
+ *   raw=1.000 -> 28.00 dB
  *
- * Confirmed by 3 guided calibration anchors (32R Ch11, dump + UC Surface display, 2026-07-02):
- *   raw=0     → 0.00 dB  (exact: 0*28.0=0)
- *   raw=0.315 → 8.82 dB  (exact: 0.315*28.0=8.82)
- *   raw=1.000 → 28.00 dB (exact: 1.0*28.0=28.00)
- * Max error < 0.01 dB across all three anchors.
+ * Formula: raw * 28.0
+ * Fit vs dense anchors: exact at all anchor points (display-precision level).
  *
- * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02.json
- *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-max.json
+ * Historical correction retained: older raw*27.6 scale under-reported max by 0.4 dB.
  *
  * IMPORTANT: For STANDARD compressor model, the state key is `comp.gain`
  * (NOT `comp.output` which is used by the FET model).
+ *
+ * See: captures/cal-32r-guided/comp-gain-dense/comp-gain.json
  */
 export function normalizedToCompMakeupDb(raw: number): number {
   return raw * 28.0
@@ -666,12 +672,19 @@ export function normalizedToCompRatioX(raw: number): number {
 /**
  * STANDARD compressor attack time in ms.
  *
- * CONFIRMED by 3 pure 32R guided calibration anchors (2026-07-02):
- *   raw≈0     → 0.20 ms  (physical min stop, dump raw=0.000372; formula=0.215ms, rounds to 0.20)
- *   raw=0.525 → 23.0 ms  (32R 50% position, dump-confirmed)
- *   raw=1.000 → 150 ms   (32R all-max dump)
+ * GUIDED_CALIBRATION on 32R (line.ch11, 2026-07-03), dense anchors:
+ *   raw=0.000 -> 0.20 ms
+ *   raw=0.010 -> 0.20 ms
+ *   raw=0.100 -> 0.38 ms
+ *   raw=0.250 -> 2.82 ms
+ *   raw=0.500 -> 20.0 ms
+ *   raw=0.750 -> 64.9 ms
+ *   raw=1.000 -> 150 ms
+ *
+ * Legacy guided/dump anchors from 2026-07-02 remain consistent:
+ *   raw=0.525 -> 23.0 ms  (32R 50% position, dump-confirmed)
  * Formula: 0.20 + 149.8 × raw^2.922
- * Max error < 0.1% at all 3 anchor points.
+ * Fit vs 2026-07-03 dense anchors: max abs 0.069 ms, max rel 0.43%, RMS 0.030 ms.
  *
  * Note: Phase 1 measurement (raw=0.190 → 1.37ms) was actually CORRECT for 32R.
  * The earlier cross-device anchor (32SC raw=0.190 → 21.8ms) was a stale-ZLIB mismatch
@@ -681,8 +694,10 @@ export function normalizedToCompRatioX(raw: number): number {
  *
  * ⚠️ This mapping is for COMPRESSOR attack only.
  *    Gate attack has a different taper/range; use normalizedToGateAttackMs().
- * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-extremes.json
- *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
+ * See:
+ * - captures/cal-32r-guided/comp-attack-dense/comp-attack.json
+ * - test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-extremes.json
+ * - test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
  */
 export function normalizedToAttackMs(raw: number): number {
   if (raw <= 0) return 0.20
@@ -737,15 +752,19 @@ export function normalizedToGateAttackMs(raw: number): number {
 /**
  * STANDARD compressor release time in ms.
  *
- * CONFIRMED by guided calibration endpoints (32R Ch11, all-min/all-max dumps + display, 2026-07-02):
- *   raw≈0     → 2.50 ms  (physical min, dump raw=0.000209; formula=2.500ms, EXACT)
- *   raw=0.365 → 67.5 ms  (32SC Ch27 scene-stored)
- *   raw=0.500 → 162 ms   (32SC Ch11 simultaneous dump, formula=150ms, ~7.4%)
- *   raw=0.720 → 384 ms   (32R Ch11 simultaneous dump, formula=384ms, EXACT)
- *   raw=1.000 → 900 ms   (32R all-max dump; formula=900ms, EXACT)
+ * GUIDED_CALIBRATION on 32R (line.ch11, 2026-07-03), dense anchors:
+ *   raw=0.000 -> 2.50 ms
+ *   raw=0.010 -> 2.51 ms
+ *   raw=0.100 -> 4.73 ms
+ *   raw=0.250 -> 26.7 ms
+ *   raw=0.500 -> 150 ms
+ *   raw=0.750 -> 427 ms
+ *   raw=1.000 -> 900 ms
+ *
+ * Legacy cross-device checkpoint retained for context:
+ *   raw=0.365 -> 67.5 ms (32SC Ch27 scene-stored)
  * Formula: 2.5 + 897.5 × raw^2.605
- * HIGH CONFIDENCE: both endpoints and interior point confirmed with < 0.01% error on 32R.
- * The 7.4% error at raw=0.5 on 32SC may reflect device-specific variation (32SC vs 32R).
+ * Fit vs 2026-07-03 dense anchors: max abs 0.302 ms, max rel 0.18%, RMS 0.116 ms.
  *
  * liveObserved (32R, UC Control closed): PV events confirmed for comp.release via parallel probe.
  *   See: test/fixtures/32sc/fat-channel/live-events/parallel-probe/32r-live-pv-evidence.json
@@ -753,6 +772,7 @@ export function normalizedToGateAttackMs(raw: number): number {
  *   but probe-live-events (featherbear event emitter) shows 0 watched key changes.
  *   This means featherbear receives PV bytes but does not emit through the event system.
  *   See: captures/cal-32r-guided/raw-socket/ (2026-07-02 guided calibration session)
+ *   See also: captures/cal-32r-guided/comp-release-dense/comp-release.json
  */
 export function normalizedToReleaseMs(raw: number): number {
   return 2.5 + 897.5 * Math.pow(raw, 2.605)
@@ -761,17 +781,29 @@ export function normalizedToReleaseMs(raw: number): number {
 /**
  * Gate release time in ms.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (Phase 2 opportunistic calibration, 2026-07-02):
- * 7 anchor points (max error < 3ms): raw=0→50ms (min, user-reported; raw inferred from formula fit),
- *   raw=0.130→127ms, raw=0.180→179ms (Ch27, UC Surface confirmed this session),
- *   raw=0.260→281ms, raw=0.447→594ms, raw=0.880→1640ms (existing scene-stored values),
- *   raw=1.0→2000ms (max, user-reported; raw inferred).
+ * GUIDED_CALIBRATION_CONFIRMED on StudioLive 32R fw 3.4.0.111374 (2026-07-03)
+ * with legacy checkpoints from 32SC fw 3.4.0.111374 (Phase 2).
+ *
+ * Dense 32R anchors (line.ch11.gate.release):
+ *   raw=0.000 -> 50.0 ms
+ *   raw=0.010 -> 51.3 ms
+ *   raw=0.100 -> 101 ms
+ *   raw=0.250 -> 267 ms
+ *   raw=0.500 -> 700 ms
+ *   raw=0.750 -> 1.29 s (1290 ms)
+ *   raw=1.000 -> 2.00 s (2000 ms)
+ *
  * Formula: 50 + 1950 × raw^1.583
+ * Fit vs 2026-07-03 dense anchors: max abs 3.322 ms, max rel 0.258%, RMS 1.303 ms.
+ *
+ * Legacy Phase 2 checkpoints remain consistent:
+ *   raw=0.180->179ms, raw=0.260->281ms, raw=0.447->594ms, raw=0.880->1640ms.
  * decodedEventNotObserved: no PV/JM/data events for watched Fat Channel keys were observed
  *   through featherbear decoded event path during a 60-second probe (UC Surface, 32SC fw 3.4.0.111374).
  *   This does not prove the mixer never sends raw PV packets; the raw TCP layer was not tapped.
  *   Use pnpm probe:dev probe-raw-socket to determine rawPacketObservedParserGap vs noRawPacketObserved.
  *   See: test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json
+ *   See also: captures/cal-32r-guided/gate-release-dense/gate-release.json
  */
 export function normalizedToGateReleaseMs(raw: number): number {
   return 50 + 1950 * Math.pow(raw, 1.583)
@@ -780,8 +812,15 @@ export function normalizedToGateReleaseMs(raw: number): number {
 /**
  * Gate threshold in dBFS.
  *
- * CALIBRATED_INFERRED on StudioLive 32SC fw 3.4.0.111374 (2026-07-01):
- * 2 anchor points, max error 0.007 dB. Formula: (raw-1)*84
+ * GUIDED_CALIBRATION_CONFIRMED on StudioLive 32R fw 3.4.0.111374 (2026-07-03)
+ * with legacy checkpoints from 32SC fw 3.4.0.111374 (2026-07-01).
+ *
+ * Dense 32R anchors (line.ch11.gate.threshold):
+ *   0.000 -> -84.00 dB, 0.010 -> -83.16 dB, 0.100 -> -75.60 dB,
+ *   0.250 -> -63.00 dB, 0.500 -> -42.00 dB, 0.750 -> -21.00 dB, 1.000 -> 0.00 dB.
+ *
+ * Formula remains exact linear mapping: (raw - 1) * 84.
+ * See: captures/cal-32r-guided/gate-threshold-dense/gate-threshold.json
  */
 export function normalizedToGateThresholdDb(raw: number): number {
   return (raw - 1) * 84

@@ -180,76 +180,152 @@ describe('normalizedToEqBandType — observed for BELL and LOW_SHELF', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Comp threshold — calibrated_inferred (STANDARD comp, comp.threshold key)
-// HIL: (raw-1)*56 confirmed on 32SC fw 3.4.0.111374 (2026-07-01)
-// NOTE: STANDARD comp uses comp.threshold key; FET uses comp.input key
+// Comp threshold — guided calibration confirmed (32R dense anchors 2026-07-03)
+// Formula: (raw-1)*56 dBFS.
+// HIL Evidence: captures/cal-32r-guided/comp-threshold-dense/comp-threshold.json
 // ---------------------------------------------------------------------------
 
-describe('normalizedToCompThresholdDb — calibrated_inferred STANDARD comp', () => {
-  it('Ch11 STANDARD: raw=0.4930 → -28.39 dBFS', () => {
+describe('normalizedToCompThresholdDb — guided calibration (32R dense anchors 2026-07-03)', () => {
+  it('raw=0.000 → -56.00 dBFS [guided anchor]', () => {
+    expect(normalizedToCompThresholdDb(0.000)).toBeCloseTo(-56.00, 2)
+  })
+  it('raw=0.010 → -55.44 dBFS [guided anchor]', () => {
+    expect(normalizedToCompThresholdDb(0.010)).toBeCloseTo(-55.44, 2)
+  })
+  it('raw=0.100 → -50.40 dBFS [guided anchor]', () => {
+    expect(normalizedToCompThresholdDb(0.100)).toBeCloseTo(-50.40, 2)
+  })
+  it('raw=0.250 → -42.00 dBFS [guided anchor]', () => {
+    expect(normalizedToCompThresholdDb(0.250)).toBeCloseTo(-42.00, 2)
+  })
+  it('raw=0.500 → -28.00 dBFS [guided anchor]', () => {
+    expect(normalizedToCompThresholdDb(0.500)).toBeCloseTo(-28.00, 2)
+  })
+  it('raw=0.750 → -14.00 dBFS [guided anchor]', () => {
+    expect(normalizedToCompThresholdDb(0.750)).toBeCloseTo(-14.00, 2)
+  })
+  it('raw=1.000 → 0.00 dBFS [guided anchor]', () => {
+    expect(normalizedToCompThresholdDb(1.000)).toBeCloseTo(0.00, 2)
+  })
+  it('legacy checkpoint raw=0.4930 → -28.39 dBFS', () => {
     expect(normalizedToCompThresholdDb(0.4930)).toBeCloseTo(-28.39, 1)
   })
-  it('Ch12 STANDARD: raw=0.5350 → -26.04 dBFS', () => {
-    expect(normalizedToCompThresholdDb(0.5350)).toBeCloseTo(-26.04, 1)
-  })
-  it('range: raw=0 → -56 dBFS, raw=1 → 0 dBFS', () => {
-    expect(normalizedToCompThresholdDb(0)).toBeCloseTo(-56, 1)
-    expect(normalizedToCompThresholdDb(1)).toBeCloseTo(0, 2)
+  it('threshold is monotonically increasing across range', () => {
+    const vals = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0].map(normalizedToCompThresholdDb)
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThanOrEqual(vals[i - 1])
+    }
   })
 })
 
 // ---------------------------------------------------------------------------
-// Comp makeup gain — CORRECTED (32R guided calibration 2026-07-02, K=28.0)
-// Confirms: raw=0→0dB, raw=0.315→8.82dB, raw=1→28.00dB (all exact, K=28.0)
-// Phase 1 formula raw*27.6 was systematically low by ~1.4% (anchors in low range)
+// Comp makeup gain — guided calibration confirmed (32R dense anchors 2026-07-03)
+// Formula: raw*28.0 dB.
+// HIL Evidence: captures/cal-32r-guided/comp-gain-dense/comp-gain.json
 // ---------------------------------------------------------------------------
 
-describe('normalizedToCompMakeupDb — corrected_guided K=28.0 (32R 2026-07-02)', () => {
-  it('32R Ch11: raw=0 → 0.00 dB [empirical anchor, exact]', () => {
-    expect(normalizedToCompMakeupDb(0)).toBeCloseTo(0, 2)
+describe('normalizedToCompMakeupDb — guided calibration (32R dense anchors 2026-07-03)', () => {
+  it('raw=0.000 → 0.00 dB [guided anchor]', () => {
+    expect(normalizedToCompMakeupDb(0.000)).toBeCloseTo(0.00, 2)
   })
-  it('32R Ch11: raw=0.315 → 8.82 dB [empirical anchor, ±0.05 dB]', () => {
+  it('raw=0.010 → 0.28 dB [guided anchor]', () => {
+    expect(normalizedToCompMakeupDb(0.010)).toBeCloseTo(0.28, 2)
+  })
+  it('raw=0.100 → 2.80 dB [guided anchor]', () => {
+    expect(normalizedToCompMakeupDb(0.100)).toBeCloseTo(2.80, 2)
+  })
+  it('raw=0.250 → 7.00 dB [guided anchor]', () => {
+    expect(normalizedToCompMakeupDb(0.250)).toBeCloseTo(7.00, 2)
+  })
+  it('raw=0.500 → 14.00 dB [guided anchor]', () => {
+    expect(normalizedToCompMakeupDb(0.500)).toBeCloseTo(14.00, 2)
+  })
+  it('raw=0.750 → 21.00 dB [guided anchor]', () => {
+    expect(normalizedToCompMakeupDb(0.750)).toBeCloseTo(21.00, 2)
+  })
+  it('raw=1.000 → 28.00 dB [guided anchor]', () => {
+    expect(normalizedToCompMakeupDb(1.000)).toBeCloseTo(28.00, 2)
+  })
+  it('legacy checkpoint raw=0.315 → 8.82 dB', () => {
     expect(normalizedToCompMakeupDb(0.315)).toBeCloseTo(8.82, 1)
   })
-  it('32R Ch11: raw=1.000 → 28.00 dB [empirical anchor, exact max]', () => {
-    expect(normalizedToCompMakeupDb(1)).toBeCloseTo(28.0, 1)
+  it('makeup gain is monotonically increasing across range', () => {
+    const vals = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0].map(normalizedToCompMakeupDb)
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThanOrEqual(vals[i - 1])
+    }
   })
 })
 
 // ---------------------------------------------------------------------------
-// Gate threshold — calibrated_inferred (2 anchor points, exact match)
-// HIL: (raw-1)*84 confirmed on 32SC fw 3.4.0.111374 (2026-07-01)
+// Gate threshold — guided calibration confirmed (32R dense anchors 2026-07-03)
+// Formula: (raw-1)*84 dBFS. Legacy 32SC checkpoints retained.
+// HIL Evidence: captures/cal-32r-guided/gate-threshold-dense/gate-threshold.json
 // ---------------------------------------------------------------------------
 
-describe('normalizedToGateThresholdDb — calibrated_inferred', () => {
-  it('Ch11: raw=0.7308 → -22.62 dBFS', () => {
+describe('normalizedToGateThresholdDb — guided calibration (32R dense anchors 2026-07-03)', () => {
+  it('raw=0.000 → -84.00 dBFS [guided anchor]', () => {
+    expect(normalizedToGateThresholdDb(0.000)).toBeCloseTo(-84.00, 2)
+  })
+  it('raw=0.010 → -83.16 dBFS [guided anchor]', () => {
+    expect(normalizedToGateThresholdDb(0.010)).toBeCloseTo(-83.16, 2)
+  })
+  it('raw=0.100 → -75.60 dBFS [guided anchor]', () => {
+    expect(normalizedToGateThresholdDb(0.100)).toBeCloseTo(-75.60, 2)
+  })
+  it('raw=0.250 → -63.00 dBFS [guided anchor]', () => {
+    expect(normalizedToGateThresholdDb(0.250)).toBeCloseTo(-63.00, 2)
+  })
+  it('raw=0.500 → -42.00 dBFS [guided anchor]', () => {
+    expect(normalizedToGateThresholdDb(0.500)).toBeCloseTo(-42.00, 2)
+  })
+  it('raw=0.750 → -21.00 dBFS [guided anchor]', () => {
+    expect(normalizedToGateThresholdDb(0.750)).toBeCloseTo(-21.00, 2)
+  })
+  it('raw=1.000 → 0.00 dBFS [guided anchor]', () => {
+    expect(normalizedToGateThresholdDb(1.000)).toBeCloseTo(0.00, 2)
+  })
+  it('legacy checkpoint raw=0.7308 → -22.62 dBFS [32SC]', () => {
     expect(normalizedToGateThresholdDb(0.7308)).toBeCloseTo(-22.62, 1)
   })
-  it('Ch12: raw=0.6713 → -27.61 dBFS', () => {
+  it('legacy checkpoint raw=0.6713 → -27.61 dBFS [32SC]', () => {
     expect(normalizedToGateThresholdDb(0.6713)).toBeCloseTo(-27.61, 1)
   })
-  it('range: raw=0 → -84 dBFS, raw=1 → 0 dBFS', () => {
-    expect(normalizedToGateThresholdDb(0)).toBeCloseTo(-84, 1)
-    expect(normalizedToGateThresholdDb(1)).toBeCloseTo(0, 2)
+  it('threshold is monotonically increasing across range', () => {
+    const vals = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0].map(normalizedToGateThresholdDb)
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThanOrEqual(vals[i - 1])
+    }
   })
 })
 
 // ---------------------------------------------------------------------------
-// Comp/gate attack — CONFIRMED 3-anchor (pure 32R guided calibration 2026-07-02)
+// Compressor attack — guided calibration (32R dense anchors 2026-07-03)
 // Formula: 0.20 + 149.8*raw^2.922 ms
-//   raw≈0 → 0.20 ms (physical min stop)
-//   raw=0.525 → 23.0 ms (32R 50% position, dump-confirmed) EXACT
-//   raw=1.000 → 150 ms (32R all-max) EXACT
-// Phase 1 raw=0.190→1.37ms was correct for 32R; formula now predicts 1.37ms.
-// The 32SC raw=0.190→21.8ms was a stale-ZLIB mismatch (knob not at 0.190).
-// HIL Evidence: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-*.json
+// HIL Evidence: captures/cal-32r-guided/comp-attack-dense/comp-attack.json
 // ---------------------------------------------------------------------------
 
-describe('normalizedToAttackMs — confirmed_3pt_32R_guided (2026-07-02)', () => {
+describe('normalizedToAttackMs — guided calibration (32R dense anchors 2026-07-03)', () => {
   it('32R all-min: raw=0 → 0.20 ms [empirical anchor, exact clamp]', () => {
     expect(normalizedToAttackMs(0)).toBe(0.20)
   })
-  it('32R 50%: raw=0.525 → ~23.0 ms (±0.5 ms) [empirical anchor, EXACT]', () => {
+  it('raw=0.010 → 0.20 ms (±0.01 ms) [guided anchor]', () => {
+    expect(normalizedToAttackMs(0.01)).toBeCloseTo(0.20, 2)
+  })
+  it('raw=0.100 → 0.38 ms (±0.01 ms) [guided anchor]', () => {
+    expect(normalizedToAttackMs(0.10)).toBeCloseTo(0.38, 2)
+  })
+  it('raw=0.250 → 2.82 ms (±0.05 ms) [guided anchor]', () => {
+    expect(normalizedToAttackMs(0.25)).toBeCloseTo(2.82, 1)
+  })
+  it('raw=0.500 → 20.0 ms (±0.05 ms) [guided anchor]', () => {
+    expect(normalizedToAttackMs(0.50)).toBeCloseTo(20.0, 1)
+  })
+  it('raw=0.750 → 64.9 ms (±0.1 ms) [guided anchor]', () => {
+    expect(normalizedToAttackMs(0.75)).toBeGreaterThan(64.8)
+    expect(normalizedToAttackMs(0.75)).toBeLessThan(65.0)
+  })
+  it('legacy checkpoint raw=0.525 → ~23.0 ms (±0.5 ms) [2026-07-02 anchor]', () => {
     expect(normalizedToAttackMs(0.525)).toBeGreaterThan(22.5)
     expect(normalizedToAttackMs(0.525)).toBeLessThan(23.5)
   })
@@ -345,31 +421,40 @@ describe('normalizedToCompRatioX — quadratic-log calibrated 10-anchor (32R 202
 })
 
 // ---------------------------------------------------------------------------
-// Comp release (STANDARD) — FULLY CONFIRMED (5 anchors, 32R guided 2026-07-02)
+// Comp release (STANDARD) — guided calibration (32R dense anchors 2026-07-03)
 // Formula: 2.5 + 897.5*raw^2.605 ms
-//   raw≈0 → 2.50 ms (exact: 2.5+897.5*0=2.5)
-//   raw=0.365 → 67.5 ms (32SC)
-//   raw=0.720 → 384 ms (32R, EXACT)
-//   raw=1.000 → 900 ms (32R all-max, EXACT: 2.5+897.5=900)
-// HIL Evidence: test/fixtures/32r/fat-channel/guided/ (2026-07-02)
+// HIL Evidence: captures/cal-32r-guided/comp-release-dense/comp-release.json
 // ---------------------------------------------------------------------------
 
-describe('normalizedToReleaseMs — CONFIRMED guided calibration (32R 2026-07-02)', () => {
+describe('normalizedToReleaseMs — guided calibration (32R dense anchors 2026-07-03)', () => {
   it('32R all-min: raw=0 → 2.50 ms [empirical anchor, exact]', () => {
     expect(normalizedToReleaseMs(0)).toBeCloseTo(2.5, 1)
   })
-  it('32SC Ch27: raw=0.365 → 67.5 ms (±2 ms)', () => {
-    expect(normalizedToReleaseMs(0.365)).toBeCloseTo(67.5, 0)
+  it('raw=0.010 → 2.51 ms (±0.01 ms) [guided anchor]', () => {
+    expect(normalizedToReleaseMs(0.01)).toBeCloseTo(2.51, 1)
   })
-  it('32R Ch11: raw=0.720 → 384 ms [empirical anchor, exact 0.005%]', () => {
+  it('raw=0.100 → 4.73 ms (±0.01 ms) [guided anchor]', () => {
+    expect(normalizedToReleaseMs(0.10)).toBeCloseTo(4.73, 1)
+  })
+  it('raw=0.250 → 26.7 ms (±0.1 ms) [guided anchor]', () => {
+    expect(normalizedToReleaseMs(0.25)).toBeCloseTo(26.7, 1)
+  })
+  it('raw=0.500 → 150 ms (±1 ms) [guided anchor]', () => {
+    expect(normalizedToReleaseMs(0.5)).toBeGreaterThan(149)
+    expect(normalizedToReleaseMs(0.5)).toBeLessThan(151)
+  })
+  it('raw=0.750 → 427 ms (±1 ms) [guided anchor]', () => {
+    expect(normalizedToReleaseMs(0.75)).toBeGreaterThan(426)
+    expect(normalizedToReleaseMs(0.75)).toBeLessThan(428)
+  })
+  it('legacy checkpoint raw=0.720 → 384 ms [2026-07-02 anchor]', () => {
     expect(normalizedToReleaseMs(0.7200873)).toBeCloseTo(384, 0)
   })
   it('32R all-max: raw=1.0 → 900 ms [empirical anchor, exact]', () => {
     expect(normalizedToReleaseMs(1.0)).toBeCloseTo(900, 0)
   })
-  it('raw=0.5 → ~150 ms (±10 ms) [32SC shows 162ms, ~7% device variation]', () => {
-    expect(normalizedToReleaseMs(0.5)).toBeGreaterThan(140)
-    expect(normalizedToReleaseMs(0.5)).toBeLessThan(165)
+  it('32SC checkpoint raw=0.365 → 67.5 ms (±2 ms)', () => {
+    expect(normalizedToReleaseMs(0.365)).toBeCloseTo(67.5, 0)
   })
   it('release is monotonically increasing', () => {
     expect(normalizedToReleaseMs(0.2)).toBeLessThan(normalizedToReleaseMs(0.5))
@@ -382,29 +467,43 @@ describe('normalizedToReleaseMs — CONFIRMED guided calibration (32R 2026-07-02
 // HIL: 50 + 1950*raw^1.583 ms on 32SC fw 3.4.0.111374 (Phase 2)
 // ---------------------------------------------------------------------------
 
-describe('normalizedToGateReleaseMs — calibrated_inferred (Phase 2, 32SC fw 3.4.0.111374)', () => {
-  it('raw=0 → 50ms (exact min)', () => {
+describe('normalizedToGateReleaseMs — guided calibration (32R dense anchors 2026-07-03)', () => {
+  it('raw=0.000 → 50.0 ms [guided anchor]', () => {
     expect(normalizedToGateReleaseMs(0)).toBeCloseTo(50, 0)
   })
-  it('raw=0.130 → 127ms (Ch9, ±2ms)', () => {
-    expect(normalizedToGateReleaseMs(0.130)).toBeCloseTo(127, 0)
+  it('raw=0.010 → 51.3 ms [guided anchor]', () => {
+    expect(normalizedToGateReleaseMs(0.010)).toBeCloseTo(51.3, 1)
   })
-  it('raw=0.180 → 179ms (Ch27, ±2ms)', () => {
+  it('raw=0.100 → 101 ms [guided anchor]', () => {
+    expect(normalizedToGateReleaseMs(0.100)).toBeCloseTo(101, 0)
+  })
+  it('raw=0.250 → 267 ms [guided anchor]', () => {
+    expect(normalizedToGateReleaseMs(0.250)).toBeCloseTo(267, 0)
+  })
+  it('raw=0.500 → 700 ms [guided anchor]', () => {
+    expect(normalizedToGateReleaseMs(0.500)).toBeGreaterThan(695)
+    expect(normalizedToGateReleaseMs(0.500)).toBeLessThan(706)
+  })
+  it('raw=0.750 → 1.29 s (1290 ms) [guided anchor]', () => {
+    expect(normalizedToGateReleaseMs(0.750)).toBeGreaterThan(1283)
+    expect(normalizedToGateReleaseMs(0.750)).toBeLessThan(1296)
+  })
+  it('raw=1.000 → 2.00 s (2000 ms) [guided anchor]', () => {
+    expect(normalizedToGateReleaseMs(1.0)).toBeCloseTo(2000, 0)
+  })
+  it('legacy checkpoint raw=0.180 → 179 ms [Phase 2]', () => {
     expect(normalizedToGateReleaseMs(0.180)).toBeCloseTo(179, 0)
   })
-  it('raw=0.260 → 281ms (±2ms)', () => {
+  it('legacy checkpoint raw=0.260 → 281 ms [Phase 2]', () => {
     expect(normalizedToGateReleaseMs(0.260)).toBeCloseTo(281, 0)
   })
-  it('raw=0.447 → 594ms (±5ms)', () => {
+  it('legacy checkpoint raw=0.447 → 594 ms [Phase 2]', () => {
     expect(normalizedToGateReleaseMs(0.447)).toBeGreaterThan(589)
     expect(normalizedToGateReleaseMs(0.447)).toBeLessThan(599)
   })
-  it('raw=0.880 → 1640ms (Ch10, ±5ms)', () => {
+  it('legacy checkpoint raw=0.880 → 1640 ms [Phase 2]', () => {
     expect(normalizedToGateReleaseMs(0.880)).toBeGreaterThan(1635)
     expect(normalizedToGateReleaseMs(0.880)).toBeLessThan(1648)
-  })
-  it('raw=1.0 → 2000ms (exact max)', () => {
-    expect(normalizedToGateReleaseMs(1.0)).toBeCloseTo(2000, 0)
   })
   it('gate release is monotonically increasing', () => {
     expect(normalizedToGateReleaseMs(0.2)).toBeLessThan(normalizedToGateReleaseMs(0.5))
