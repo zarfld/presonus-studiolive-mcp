@@ -1,6 +1,8 @@
 # Fat Channel Compressor Model Panel Specs
 
-This document defines a front-panel label baseline for uncalibrated Fat Channel compressor models.
+This document defines front-panel label baseline metadata for known Fat Channel compressor model IDs.
+
+The eight screenshot-derived add-on models are baseline-only. `STANDARD`, `TUBE`, and `FET` are also present for completeness and do not override existing calibrated mappings elsewhere in the domain layer.
 
 ## Scope and intent
 
@@ -49,3 +51,5 @@ Before any model-specific write mapping is used in production:
 3. Confirm model variants across supported mixer/firmware combinations.
 4. Add formula tests and confidence classification updates.
 5. Keep production write tools unchanged until those checks are complete.
+
+See the model-specific probe sequencing and class-by-class promotion rules in [docs/fat-channel-compressor-model-calibration-plan.md](docs/fat-channel-compressor-model-calibration-plan.md).
