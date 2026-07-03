@@ -22,7 +22,7 @@ import {
   normalizedToEqQ,
   compThresholdDbToNormalized,
   compMakeupDbToNormalized,
-  compRatioXToNormalized,
+  compRatioXToNormalizedByModel,
   attackMsToNormalized,
   releaseMsToNormalized,
   gateThresholdDbToNormalized,
@@ -30,7 +30,8 @@ import {
   limiterThresholdDbToNormalized,
   normalizedToCompThresholdDb,
   normalizedToCompMakeupDb,
-  normalizedToCompRatioX,
+  normalizedToCompRatioXByModel,
+  decodeCompressorModel,
   normalizedToAttackMs,
   normalizedToReleaseMs,
   normalizedToGateThresholdDb,
@@ -1997,12 +1998,29 @@ export function registerTools(
 
         const changes: ProposedChangeSet['changes'] = []
         const f = (suffix: string) => snap.flatState[`${channelId}${suffix}`]
+        const compModelRaw = f('.opt.compmodel.value')
+        const compModel = typeof compModelRaw === 'number' ? decodeCompressorModel(compModelRaw).normalized : undefined
 
         if (compressor) {
           if (compressor.enabled !== undefined) changes.push({ parameter: 'comp.enabled', rawKeyPath: `${channelId}.comp.on`, currentRawValue: typeof f('.comp.on') === 'number' ? f('.comp.on') as number : null, proposedRawValue: compressor.enabled ? 1 : 0, currentDisplayValue: String(f('.comp.on')), proposedDisplayValue: compressor.enabled ? 'on' : 'off' })
           if (compressor.thresholdDb !== undefined) changes.push({ parameter: 'comp.threshold', rawKeyPath: `${channelId}.comp.input`, currentRawValue: typeof f('.comp.input') === 'number' ? f('.comp.input') as number : null, proposedRawValue: compThresholdDbToNormalized(compressor.thresholdDb), currentDisplayValue: typeof f('.comp.input') === 'number' ? `${normalizedToCompThresholdDb(f('.comp.input') as number).toFixed(1)} dBFS` : '(unknown)', proposedDisplayValue: `${compressor.thresholdDb.toFixed(1)} dBFS` })
           if (compressor.makeupDb !== undefined) changes.push({ parameter: 'comp.makeup', rawKeyPath: `${channelId}.comp.output`, currentRawValue: typeof f('.comp.output') === 'number' ? f('.comp.output') as number : null, proposedRawValue: compMakeupDbToNormalized(compressor.makeupDb), currentDisplayValue: typeof f('.comp.output') === 'number' ? `${normalizedToCompMakeupDb(f('.comp.output') as number).toFixed(1)} dB` : '(unknown)', proposedDisplayValue: `${compressor.makeupDb.toFixed(1)} dB` })
-          if (compressor.ratioX !== undefined) changes.push({ parameter: 'comp.ratio', rawKeyPath: `${channelId}.comp.ratio`, currentRawValue: typeof f('.comp.ratio') === 'number' ? f('.comp.ratio') as number : null, proposedRawValue: compRatioXToNormalized(compressor.ratioX), currentDisplayValue: typeof f('.comp.ratio') === 'number' ? `${normalizedToCompRatioX(f('.comp.ratio') as number).toFixed(1)}×` : '(unknown)', proposedDisplayValue: `${compressor.ratioX.toFixed(1)}×` })
+          if (compressor.ratioX !== undefined) {
+            const currentRatioRaw = typeof f('.comp.ratio') === 'number' ? f('.comp.ratio') as number : null
+            const currentRatioX = currentRatioRaw !== null ? normalizedToCompRatioXByModel(currentRatioRaw, compModel) : undefined
+            const currentDisplay = currentRatioX === undefined
+              ? '(unknown)'
+              : (Number.isFinite(currentRatioX) ? `${currentRatioX.toFixed(1)}×` : 'ALL')
+
+            changes.push({
+              parameter: 'comp.ratio',
+              rawKeyPath: `${channelId}.comp.ratio`,
+              currentRawValue: currentRatioRaw,
+              proposedRawValue: compRatioXToNormalizedByModel(compressor.ratioX, compModel),
+              currentDisplayValue: currentDisplay,
+              proposedDisplayValue: Number.isFinite(compressor.ratioX) ? `${compressor.ratioX.toFixed(1)}×` : 'ALL',
+            })
+          }
           if (compressor.attackMs !== undefined) changes.push({ parameter: 'comp.attack', rawKeyPath: `${channelId}.comp.attack`, currentRawValue: typeof f('.comp.attack') === 'number' ? f('.comp.attack') as number : null, proposedRawValue: attackMsToNormalized(compressor.attackMs), currentDisplayValue: typeof f('.comp.attack') === 'number' ? `${normalizedToAttackMs(f('.comp.attack') as number).toFixed(0)} ms` : '(unknown)', proposedDisplayValue: `${compressor.attackMs.toFixed(0)} ms` })
           if (compressor.releaseMs !== undefined) changes.push({ parameter: 'comp.release', rawKeyPath: `${channelId}.comp.release`, currentRawValue: typeof f('.comp.release') === 'number' ? f('.comp.release') as number : null, proposedRawValue: releaseMsToNormalized(compressor.releaseMs), currentDisplayValue: typeof f('.comp.release') === 'number' ? `${normalizedToReleaseMs(f('.comp.release') as number).toFixed(0)} ms` : '(unknown)', proposedDisplayValue: `${compressor.releaseMs.toFixed(0)} ms` })
         }

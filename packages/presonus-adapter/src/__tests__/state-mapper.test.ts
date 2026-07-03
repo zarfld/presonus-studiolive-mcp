@@ -290,6 +290,12 @@ describe('extractFatChannelState', () => {
     expect(fat!.comp!.thresholdDb!).toBeLessThanOrEqual(0)
   })
 
+  it('FET comp ratio uses discrete button mapping (raw=0 -> 4:1)', () => {
+    const fat = extractFatChannelState(fatChannelFlat, 'line.ch1')
+    expect(fat!.compModel).toBe('FET')
+    expect(fat!.comp!.ratioX).toBe(4)
+  })
+
   it('gate expander mode is true (gate.expander=true)', () => {
     const fat = extractFatChannelState(fatChannelFlat, 'line.ch1')
     expect(fat!.gate!.expander).toBe(true)

@@ -366,12 +366,15 @@ describe('normalizedToAttackMs — guided calibration (32R dense anchors 2026-07
 // ---------------------------------------------------------------------------
 import {
   normalizedToCompRatioX,
+  normalizedToCompRatioXByModel,
+  normalizedToFetCompRatioX,
   normalizedToGateAttackMs,
   normalizedToReleaseMs,
   normalizedToGateReleaseMs,
   normalizedToDelayMs,
   normalizedToGateRangeDb,
   normalizedToLimiterThresholdDb,
+  compRatioXToNormalizedByModel,
   delayMsToNormalized,
 } from '../schemas/fat-channel.js'
 
@@ -432,31 +435,47 @@ describe('normalizedToCompRatioX — quadratic-log calibrated 10-anchor (32R 202
   })
 })
 
-// Comp ratio — guided dense re-validation (32R 2026-07-03)
-// Formula retained: 1 + exp(-0.0647 + 0.9332*x - 0.0481*x^2), x=ln(r/(1-r)).
-// HIL Evidence: captures/cal-32r-guided/comp-ratio-dense/comp-ratio.json
+// FET comp ratio — discrete button model (32R guided capture 2026-07-03)
+// HIL Evidence:
+// - captures/cal-32r-guided/fet-comp-ratio-dense/comp-ratio.json
+// - captures/cal-32r-guided/ratio-button-sweep-ordered/raw/summary.json
 
-describe('normalizedToCompRatioX — guided dense anchors (32R 2026-07-03)', () => {
-  it('raw=0.000 → 1.0:1 [guided anchor]', () => {
-    expect(normalizedToCompRatioX(0.000)).toBeCloseTo(1.0, 2)
+describe('normalizedToFetCompRatioX — guided discrete button anchors (32R 2026-07-03)', () => {
+  it('raw anchors map exactly to FET ratio buttons', () => {
+    expect(normalizedToFetCompRatioX(0.00)).toBe(4)
+    expect(normalizedToFetCompRatioX(0.25)).toBe(8)
+    expect(normalizedToFetCompRatioX(0.50)).toBe(12)
+    expect(normalizedToFetCompRatioX(0.75)).toBe(20)
+    expect(normalizedToFetCompRatioX(1.00)).toBe(Infinity) // ALL
   })
-  it('raw=0.010 → 1.0:1 [guided anchor]', () => {
-    expect(normalizedToCompRatioX(0.010)).toBeCloseTo(1.0, 1)
+
+  it('snaps intermediate raw values to nearest button by midpoint', () => {
+    expect(normalizedToFetCompRatioX(0.01)).toBe(4)
+    expect(normalizedToFetCompRatioX(0.10)).toBe(4)
+    expect(normalizedToFetCompRatioX(0.30)).toBe(8)
+    expect(normalizedToFetCompRatioX(0.60)).toBe(12)
+    expect(normalizedToFetCompRatioX(0.80)).toBe(20)
   })
-  it('raw=0.100 → 1.1:1 [guided anchor]', () => {
-    expect(normalizedToCompRatioX(0.100)).toBeCloseTo(1.1, 1)
+})
+
+describe('normalizedToCompRatioXByModel / compRatioXToNormalizedByModel — model-aware routing', () => {
+  it('uses discrete mapping when comp model is FET', () => {
+    expect(normalizedToCompRatioXByModel(0.0, 'FET')).toBe(4)
+    expect(normalizedToCompRatioXByModel(0.5, 'FET')).toBe(12)
+    expect(normalizedToCompRatioXByModel(1.0, 'FET')).toBe(Infinity)
   })
-  it('raw=0.250 → 1.3:1 [guided anchor]', () => {
-    expect(normalizedToCompRatioX(0.250)).toBeCloseTo(1.3, 1)
+
+  it('uses continuous STANDARD mapping for non-FET models', () => {
+    expect(normalizedToCompRatioXByModel(0.5, 'STANDARD')).toBeCloseTo(1.9, 1)
+    expect(normalizedToCompRatioXByModel(0.75, 'STANDARD')).toBeCloseTo(3.5, 1)
   })
-  it('raw=0.500 → 1.9:1 [guided anchor]', () => {
-    expect(normalizedToCompRatioX(0.500)).toBeCloseTo(1.9, 1)
-  })
-  it('raw=0.750 → 3.5:1 [guided anchor]', () => {
-    expect(normalizedToCompRatioX(0.750)).toBeCloseTo(3.5, 1)
-  })
-  it('raw=1.000 → limit (20:1 in UI), mapped as Infinity', () => {
-    expect(normalizedToCompRatioX(1.000)).toBe(Infinity)
+
+  it('inverse maps FET ratios to discrete raw states', () => {
+    expect(compRatioXToNormalizedByModel(4, 'FET')).toBe(0)
+    expect(compRatioXToNormalizedByModel(8, 'FET')).toBe(0.25)
+    expect(compRatioXToNormalizedByModel(12, 'FET')).toBe(0.5)
+    expect(compRatioXToNormalizedByModel(20, 'FET')).toBe(0.75)
+    expect(compRatioXToNormalizedByModel(Infinity, 'FET')).toBe(1)
   })
 })
 

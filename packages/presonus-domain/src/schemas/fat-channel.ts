@@ -712,6 +712,42 @@ export function normalizedToCompRatioX(raw: number): number {
 }
 
 /**
+ * FET comp ratio (discrete button model).
+ *
+ * GUIDED_CALIBRATION on 32R (line.ch11, 2026-07-03):
+ *   raw=0.000 -> 4:1
+ *   raw=0.250 -> 8:1
+ *   raw=0.500 -> 12:1
+ *   raw=0.750 -> 20:1
+ *   raw=1.000 -> ALL (Limit)
+ *
+ * UI is button-based, so this control is quantized to five raw states.
+ * Inputs between anchors are snapped to nearest button by midpoint thresholds.
+ *
+ * See:
+ * - captures/cal-32r-guided/fet-comp-ratio-dense/comp-ratio.json
+ * - captures/cal-32r-guided/ratio-button-sweep-ordered/raw/summary.json
+ */
+export function normalizedToFetCompRatioX(raw: number): number {
+  if (raw < 0.125) return 4
+  if (raw < 0.375) return 8
+  if (raw < 0.625) return 12
+  if (raw < 0.875) return 20
+  return Infinity
+}
+
+/**
+ * Model-aware comp ratio conversion.
+ *
+ * - FET: discrete button map (4, 8, 12, 20, ALL)
+ * - Others: continuous calibrated STANDARD curve
+ */
+export function normalizedToCompRatioXByModel(raw: number, compModel?: string): number {
+  if (compModel === 'FET') return normalizedToFetCompRatioX(raw)
+  return normalizedToCompRatioX(raw)
+}
+
+/**
  * STANDARD compressor attack time in ms.
  *
  * GUIDED_CALIBRATION on 32R (line.ch11, 2026-07-03), dense anchors:
@@ -1034,6 +1070,41 @@ export function compMakeupDbToNormalized(db: number): number {
 /** Comp ratio X → raw 0–1. PROBE_REQUIRED — provisional. */
 export function compRatioXToNormalized(ratioX: number): number {
   return Math.max(0, Math.min(1, (ratioX - 1) / 15))
+}
+
+/**
+ * FET comp ratio X → raw 0–1 (discrete button model).
+ *
+ * Snaps requested ratio to nearest FET button state:
+ *   4:1 -> 0.00, 8:1 -> 0.25, 12:1 -> 0.50, 20:1 -> 0.75, ALL/∞ -> 1.00
+ */
+export function fetCompRatioXToNormalized(ratioX: number): number {
+  if (!Number.isFinite(ratioX) || ratioX >= 21) return 1
+  const targets = [4, 8, 12, 20]
+  let best = targets[0]
+  let bestDist = Math.abs(ratioX - best)
+  for (const t of targets.slice(1)) {
+    const d = Math.abs(ratioX - t)
+    if (d < bestDist) {
+      best = t
+      bestDist = d
+    }
+  }
+  if (best === 4) return 0
+  if (best === 8) return 0.25
+  if (best === 12) return 0.5
+  return 0.75
+}
+
+/**
+ * Model-aware comp ratio de-normalization.
+ *
+ * - FET: discrete button map via nearest ratio state
+ * - Others: existing continuous provisional inverse
+ */
+export function compRatioXToNormalizedByModel(ratioX: number, compModel?: string): number {
+  if (compModel === 'FET') return fetCompRatioXToNormalized(ratioX)
+  return compRatioXToNormalized(ratioX)
 }
 
 /** Attack ms → raw 0–1. CALIBRATED_INFERRED (validated for 1–10 ms range only). */
