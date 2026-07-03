@@ -151,6 +151,9 @@ describe('production write guards — Fat Channel write safety', () => {
     // Why this exists: stale inverse helpers remain in code for future work,
     // but they must not be reachable via production MCP tool registration.
     expect(tools.has('prepare_fat_channel_change_set')).toBe(false)
+    expect(tools.has('prepare_fader_change_set')).toBe(false)
+    expect(tools.has('prepare_aux_send_change_set')).toBe(false)
+    expect(tools.has('propose_eq_change')).toBe(false)
     expect(tools.has('prepare_eq_change_set')).toBe(false)
     expect(tools.has('prepare_comp_change_set')).toBe(false)
     expect(tools.has('prepare_gate_change_set')).toBe(false)

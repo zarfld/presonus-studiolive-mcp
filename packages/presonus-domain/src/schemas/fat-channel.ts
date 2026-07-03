@@ -804,15 +804,7 @@ export function normalizedToAttackMs(raw: number): number {
  * See: captures/cal-32r-guided/gate-attack-dense/gate-attack.json
  */
 export function normalizedToGateAttackMs(raw: number): number {
-  const anchors: Array<{ raw: number; ms: number }> = [
-    { raw: 0.0, ms: 0.02 },
-    { raw: 0.01, ms: 0.02 },
-    { raw: 0.1, ms: 0.10 },
-    { raw: 0.25, ms: 0.47 },
-    { raw: 0.5, ms: 5.00 },
-    { raw: 0.75, ms: 50.1 },
-    { raw: 1.0, ms: 500.0 },
-  ]
+  const anchors = GATE_ATTACK_ANCHORS
   const first = anchors[0]!
   const last = anchors[anchors.length - 1]!
 
@@ -955,24 +947,7 @@ export function normalizedToGateThresholdDb(raw: number): number {
  *   EXPANDER mode remains unverified.
  */
 export function normalizedToGateRangeDb(raw: number): number {
-  const anchors: Array<{ raw: number; db: number }> = [
-    { raw: 0.0, db: -84.0 },
-    { raw: 0.1, db: -67.29 },
-    { raw: 0.25, db: -46.5 },
-    { raw: 0.5, db: -21.0 },
-    { raw: 0.55, db: -17.43 },
-    { raw: 0.6, db: -14.29 },
-    { raw: 0.625, db: -14.0 },
-    { raw: 0.65, db: -11.57 },
-    { raw: 0.7, db: -9.43 },
-    { raw: 0.75, db: -6.6 },
-    { raw: 0.8, db: -5.38 },
-    { raw: 0.85, db: -4.62 },
-    { raw: 0.875, db: -4.23 },
-    { raw: 0.9, db: -3.5 },
-    { raw: 0.95, db: -1.43 },
-    { raw: 1.0, db: 0.0 },
-  ]
+  const anchors = GATE_RANGE_DB_ANCHORS
   const first = anchors[0]!
   const last = anchors[anchors.length - 1]!
 
@@ -1037,6 +1012,35 @@ export function normalizedToKeyfilterHz(raw: number): number | 'off' {
   return 40 * Math.pow(400, raw)
 }
 
+const GATE_ATTACK_ANCHORS: Array<{ raw: number; ms: number }> = [
+  { raw: 0.0, ms: 0.02 },
+  { raw: 0.01, ms: 0.02 },
+  { raw: 0.1, ms: 0.10 },
+  { raw: 0.25, ms: 0.47 },
+  { raw: 0.5, ms: 5.00 },
+  { raw: 0.75, ms: 50.1 },
+  { raw: 1.0, ms: 500.0 },
+]
+
+const GATE_RANGE_DB_ANCHORS: Array<{ raw: number; db: number }> = [
+  { raw: 0.0, db: -84.0 },
+  { raw: 0.1, db: -67.29 },
+  { raw: 0.25, db: -46.5 },
+  { raw: 0.5, db: -21.0 },
+  { raw: 0.55, db: -17.43 },
+  { raw: 0.6, db: -14.29 },
+  { raw: 0.625, db: -14.0 },
+  { raw: 0.65, db: -11.57 },
+  { raw: 0.7, db: -9.43 },
+  { raw: 0.75, db: -6.6 },
+  { raw: 0.8, db: -5.38 },
+  { raw: 0.85, db: -4.62 },
+  { raw: 0.875, db: -4.23 },
+  { raw: 0.9, db: -3.5 },
+  { raw: 0.95, db: -1.43 },
+  { raw: 1.0, db: 0.0 },
+]
+
 // ---------------------------------------------------------------------------
 // Inverse de-normalization helpers (real units → raw 0–1 for write tools)
 // Confidence matches the forward function unless noted otherwise.
@@ -1070,22 +1074,64 @@ export function compThresholdDbToNormalized(db: number): number {
   return Math.max(0, Math.min(1, db / 56 + 1))
 }
 
-/**
- * Comp makeup dB → raw 0–1.
- * TODO(PROBE_REQUIRED): stale inverse helper still uses 27.6 slope while forward mapping is raw*28.0.
- * Keep Fat Channel production writes disabled until this inverse is re-calibrated.
- */
+/** Comp makeup dB → raw 0–1. GUIDED_CALIBRATION inverse of raw*28.0. */
 export function compMakeupDbToNormalized(db: number): number {
-  return Math.max(0, Math.min(1, db / 27.6))
+  return Math.max(0, Math.min(1, db / 28.0))
 }
 
 /**
- * Comp ratio X → raw 0–1.
- * TODO(PROBE_REQUIRED): stale inverse helper still linear while forward STANDARD ratio is quadratic-log.
- * Keep Fat Channel production writes disabled until model-aware inverse calibration is complete.
+ * STANDARD comp ratio X → raw 0–1.
+ * Uses monotonic numeric solve over normalizedToCompRatioX(raw).
+ * Handles ratio<=1 as 0 and Infinity/Limit as 1.
  */
+export function standardCompRatioXToNormalized(ratioX: number): number {
+  if (!Number.isFinite(ratioX)) return 1
+  if (ratioX <= 1) return 0
+
+  // Avoid the pathological tail near raw→1 where the quadratic-log fit bends down.
+  // Solve inside the calibrated finite domain [0, 0.99], then reserve raw=1 for Limit.
+  const hiFinite = 0.99
+  const maxFiniteRatio = normalizedToCompRatioX(hiFinite)
+  if (ratioX >= maxFiniteRatio) return 1
+
+  // Find a bracket [lo, hi] where f(lo) <= target <= f(hi).
+  // The calibrated domain is monotonic over practical control range.
+  const steps = 512
+  let lo = 0
+  let hi = hiFinite
+  let prevRaw = 0
+  let bracketFound = false
+
+  for (let i = 1; i <= steps; i++) {
+    const raw = (hiFinite * i) / steps
+    const val = normalizedToCompRatioX(raw)
+    if (val >= ratioX) {
+      lo = prevRaw
+      hi = raw
+      bracketFound = true
+      break
+    }
+    prevRaw = raw
+  }
+
+  if (!bracketFound) {
+    return 1
+  }
+
+  for (let i = 0; i < 48; i++) {
+    const mid = (lo + hi) / 2
+    const y = normalizedToCompRatioX(mid)
+    if (y < ratioX) lo = mid
+    else hi = mid
+  }
+
+  const solved = (lo + hi) / 2
+  return Math.max(0, Math.min(1, solved))
+}
+
+/** @deprecated Use standardCompRatioXToNormalized for STANDARD/TUBE models, or compRatioXToNormalizedByModel for model-aware behavior. */
 export function compRatioXToNormalized(ratioX: number): number {
-  return Math.max(0, Math.min(1, (ratioX - 1) / 15))
+  return standardCompRatioXToNormalized(ratioX)
 }
 
 /**
@@ -1120,28 +1166,60 @@ export function fetCompRatioXToNormalized(ratioX: number): number {
  */
 export function compRatioXToNormalizedByModel(ratioX: number, compModel?: string): number {
   if (compModel === 'FET') return fetCompRatioXToNormalized(ratioX)
-  return compRatioXToNormalized(ratioX)
+  return standardCompRatioXToNormalized(ratioX)
 }
 
 /**
- * Attack ms → raw 0–1.
- * TODO(PROBE_REQUIRED): stale inverse helper still uses legacy log formula; forward comp attack
- * now uses 0.20 + 149.8*raw^2.922 and gate attack uses a separate piecewise curve.
- * Keep Fat Channel production writes disabled until model-specific inverse helpers are updated.
+ * STANDARD comp attack ms → raw 0–1.
+ * Inverse of: 0.20 + 149.8*raw^2.922
  */
-export function attackMsToNormalized(ms: number): number {
-  const clamped = Math.max(0.2, ms)
-  return Math.log(clamped / 0.2) / 10.3
+export function compAttackMsToNormalized(ms: number): number {
+  const clamped = Math.max(0.2, Math.min(150, ms))
+  return Math.max(0, Math.min(1, Math.pow((clamped - 0.2) / 149.8, 1 / 2.922)))
 }
 
 /**
- * Release ms → raw 0–1.
- * TODO(PROBE_REQUIRED): stale inverse helper still linear (ms/2000) while forward comp release
- * uses 2.5 + 897.5*raw^2.605.
- * Keep Fat Channel production writes disabled until release inverse calibration is complete.
+ * STANDARD comp release ms → raw 0–1.
+ * Inverse of: 2.5 + 897.5*raw^2.605
  */
-export function releaseMsToNormalized(ms: number): number {
-  return Math.max(0, Math.min(1, ms / 2000))
+export function compReleaseMsToNormalized(ms: number): number {
+  const clamped = Math.max(2.5, Math.min(900, ms))
+  return Math.max(0, Math.min(1, Math.pow((clamped - 2.5) / 897.5, 1 / 2.605)))
+}
+
+/**
+ * Gate attack ms → raw 0–1.
+ * Piecewise inverse of normalizedToGateAttackMs using guided anchor table.
+ */
+export function gateAttackMsToNormalized(ms: number): number {
+  const anchors = GATE_ATTACK_ANCHORS
+  const first = anchors[0]!
+  const last = anchors[anchors.length - 1]!
+  if (ms <= first.ms) return first.raw
+  if (ms >= last.ms) return last.raw
+
+  for (let i = 1; i < anchors.length; i++) {
+    const left = anchors[i - 1]
+    const right = anchors[i]
+    if (!left || !right) continue
+    if (ms <= right.ms) {
+      const span = right.ms - left.ms
+      if (span <= 0) return right.raw
+      const t = (ms - left.ms) / span
+      return Math.max(0, Math.min(1, left.raw + t * (right.raw - left.raw)))
+    }
+  }
+
+  return last.raw
+}
+
+/**
+ * Gate release ms → raw 0–1.
+ * Inverse of: 50 + 1950*raw^1.583
+ */
+export function gateReleaseMsToNormalized(ms: number): number {
+  const clamped = Math.max(50, Math.min(2000, ms))
+  return Math.max(0, Math.min(1, Math.pow((clamped - 50) / 1950, 1 / 1.583)))
 }
 
 /** Delay ms → raw 0–1. GUIDED_CALIBRATION (32R, 2026-07-03). */
@@ -1156,15 +1234,41 @@ export function gateThresholdDbToNormalized(db: number): number {
 
 /**
  * Gate range dB → raw 0–1.
- * TODO(PROBE_REQUIRED): stale inverse helper still linear; forward gate range is now
- * a 16-anchor piecewise mapping for GATE mode only.
- * Keep Fat Channel production writes disabled until gate range inverse is re-derived.
+ * Piecewise inverse of normalizedToGateRangeDb using the guided 16-anchor table.
  */
 export function gateRangeDbToNormalized(rangeDb: number): number {
-  return Math.max(0, Math.min(1, rangeDb / -80))
+  const anchors = GATE_RANGE_DB_ANCHORS
+  const first = anchors[0]!
+  const last = anchors[anchors.length - 1]!
+  if (rangeDb <= first.db) return first.raw
+  if (rangeDb >= last.db) return last.raw
+
+  for (let i = 1; i < anchors.length; i++) {
+    const left = anchors[i - 1]
+    const right = anchors[i]
+    if (!left || !right) continue
+    if (rangeDb <= right.db) {
+      const span = right.db - left.db
+      if (span <= 0) return right.raw
+      const t = (rangeDb - left.db) / span
+      return Math.max(0, Math.min(1, left.raw + t * (right.raw - left.raw)))
+    }
+  }
+
+  return last.raw
 }
 
-/** Limiter threshold dBFS → raw 0–1. PROBE_REQUIRED — provisional. */
+/** Limiter threshold dBFS → raw 0–1. GUIDED_CALIBRATION inverse of (raw-1)*28. */
 export function limiterThresholdDbToNormalized(db: number): number {
-  return Math.max(0, Math.min(1, db / 20 + 1))
+  return Math.max(0, Math.min(1, db / 28 + 1))
+}
+
+/** @deprecated Use compAttackMsToNormalized (compressor) or gateAttackMsToNormalized (gate). */
+export function attackMsToNormalized(ms: number): number {
+  return compAttackMsToNormalized(ms)
+}
+
+/** @deprecated Use compReleaseMsToNormalized (compressor) or gateReleaseMsToNormalized (gate). */
+export function releaseMsToNormalized(ms: number): number {
+  return compReleaseMsToNormalized(ms)
 }

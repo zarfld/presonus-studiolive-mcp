@@ -374,7 +374,15 @@ import {
   normalizedToDelayMs,
   normalizedToGateRangeDb,
   normalizedToLimiterThresholdDb,
+  compMakeupDbToNormalized,
+  limiterThresholdDbToNormalized,
+  standardCompRatioXToNormalized,
+  fetCompRatioXToNormalized,
+  compAttackMsToNormalized,
+  compReleaseMsToNormalized,
+  gateReleaseMsToNormalized,
   compRatioXToNormalizedByModel,
+  gateRangeDbToNormalized,
   delayMsToNormalized,
 } from '../schemas/fat-channel.js'
 
@@ -675,6 +683,141 @@ describe('normalizedToLimiterThresholdDb — guided calibration (32R dense ancho
   })
   it('raw=1.000 → 0.00 dBFS (exact max)', () => {
     expect(normalizedToLimiterThresholdDb(1.0)).toBe(0)
+  })
+})
+
+describe('guided inverse helpers — calibrated forward/inverse alignment', () => {
+  it('compMakeupDbToNormalized matches guided forward anchors', () => {
+    const targets = [0.0, 0.28, 2.8, 7.0, 14.0, 21.0, 28.0]
+    for (const db of targets) {
+      expect(normalizedToCompMakeupDb(compMakeupDbToNormalized(db))).toBeCloseTo(db, 2)
+    }
+  })
+
+  it('limiterThresholdDbToNormalized matches guided forward anchors', () => {
+    const targets = [-28.0, -25.2, -21.0, -14.0, -7.7, -3.08, 0.0]
+    for (const db of targets) {
+      expect(normalizedToLimiterThresholdDb(limiterThresholdDbToNormalized(db))).toBeCloseTo(db, 2)
+    }
+  })
+
+  it('compAttackMsToNormalized matches guided forward anchors', () => {
+    const targets = [0.20, 0.38, 2.82, 20.0, 64.9, 150.0]
+    for (const ms of targets) {
+      expect(normalizedToAttackMs(compAttackMsToNormalized(ms))).toBeCloseTo(ms, 1)
+    }
+  })
+
+  it('compReleaseMsToNormalized matches guided forward anchors', () => {
+    const targets = [2.5, 4.73, 26.7, 150.0, 427.0, 900.0]
+    for (const ms of targets) {
+      expect(normalizedToReleaseMs(compReleaseMsToNormalized(ms))).toBeCloseTo(ms, 1)
+    }
+  })
+
+  it('gateReleaseMsToNormalized matches guided forward anchors', () => {
+    const targets = [50.0, 51.3, 101.0, 267.0, 700.0, 1290.0, 2000.0]
+    for (const ms of targets) {
+      expect(normalizedToGateReleaseMs(gateReleaseMsToNormalized(ms))).toBeCloseTo(ms, 1)
+    }
+  })
+
+  it('standardCompRatioXToNormalized tracks guided display anchors', () => {
+    const ratios = [1.2, 2.0, 2.5, 3.0, 4.5, 5.0, 6.0, 8.0, 10.0]
+    for (const ratio of ratios) {
+      expect(normalizedToCompRatioX(standardCompRatioXToNormalized(ratio))).toBeCloseTo(ratio, 1)
+    }
+  })
+})
+
+describe('guided inverse helpers — raw interior round-trips', () => {
+  it('round-trips makeup/limiter/attack/release for interior raw anchors', () => {
+    const raws = [0.1, 0.25, 0.5, 0.75, 0.9]
+    for (const raw of raws) {
+      expect(compMakeupDbToNormalized(normalizedToCompMakeupDb(raw))).toBeCloseTo(raw, 3)
+      expect(limiterThresholdDbToNormalized(normalizedToLimiterThresholdDb(raw))).toBeCloseTo(raw, 3)
+      expect(compAttackMsToNormalized(normalizedToAttackMs(raw))).toBeCloseTo(raw, 3)
+      expect(compReleaseMsToNormalized(normalizedToReleaseMs(raw))).toBeCloseTo(raw, 3)
+      expect(gateReleaseMsToNormalized(normalizedToGateReleaseMs(raw))).toBeCloseTo(raw, 3)
+    }
+  })
+
+  it('round-trips STANDARD comp ratio for interior raw anchors', () => {
+    const raws = [0.2, 0.4, 0.6, 0.8, 0.93]
+    for (const raw of raws) {
+      const ratio = normalizedToCompRatioX(raw)
+      expect(standardCompRatioXToNormalized(ratio)).toBeCloseTo(raw, 3)
+    }
+  })
+})
+
+describe('gateRangeDbToNormalized — piecewise inverse consistency', () => {
+  const anchors: Array<{ raw: number; db: number }> = [
+    { raw: 0.0, db: -84.0 },
+    { raw: 0.1, db: -67.29 },
+    { raw: 0.25, db: -46.5 },
+    { raw: 0.5, db: -21.0 },
+    { raw: 0.55, db: -17.43 },
+    { raw: 0.6, db: -14.29 },
+    { raw: 0.625, db: -14.0 },
+    { raw: 0.65, db: -11.57 },
+    { raw: 0.7, db: -9.43 },
+    { raw: 0.75, db: -6.6 },
+    { raw: 0.8, db: -5.38 },
+    { raw: 0.85, db: -4.62 },
+    { raw: 0.875, db: -4.23 },
+    { raw: 0.9, db: -3.5 },
+    { raw: 0.95, db: -1.43 },
+    { raw: 1.0, db: 0.0 },
+  ]
+
+  it('is exact at guided anchors', () => {
+    for (const a of anchors) {
+      expect(gateRangeDbToNormalized(a.db)).toBeCloseTo(a.raw, 6)
+    }
+  })
+
+  it('inverse(forward(raw)) round-trips interior points', () => {
+    const raws = [0.58, 0.67, 0.73, 0.88]
+    for (const raw of raws) {
+      expect(gateRangeDbToNormalized(normalizedToGateRangeDb(raw))).toBeCloseTo(raw, 3)
+    }
+  })
+})
+
+describe('FET ratio inverse remains discrete', () => {
+  it('maps nearest ratio to discrete raw states', () => {
+    expect(fetCompRatioXToNormalized(4)).toBe(0)
+    expect(fetCompRatioXToNormalized(8)).toBe(0.25)
+    expect(fetCompRatioXToNormalized(12)).toBe(0.5)
+    expect(fetCompRatioXToNormalized(20)).toBe(0.75)
+    expect(fetCompRatioXToNormalized(Infinity)).toBe(1)
+    expect(fetCompRatioXToNormalized(11.2)).toBe(0.5)
+  })
+})
+
+describe('inverse helper clamping behavior', () => {
+  it('clamps makeup, limiter threshold, and ratio bounds', () => {
+    expect(compMakeupDbToNormalized(-1)).toBe(0)
+    expect(compMakeupDbToNormalized(30)).toBe(1)
+    expect(limiterThresholdDbToNormalized(-30)).toBe(0)
+    expect(limiterThresholdDbToNormalized(2)).toBe(1)
+    expect(standardCompRatioXToNormalized(1)).toBe(0)
+    expect(standardCompRatioXToNormalized(Infinity)).toBe(1)
+  })
+
+  it('clamps time-domain helpers to calibrated ranges', () => {
+    expect(compAttackMsToNormalized(-10)).toBe(0)
+    expect(compAttackMsToNormalized(1000)).toBe(1)
+    expect(compReleaseMsToNormalized(0)).toBe(0)
+    expect(compReleaseMsToNormalized(5000)).toBe(1)
+    expect(gateReleaseMsToNormalized(1)).toBe(0)
+    expect(gateReleaseMsToNormalized(5000)).toBe(1)
+  })
+
+  it('clamps piecewise gate range inverse at bounds', () => {
+    expect(gateRangeDbToNormalized(-999)).toBe(0)
+    expect(gateRangeDbToNormalized(999)).toBe(1)
   })
 })
 
