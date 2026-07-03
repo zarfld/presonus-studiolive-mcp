@@ -280,6 +280,7 @@ describe('normalizedToAttackMs — confirmed_3pt_32R_guided (2026-07-02)', () =>
 // ---------------------------------------------------------------------------
 import {
   normalizedToCompRatioX,
+  normalizedToGateAttackMs,
   normalizedToReleaseMs,
   normalizedToGateReleaseMs,
   normalizedToGateRangeDb,
@@ -528,6 +529,44 @@ describe('normalizedToKeyfilterHz — guided calibration (32R dense anchors 2026
     for (let i = 1; i < vals.length; i++) {
       expect(vals[i]).toBeGreaterThan(vals[i - 1])
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Gate attack — guided calibration (32R dense anchors 2026-07-03)
+// ---------------------------------------------------------------------------
+
+describe('normalizedToGateAttackMs — guided calibration (32R dense anchors)', () => {
+  it('raw=0.000 -> 0.02 ms (exact min)', () => {
+    expect(normalizedToGateAttackMs(0.0)).toBeCloseTo(0.02, 3)
+  })
+  it('raw=0.010 -> 0.02 ms (low-end plateau)', () => {
+    expect(normalizedToGateAttackMs(0.01)).toBeCloseTo(0.02, 3)
+  })
+  it('raw=0.100 -> 0.10 ms (exact anchor)', () => {
+    expect(normalizedToGateAttackMs(0.1)).toBeCloseTo(0.10, 2)
+  })
+  it('raw=0.250 -> 0.47 ms (exact anchor)', () => {
+    expect(normalizedToGateAttackMs(0.25)).toBeCloseTo(0.47, 2)
+  })
+  it('raw=0.500 -> 5.00 ms (exact anchor)', () => {
+    expect(normalizedToGateAttackMs(0.5)).toBeCloseTo(5.00, 2)
+  })
+  it('raw=0.750 -> 50.1 ms (exact anchor)', () => {
+    expect(normalizedToGateAttackMs(0.75)).toBeCloseTo(50.1, 1)
+  })
+  it('raw=1.000 -> 500 ms (exact max)', () => {
+    expect(normalizedToGateAttackMs(1.0)).toBeCloseTo(500.0, 1)
+  })
+  it('is monotonically increasing across range', () => {
+    const vals = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0].map(normalizedToGateAttackMs)
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThanOrEqual(vals[i - 1])
+    }
+  })
+  it('clamps outside [0,1]', () => {
+    expect(normalizedToGateAttackMs(-0.1)).toBeCloseTo(0.02, 3)
+    expect(normalizedToGateAttackMs(1.5)).toBeCloseTo(500.0, 1)
   })
 })
 

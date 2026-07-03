@@ -664,7 +664,7 @@ export function normalizedToCompRatioX(raw: number): number {
 }
 
 /**
- * Comp/gate attack time in ms.
+ * STANDARD compressor attack time in ms.
  *
  * CONFIRMED by 3 pure 32R guided calibration anchors (2026-07-02):
  *   raw≈0     → 0.20 ms  (physical min stop, dump raw=0.000372; formula=0.215ms, rounds to 0.20)
@@ -679,8 +679,8 @@ export function normalizedToCompRatioX(raw: number): number {
  * when the user read 21.8ms from the display. The new formula correctly predicts
  * 1.37ms at raw=0.190 (reconciles Phase 1 measurement).
  *
- * ⚠️ INTERMEDIATE RANGE (raw 0.1–0.5): validated only at raw=0.525.
- *    Points at raw=0.25 and 0.75 not yet confirmed by guided calibration.
+ * ⚠️ This mapping is for COMPRESSOR attack only.
+ *    Gate attack has a different taper/range; use normalizedToGateAttackMs().
  * See: test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-extremes.json
  *      test/fixtures/32r/fat-channel/guided/comp-calibration-anchors-2026-07-02-50pct.json
  */
@@ -688,6 +688,50 @@ export function normalizedToAttackMs(raw: number): number {
   if (raw <= 0) return 0.20
   if (raw >= 1) return 150
   return 0.20 + 149.8 * Math.pow(raw, 2.922)
+}
+
+/**
+ * Gate attack time in ms.
+ *
+ * GUIDED_CALIBRATION on StudioLive 32R fw 3.4.0.111374 (2026-07-03):
+ *   raw=0.000 -> 0.02 ms
+ *   raw=0.010 -> 0.02 ms
+ *   raw=0.100 -> 0.10 ms
+ *   raw=0.250 -> 0.47 ms
+ *   raw=0.500 -> 5.00 ms
+ *   raw=0.750 -> 50.1 ms
+ *   raw=1.000 -> 500 ms
+ *
+ * A single compact analytic curve does not fit the low-end plateau and the
+ * decade-like mid/high taper well enough from current anchors, so use
+ * monotonic piecewise-linear interpolation across guided points.
+ *
+ * See: captures/cal-32r-guided/gate-attack-dense/gate-attack.json
+ */
+export function normalizedToGateAttackMs(raw: number): number {
+  const anchors: Array<{ raw: number; ms: number }> = [
+    { raw: 0.0, ms: 0.02 },
+    { raw: 0.01, ms: 0.02 },
+    { raw: 0.1, ms: 0.10 },
+    { raw: 0.25, ms: 0.47 },
+    { raw: 0.5, ms: 5.00 },
+    { raw: 0.75, ms: 50.1 },
+    { raw: 1.0, ms: 500.0 },
+  ]
+
+  if (raw <= anchors[0].raw) return anchors[0].ms
+  if (raw >= anchors[anchors.length - 1].raw) return anchors[anchors.length - 1].ms
+
+  for (let i = 1; i < anchors.length; i++) {
+    const left = anchors[i - 1]
+    const right = anchors[i]
+    if (raw <= right.raw) {
+      const t = (raw - left.raw) / (right.raw - left.raw)
+      return left.ms + t * (right.ms - left.ms)
+    }
+  }
+
+  return anchors[anchors.length - 1].ms
 }
 
 /**
