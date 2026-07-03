@@ -16,3 +16,4 @@ export * from './schemas/line-check.js'   // LineCheckStepInput, LineCheckStepRe
 export * from './schemas/diagnosis.js'    // DiagnoseChannelInput, DiagnoseChannelResult
 export * from './schemas/mixauxes.js'     // includes AuxMix, AuxMixSend, AuxMixSummary, MonitorRequirements, AuxMixAuditResult
 export * from './schemas/input-list.js'  // InputListEntry, PatchSheetRow, InputListValidationResult, PatchSheetValidationResult
+export * from './schemas/compressor-panel-specs.js'  // front-panel label baselines for uncalibrated compressor models
