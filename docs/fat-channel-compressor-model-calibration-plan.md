@@ -136,6 +136,12 @@ Promote when all are true:
 - branch selection logic tested and deterministic
 - switching modes does not contaminate branch formulas
 
+### Unknown / mixed classes
+
+`continuous_or_stepped_unknown`, `discrete_or_continuous_unknown`, and `ratio_or_limiter_curve_unknown` must be resolved by probe evidence before formula promotion.
+
+Promote only when the observed behavior supports a single final class and the resulting control semantics are stable across repeated runs.
+
 ## Evidence and artifact checklist
 
 For each model/control pair:
@@ -144,7 +150,7 @@ For each model/control pair:
 - probe command used
 - UI evidence reference (screenshot/video note)
 - derived anchor table (raw, observed label, timestamp)
-- decision on class (continuous/discrete/qualitative/mode-dependent)
+- decision on final class, using the behavior class vocabulary above
 - promotion decision with confidence rationale
 
 ## Non-goals

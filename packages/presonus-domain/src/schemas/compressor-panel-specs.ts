@@ -5,14 +5,14 @@ export const PanelSourceSchema = z.literal('uc_surface_screenshot')
 export const PanelSourceConfidenceSchema = z.literal('visual_label_observed')
 export const PanelCalibrationStatusSchema = z.literal('front_panel_baseline_only')
 export const PanelMappingStatusSchema = z.literal('front_panel_labels_only')
-export const PanelCurrentValueSourceSchema = z.enum([
+export const CompressorPanelCurrentValueSourceSchema = z.enum([
   'exact_digital_readout',
   'exact_discrete_state',
   'visual_pointer_estimate',
   'qualitative_endpoint_only',
 ])
 
-export type PanelCurrentValueSource = z.infer<typeof PanelCurrentValueSourceSchema>
+export type CompressorPanelCurrentValueSource = z.infer<typeof CompressorPanelCurrentValueSourceSchema>
 
 export const KnobControlSpecSchema = z.object({
   controlType: z.literal('knob'),
@@ -20,7 +20,7 @@ export const KnobControlSpecSchema = z.object({
   label: z.string(),
   rawRange: z.tuple([z.literal(0), z.literal(1)]),
   panelScale: z.array(z.string()).min(1),
-  currentValueSource: PanelCurrentValueSourceSchema,
+  currentValueSource: CompressorPanelCurrentValueSourceSchema,
   notes: z.string().optional(),
 })
 
@@ -29,7 +29,7 @@ export const SwitchControlSpecSchema = z.object({
   controlId: z.string(),
   label: z.string(),
   states: z.array(z.string()).min(1),
-  currentValueSource: PanelCurrentValueSourceSchema,
+  currentValueSource: CompressorPanelCurrentValueSourceSchema,
   notes: z.string().optional(),
 })
 
@@ -38,7 +38,7 @@ export const DropdownControlSpecSchema = z.object({
   controlId: z.string(),
   label: z.string(),
   options: z.array(z.string()).min(1),
-  currentValueSource: PanelCurrentValueSourceSchema,
+  currentValueSource: CompressorPanelCurrentValueSourceSchema,
   notes: z.string().optional(),
 })
 
@@ -69,7 +69,7 @@ const knob = (
   controlId: string,
   label: string,
   panelScale: string[],
-  currentValueSource: PanelCurrentValueSource = 'visual_pointer_estimate',
+  currentValueSource: CompressorPanelCurrentValueSource = 'visual_pointer_estimate',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'knob',
@@ -85,7 +85,7 @@ const toggle = (
   controlId: string,
   label: string,
   states: string[],
-  currentValueSource: PanelCurrentValueSource = 'exact_discrete_state',
+  currentValueSource: CompressorPanelCurrentValueSource = 'exact_discrete_state',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'toggle',
@@ -100,7 +100,7 @@ const button = (
   controlId: string,
   label: string,
   states: string[],
-  currentValueSource: PanelCurrentValueSource = 'exact_discrete_state',
+  currentValueSource: CompressorPanelCurrentValueSource = 'exact_discrete_state',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'button',
@@ -115,7 +115,7 @@ const modeSelect = (
   controlId: string,
   label: string,
   states: string[],
-  currentValueSource: PanelCurrentValueSource = 'exact_discrete_state',
+  currentValueSource: CompressorPanelCurrentValueSource = 'exact_discrete_state',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'mode_select',
@@ -130,7 +130,7 @@ const dropdown = (
   controlId: string,
   label: string,
   options: string[],
-  currentValueSource: PanelCurrentValueSource = 'exact_discrete_state',
+  currentValueSource: CompressorPanelCurrentValueSource = 'exact_discrete_state',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'dropdown',
@@ -207,7 +207,7 @@ export const COMPRESSOR_PANEL_SPECS: Record<KnownCompressorModel, CompressorMode
     calibrationStatus: 'front_panel_baseline_only',
     mappingStatus: 'front_panel_labels_only',
     controls: [
-      knob('threshold', 'Threshold', ['.01', '.03', '.1', '.3', '1', '3'], 'Panel also shows BELOW/ABOVE indicators.'),
+      knob('threshold', 'Threshold', ['.01', '.03', '.1', '.3', '1', '3'], 'visual_pointer_estimate', 'Panel also shows BELOW/ABOVE indicators.'),
       knob('compression', 'Compression', ['1', '1.5', '2', '3', '4', '6', '10', '20', '∞']),
       knob('output_gain', 'Output Gain', ['-20', '-10', '0', '+10', '+20']),
     ],
@@ -226,7 +226,7 @@ export const COMPRESSOR_PANEL_SPECS: Record<KnownCompressorModel, CompressorMode
     mappingStatus: 'front_panel_labels_only',
     controls: [
       knob('threshold', 'Threshold', ['-20', '+20']),
-      knob('ratio', 'Ratio', ['2', '4', '10'], 'Panel shows intermediate ticks between labeled values.'),
+      knob('ratio', 'Ratio', ['2', '4', '10'], 'visual_pointer_estimate', 'Panel shows intermediate ticks between labeled values.'),
       knob('makeup', 'Makeup', ['0', '+15']),
       knob('attack', 'Attack', ['.1', '.3', '1', '3', '10', '30 ms']),
       knob('release', 'Release', ['.1', '.3', '.6', '1.2', 'AUTO seconds']),
@@ -242,7 +242,7 @@ export const COMPRESSOR_PANEL_SPECS: Record<KnownCompressorModel, CompressorMode
     calibrationStatus: 'front_panel_baseline_only',
     mappingStatus: 'front_panel_labels_only',
     controls: [
-      knob('threshold', 'Threshold', ['20', '16', '12', '8', '4', '0', '+4 dBu'], 'Sign/direction ambiguity is unresolved from panel labels alone; keep labels verbatim until probe verification.'),
+      knob('threshold', 'Threshold', ['20', '16', '12', '8', '4', '0', '+4 dBu'], 'visual_pointer_estimate', 'Sign/direction ambiguity is unresolved from panel labels alone; keep labels verbatim until probe verification.'),
       knob('recovery', 'Recovery', ['100', '400', '800', '1500', 'A1', 'A2 ms/auto labels']),
       knob('gain', 'Gain', ['0', '4', '8', '12', '16', '20 dBu']),
       knob('ratio', 'Ratio', ['1.5:1', '2:1', '3:1', '4:1', '6:1']),
@@ -316,7 +316,7 @@ export const COMPRESSOR_PANEL_SPECS: Record<KnownCompressorModel, CompressorMode
     ],
     switches: [
       toggle('processor', 'Processor', ['off', 'on']),
-      modeSelect('attack_release_select', 'Attack/Release Select', ['fixed', 'manual'], 'Attack/release knobs may be mode-dependent when fixed/manual changes.'),
+      modeSelect('attack_release_select', 'Attack/Release Select', ['fixed', 'manual'], 'exact_discrete_state', 'Attack/release knobs may be mode-dependent when fixed/manual changes.'),
       toggle('key', 'Key', ['off', 'on']),
     ],
     sidechain: [SC_DROPDOWN, KEY_FILTER],
