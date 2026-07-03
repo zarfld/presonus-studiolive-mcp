@@ -7,8 +7,9 @@
 | Metric | Count |
 |---|---|
 | Always-available tools | 34 |
-| Write-gated tools (require `writeEnabled: true`) | 10 |
-| Total tools | 44 |
+| Write-gated tools (require `writeEnabled: true`) | 6 |
+| Not-registered tools (declared but hard-disabled) | 4 |
+| Total tools | 40 |
 | Total resources | 14 |
 
 > **Note**: Write-gated tools are NOT registered in the default configuration
@@ -63,12 +64,8 @@
 | `get_fat_channel` | `always` | `inferred` | `read-only` | REQ-F-FAT-001 |
 | `validate_fat_channel_for_source` | `always` | `inferred` | `diagnostic` | REQ-F-FAT-002 |
 | `list_sub_groups` | `always` | `observed` | `read-only` | REQ-F-WRITE-005b #86 |
-| `propose_eq_change` | `write-gated` | `inferred` | `write-proposed` | ADR-006 (EQ de-normalization formulas unverified — changeSetConfidence: guessed) |
 | `apply_change_set` | `write-gated` | `inferred` | `write-applied` | ADR-006 |
 | `prepare_mute_change_set` | `write-gated` | `observed` | `write-proposed` | ADR-006 (mute key confirmed on 32SC) |
-| `prepare_fader_change_set` | `write-gated` | `inferred` | `write-proposed` | ADR-006 (fader taper not probe-confirmed — changeSetConfidence: guessed) |
-| `prepare_aux_send_change_set` | `write-gated` | `inferred` | `write-proposed` | ADR-006 (aux send key observed; de-normalization unverified — changeSetConfidence: inferred) |
-| `prepare_fat_channel_change_set` | `write-gated` | `inferred` | `write-proposed` | ADR-006 (all formulas guessed — changeSetConfidence: guessed) |
 | `validate_change_set` | `write-gated` | `observed` | `write-proposed` | ADR-006 |
 | `prepare_channel_rename_change_set` | `write-gated` | `observed` | `write-proposed` | REQ-F-WRITE-005a #86 (username key confirmed) |
 | `prepare_sub_group_membership_change_set` | `write-gated` | `observed` | `write-proposed` | REQ-F-WRITE-005c #86 (sub1-4 keys confirmed) |
@@ -92,3 +89,14 @@
 | `mixer-monitor-layout` | `presonus://mixer/{deviceId}/monitor-layout` | `inferred` | REQ-F-MON-001 (pair inference confidence=inferred until operator-confirmed) |
 | `mixer-output-patch-labels` | `presonus://mixer/{deviceId}/output-patch/labels` | `probe_required` | REQ-F-ROUT-010 (source names null until probe-routing diff --kind bus-to-output) |
 | `mixer-graph` | `presonus://mixer-graph/current` | `inferred` | #32 REQ-F-ROUT-002 |
+
+## Disabled / not registered tools
+
+These tool handlers are declared in source but intentionally unreachable in runtime registration.
+
+| Name | Availability | Confidence | Safety class | Traceability |
+|---|---|---|---|---|
+| `propose_eq_change` | `not_registered` | `inferred` | `write-proposed` | ADR-006 (EQ de-normalization formulas unverified — changeSetConfidence: guessed) |
+| `prepare_fader_change_set` | `not_registered` | `inferred` | `write-proposed` | ADR-006 (fader taper not probe-confirmed — changeSetConfidence: guessed) |
+| `prepare_aux_send_change_set` | `not_registered` | `inferred` | `write-proposed` | ADR-006 (aux send key observed; de-normalization unverified — changeSetConfidence: inferred) |
+| `prepare_fat_channel_change_set` | `not_registered` | `inferred` | `write-proposed` | ADR-006 (all formulas guessed — changeSetConfidence: guessed) |

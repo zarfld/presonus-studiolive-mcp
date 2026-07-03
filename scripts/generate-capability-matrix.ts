@@ -25,6 +25,10 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { PresonusClientManager } from '@presonus-mcp/adapter'
+import { registerTools } from '../packages/presonus-mcp-server/src/tools.js'
+import { registerResources } from '../packages/presonus-mcp-server/src/resources.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -43,6 +47,28 @@ function extractNamesFromSource(src: string, callPattern: RegExp): string[] {
       if (match?.[1]) names.push(match[1])
     }
   }
+  return names
+}
+
+function collectRegisteredToolNames(writeEnabled: boolean): string[] {
+  const names: string[] = []
+  const server = {
+    tool: (name: string) => {
+      names.push(name)
+    },
+  } as unknown as McpServer
+  registerTools(server, {} as PresonusClientManager, { writeEnabled })
+  return names
+}
+
+function collectRegisteredResourceNames(): string[] {
+  const names: string[] = []
+  const server = {
+    resource: (name: string) => {
+      names.push(name)
+    },
+  } as unknown as McpServer
+  registerResources(server, {} as PresonusClientManager)
   return names
 }
 
@@ -358,12 +384,29 @@ function run(): void {
   const toolsSrc     = readFileSync(resolve(ROOT, 'packages/presonus-mcp-server/src/tools.ts'), 'utf8')
   const resourcesSrc = readFileSync(resolve(ROOT, 'packages/presonus-mcp-server/src/resources.ts'), 'utf8')
 
-  const toolNames     = extractNamesFromSource(toolsSrc, /server\.tool\(/)
-  const resourceNames = extractNamesFromSource(resourcesSrc, /server\.resource\(/)
+  const declaredToolNames = extractNamesFromSource(toolsSrc, /server\.tool\(/)
+  const declaredResourceNames = extractNamesFromSource(resourcesSrc, /server\.resource\(/)
+
+  const defaultRegisteredToolNames = collectRegisteredToolNames(false)
+  const writeEnabledRegisteredToolNames = collectRegisteredToolNames(true)
+  const writeEnabledRegisteredToolSet = new Set(writeEnabledRegisteredToolNames)
+  const defaultRegisteredToolSet = new Set(defaultRegisteredToolNames)
+  const writeGatedToolSet = new Set(
+    writeEnabledRegisteredToolNames.filter((n) => !defaultRegisteredToolSet.has(n)),
+  )
+
+  const activeToolNames = declaredToolNames.filter((n) => writeEnabledRegisteredToolSet.has(n))
+  const disabledToolNames = declaredToolNames.filter((n) => !writeEnabledRegisteredToolSet.has(n))
+
+  const registeredResourceNames = collectRegisteredResourceNames()
+  const registeredResourceSet = new Set(registeredResourceNames)
+  const activeResourceNames = declaredResourceNames.filter((n) => registeredResourceSet.has(n))
 
   // ── Validate metadata coverage ───────────────────────────────────────────
-  const missingToolMeta     = toolNames.filter((n) => !(n in TOOL_META))
-  const missingResourceMeta = resourceNames.filter((n) => !(n in RESOURCE_META))
+  const missingToolMeta     = declaredToolNames.filter((n) => !(n in TOOL_META))
+  const missingResourceMeta = declaredResourceNames.filter((n) => !(n in RESOURCE_META))
+  const orphanedToolMeta = Object.keys(TOOL_META).filter((n) => !declaredToolNames.includes(n))
+  const orphanedResourceMeta = Object.keys(RESOURCE_META).filter((n) => !declaredResourceNames.includes(n))
   if (missingToolMeta.length > 0) {
     console.warn(`[inventory] WARNING: No metadata for tools: ${missingToolMeta.join(', ')}`)
     console.warn('[inventory] Add entries to TOOL_META in scripts/generate-capability-matrix.ts')
@@ -372,19 +415,49 @@ function run(): void {
     console.warn(`[inventory] WARNING: No metadata for resources: ${missingResourceMeta.join(', ')}`)
     console.warn('[inventory] Add entries to RESOURCE_META in scripts/generate-capability-matrix.ts')
   }
+  if (orphanedToolMeta.length > 0) {
+    console.warn(`[inventory] WARNING: Orphaned TOOL_META entries not found in tools.ts: ${orphanedToolMeta.join(', ')}`)
+  }
+  if (orphanedResourceMeta.length > 0) {
+    console.warn(`[inventory] WARNING: Orphaned RESOURCE_META entries not found in resources.ts: ${orphanedResourceMeta.join(', ')}`)
+  }
 
   // ── Build inventory structures ───────────────────────────────────────────
-  const tools = toolNames.map((name) => {
+  const tools = activeToolNames.map((name) => {
     const meta = TOOL_META[name] ?? {
       defaultAvailability: 'always',
       confidence: 'missing',
       safetyClass: 'read-only' as const,
       traceability: 'missing',
     }
-    return { name, kind: 'tool' as const, ...meta }
+    return {
+      name,
+      kind: 'tool' as const,
+      defaultAvailability: writeGatedToolSet.has(name) ? 'write-gated' as const : 'always' as const,
+      confidence: meta.confidence,
+      safetyClass: meta.safetyClass,
+      traceability: meta.traceability,
+    }
   })
 
-  const resources = resourceNames.map((name) => {
+  const disabledTools = disabledToolNames.map((name) => {
+    const meta = TOOL_META[name] ?? {
+      defaultAvailability: 'write-gated',
+      confidence: 'planned',
+      safetyClass: 'stub' as const,
+      traceability: 'not documented',
+    }
+    return {
+      name,
+      kind: 'tool' as const,
+      availability: 'not_registered' as const,
+      confidence: meta.confidence,
+      safetyClass: meta.safetyClass,
+      traceability: meta.traceability,
+    }
+  })
+
+  const resources = activeResourceNames.map((name) => {
     const meta = RESOURCE_META[name] ?? {
       uriTemplate: 'unknown',
       confidence: 'missing',
@@ -400,9 +473,11 @@ function run(): void {
       totalTools: tools.length,
       alwaysAvailableTools: tools.filter((t) => t.defaultAvailability === 'always').length,
       writeGatedTools: tools.filter((t) => t.defaultAvailability === 'write-gated').length,
+      disabledTools: disabledTools.length,
       totalResources: resources.length,
     },
     tools,
+    disabledTools,
     resources,
   }
 
@@ -430,7 +505,7 @@ function run(): void {
 // ---------------------------------------------------------------------------
 
 function buildMarkdown(inventory: ReturnType<typeof buildInventory>): string {
-  const { summary, tools, resources } = inventory
+  const { summary, tools, disabledTools, resources } = inventory
 
   const toolRows = tools.map((t) => {
     const avail = t.defaultAvailability === 'write-gated' ? '`write-gated`' : '`always`'
@@ -439,6 +514,10 @@ function buildMarkdown(inventory: ReturnType<typeof buildInventory>): string {
 
   const resourceRows = resources.map((r) => {
     return `| \`${r.name}\` | \`${r.uriTemplate}\` | \`${r.confidence}\` | ${r.traceability} |`
+  })
+
+  const disabledRows = disabledTools.map((t) => {
+    return `| \`${t.name}\` | \`not_registered\` | \`${t.confidence}\` | \`${t.safetyClass}\` | ${t.traceability} |`
   })
 
   return `# MCP Capability Matrix
@@ -451,6 +530,7 @@ function buildMarkdown(inventory: ReturnType<typeof buildInventory>): string {
 |---|---|
 | Always-available tools | ${summary.alwaysAvailableTools} |
 | Write-gated tools (require \`writeEnabled: true\`) | ${summary.writeGatedTools} |
+| Not-registered tools (declared but hard-disabled) | ${summary.disabledTools} |
 | Total tools | ${summary.totalTools} |
 | Total resources | ${summary.totalResources} |
 
@@ -479,6 +559,14 @@ ${toolRows.join('\n')}
 | Name | URI template | Confidence | Traceability |
 |---|---|---|---|
 ${resourceRows.join('\n')}
+
+## Disabled / not registered tools
+
+These tool handlers are declared in source but intentionally unreachable in runtime registration.
+
+| Name | Availability | Confidence | Safety class | Traceability |
+|---|---|---|---|---|
+${disabledRows.join('\n')}
 `
 }
 
@@ -486,6 +574,7 @@ ${resourceRows.join('\n')}
 function buildInventory(inventory: {
   generatedBy: string; note: string; summary: Record<string, number>;
   tools: Array<{ name: string; defaultAvailability: string; confidence: string; safetyClass: string; traceability: string }>
+  disabledTools: Array<{ name: string; availability: string; confidence: string; safetyClass: string; traceability: string }>
   resources: Array<{ name: string; uriTemplate: string; confidence: string; traceability: string }>
 }) { return inventory }
 

@@ -2,9 +2,10 @@
   "generatedBy": "scripts/generate-capability-matrix.ts",
   "note": "Auto-generated. Do not edit manually. Run `pnpm inventory` to regenerate.",
   "summary": {
-    "totalTools": 44,
+    "totalTools": 40,
     "alwaysAvailableTools": 34,
-    "writeGatedTools": 10,
+    "writeGatedTools": 6,
+    "disabledTools": 4,
     "totalResources": 14
   },
   "tools": [
@@ -281,14 +282,6 @@
       "traceability": "REQ-F-WRITE-005b #86"
     },
     {
-      "name": "propose_eq_change",
-      "kind": "tool",
-      "defaultAvailability": "write-gated",
-      "confidence": "inferred",
-      "safetyClass": "write-proposed",
-      "traceability": "ADR-006 (EQ de-normalization formulas unverified — changeSetConfidence: guessed)"
-    },
-    {
       "name": "apply_change_set",
       "kind": "tool",
       "defaultAvailability": "write-gated",
@@ -303,30 +296,6 @@
       "confidence": "observed",
       "safetyClass": "write-proposed",
       "traceability": "ADR-006 (mute key confirmed on 32SC)"
-    },
-    {
-      "name": "prepare_fader_change_set",
-      "kind": "tool",
-      "defaultAvailability": "write-gated",
-      "confidence": "inferred",
-      "safetyClass": "write-proposed",
-      "traceability": "ADR-006 (fader taper not probe-confirmed — changeSetConfidence: guessed)"
-    },
-    {
-      "name": "prepare_aux_send_change_set",
-      "kind": "tool",
-      "defaultAvailability": "write-gated",
-      "confidence": "inferred",
-      "safetyClass": "write-proposed",
-      "traceability": "ADR-006 (aux send key observed; de-normalization unverified — changeSetConfidence: inferred)"
-    },
-    {
-      "name": "prepare_fat_channel_change_set",
-      "kind": "tool",
-      "defaultAvailability": "write-gated",
-      "confidence": "inferred",
-      "safetyClass": "write-proposed",
-      "traceability": "ADR-006 (all formulas guessed — changeSetConfidence: guessed)"
     },
     {
       "name": "validate_change_set",
@@ -359,6 +328,40 @@
       "confidence": "observed",
       "safetyClass": "write-proposed",
       "traceability": "REQ-F-WRITE-005d #86 (assign_auxN key confirmed)"
+    }
+  ],
+  "disabledTools": [
+    {
+      "name": "propose_eq_change",
+      "kind": "tool",
+      "availability": "not_registered",
+      "confidence": "inferred",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (EQ de-normalization formulas unverified — changeSetConfidence: guessed)"
+    },
+    {
+      "name": "prepare_fader_change_set",
+      "kind": "tool",
+      "availability": "not_registered",
+      "confidence": "inferred",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (fader taper not probe-confirmed — changeSetConfidence: guessed)"
+    },
+    {
+      "name": "prepare_aux_send_change_set",
+      "kind": "tool",
+      "availability": "not_registered",
+      "confidence": "inferred",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (aux send key observed; de-normalization unverified — changeSetConfidence: inferred)"
+    },
+    {
+      "name": "prepare_fat_channel_change_set",
+      "kind": "tool",
+      "availability": "not_registered",
+      "confidence": "inferred",
+      "safetyClass": "write-proposed",
+      "traceability": "ADR-006 (all formulas guessed — changeSetConfidence: guessed)"
     }
   ],
   "resources": [
