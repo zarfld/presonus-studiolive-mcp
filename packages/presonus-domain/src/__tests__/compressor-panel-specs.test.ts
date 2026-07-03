@@ -35,6 +35,14 @@ describe('compressor front-panel baseline specs', () => {
     }
   })
 
+  it('every control declares currentValueSource', () => {
+    for (const spec of Object.values(COMPRESSOR_PANEL_SPECS)) {
+      for (const control of [...spec.controls, ...spec.switches, ...spec.sidechain]) {
+        expect(control.currentValueSource).toBeDefined()
+      }
+    }
+  })
+
   it('every knob declares rawRange [0,1]', () => {
     for (const spec of Object.values(COMPRESSOR_PANEL_SPECS)) {
       const all = [...spec.controls, ...spec.switches, ...spec.sidechain]
@@ -50,7 +58,7 @@ describe('compressor front-panel baseline specs', () => {
     for (const spec of Object.values(COMPRESSOR_PANEL_SPECS)) {
       expect(spec.sidechain.length).toBeGreaterThan(0)
       expect(spec.sidechain.some((c) => c.controlId === 'sidechain_input')).toBe(true)
-      expect(spec.sidechain.some((c) => c.controlId === 'key_filter')).toBe(true)
+      expect(spec.controls.some((c) => c.controlId === 'key_filter') || spec.sidechain.some((c) => c.controlId === 'key_filter')).toBe(true)
     }
   })
 
@@ -96,6 +104,52 @@ describe('compressor front-panel baseline specs', () => {
     expect(threshold).toBeDefined()
     expect(threshold?.notes?.toLowerCase()).toContain('ambiguity')
   })
+
+  it('TUBE has gain and peak_reduction with exact_digital_readout', () => {
+    const tube = COMPRESSOR_PANEL_SPECS.TUBE
+    const gain = tube.controls.find((c) => c.controlId === 'gain')
+    const peakReduction = tube.controls.find((c) => c.controlId === 'peak_reduction')
+    expect(gain?.currentValueSource).toBe('exact_digital_readout')
+    expect(peakReduction?.currentValueSource).toBe('exact_digital_readout')
+  })
+
+  it('TUBE has Limit/Comp switch', () => {
+    const tube = COMPRESSOR_PANEL_SPECS.TUBE
+    const limitComp = tube.switches.find((c) => c.controlId === 'limit_comp')
+    expect(limitComp).toBeDefined()
+    expect(limitComp?.controlType).toBe('toggle')
+    if (limitComp?.controlType === 'toggle') {
+      expect(limitComp.states).toEqual(['Limit', 'Comp'])
+    }
+  })
+
+  it('FET has input/output exact_digital_readout', () => {
+    const fet = COMPRESSOR_PANEL_SPECS.FET
+    const input = fet.controls.find((c) => c.controlId === 'input')
+    const output = fet.controls.find((c) => c.controlId === 'output')
+    expect(input?.currentValueSource).toBe('exact_digital_readout')
+    expect(output?.currentValueSource).toBe('exact_digital_readout')
+  })
+
+  it('FET ratio states include 20:1, 12:1, 8:1, 4:1, All', () => {
+    const fet = COMPRESSOR_PANEL_SPECS.FET
+    const ratio = fet.controls.find((c) => c.controlId === 'ratio')
+    expect(ratio).toBeDefined()
+    expect(ratio?.controlType).toBe('mode_select')
+    if (ratio?.controlType === 'mode_select') {
+      expect(ratio.states).toEqual(['20:1', '12:1', '8:1', '4:1', 'All'])
+    }
+  })
+
+  it('FET attack/release are visual_pointer_estimate, not exact_digital_readout', () => {
+    const fet = COMPRESSOR_PANEL_SPECS.FET
+    const attack = fet.controls.find((c) => c.controlId === 'attack')
+    const release = fet.controls.find((c) => c.controlId === 'release')
+    expect(attack?.currentValueSource).toBe('visual_pointer_estimate')
+    expect(release?.currentValueSource).toBe('visual_pointer_estimate')
+    expect(attack?.currentValueSource).not.toBe('exact_digital_readout')
+    expect(release?.currentValueSource).not.toBe('exact_digital_readout')
+  })
 })
 
 describe('safety: panel specs are not consumed by production write tools', () => {
@@ -107,5 +161,15 @@ describe('safety: panel specs are not consumed by production write tools', () =>
 
     expect(src.includes('compressor-panel-specs')).toBe(false)
     expect(src.includes('COMPRESSOR_PANEL_SPECS')).toBe(false)
+  })
+
+  it('write tool registration controls remain in tools.ts', () => {
+    const __dirname = fileURLToPath(new URL('.', import.meta.url))
+    const root = resolve(__dirname, '../../../../')
+    const toolsPath = resolve(root, 'packages/presonus-mcp-server/src/tools.ts')
+    const src = readFileSync(toolsPath, 'utf8')
+
+    expect(src.includes('if (config.writeEnabled)')).toBe(true)
+    expect(src.includes('hard-disabled')).toBe(true)
   })
 })

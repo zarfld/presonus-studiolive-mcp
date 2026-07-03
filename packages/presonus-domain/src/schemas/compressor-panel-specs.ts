@@ -5,6 +5,14 @@ export const PanelSourceSchema = z.literal('uc_surface_screenshot')
 export const PanelSourceConfidenceSchema = z.literal('visual_label_observed')
 export const PanelCalibrationStatusSchema = z.literal('front_panel_baseline_only')
 export const PanelMappingStatusSchema = z.literal('front_panel_labels_only')
+export const PanelCurrentValueSourceSchema = z.enum([
+  'exact_digital_readout',
+  'exact_discrete_state',
+  'visual_pointer_estimate',
+  'qualitative_endpoint_only',
+])
+
+export type PanelCurrentValueSource = z.infer<typeof PanelCurrentValueSourceSchema>
 
 export const KnobControlSpecSchema = z.object({
   controlType: z.literal('knob'),
@@ -12,6 +20,7 @@ export const KnobControlSpecSchema = z.object({
   label: z.string(),
   rawRange: z.tuple([z.literal(0), z.literal(1)]),
   panelScale: z.array(z.string()).min(1),
+  currentValueSource: PanelCurrentValueSourceSchema,
   notes: z.string().optional(),
 })
 
@@ -20,6 +29,7 @@ export const SwitchControlSpecSchema = z.object({
   controlId: z.string(),
   label: z.string(),
   states: z.array(z.string()).min(1),
+  currentValueSource: PanelCurrentValueSourceSchema,
   notes: z.string().optional(),
 })
 
@@ -28,6 +38,7 @@ export const DropdownControlSpecSchema = z.object({
   controlId: z.string(),
   label: z.string(),
   options: z.array(z.string()).min(1),
+  currentValueSource: PanelCurrentValueSourceSchema,
   notes: z.string().optional(),
 })
 
@@ -58,6 +69,7 @@ const knob = (
   controlId: string,
   label: string,
   panelScale: string[],
+  currentValueSource: PanelCurrentValueSource = 'visual_pointer_estimate',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'knob',
@@ -65,6 +77,7 @@ const knob = (
   label,
   rawRange: [0, 1],
   panelScale,
+  currentValueSource,
   notes,
 })
 
@@ -72,12 +85,14 @@ const toggle = (
   controlId: string,
   label: string,
   states: string[],
+  currentValueSource: PanelCurrentValueSource = 'exact_discrete_state',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'toggle',
   controlId,
   label,
   states,
+  currentValueSource,
   notes,
 })
 
@@ -85,12 +100,14 @@ const button = (
   controlId: string,
   label: string,
   states: string[],
+  currentValueSource: PanelCurrentValueSource = 'exact_discrete_state',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'button',
   controlId,
   label,
   states,
+  currentValueSource,
   notes,
 })
 
@@ -98,12 +115,14 @@ const modeSelect = (
   controlId: string,
   label: string,
   states: string[],
+  currentValueSource: PanelCurrentValueSource = 'exact_discrete_state',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'mode_select',
   controlId,
   label,
   states,
+  currentValueSource,
   notes,
 })
 
@@ -111,17 +130,19 @@ const dropdown = (
   controlId: string,
   label: string,
   options: string[],
+  currentValueSource: PanelCurrentValueSource = 'exact_discrete_state',
   notes?: string,
 ): CompressorPanelControlSpec => ({
   controlType: 'dropdown',
   controlId,
   label,
   options,
+  currentValueSource,
   notes,
 })
 
-const SC_DROPDOWN = dropdown('sidechain_input', 'Side-Chain Input', ['dropdown'], 'Panel shows a source selector; option labels vary by routing context.')
-const KEY_FILTER = knob('key_filter', 'Key Filter', ['40 Hz', '16 kHz'])
+const SC_DROPDOWN = dropdown('sidechain_input', 'Side-Chain Input', ['dropdown'], 'exact_discrete_state', 'Panel shows a source selector; option labels vary by routing context.')
+const KEY_FILTER = knob('key_filter', 'Key Filter', ['40 Hz', '16 kHz'], 'visual_pointer_estimate')
 
 export const COMPRESSOR_PANEL_SPECS: Record<KnownCompressorModel, CompressorModelPanelSpec> = {
   STANDARD: {
@@ -138,27 +159,45 @@ export const COMPRESSOR_PANEL_SPECS: Record<KnownCompressorModel, CompressorMode
   },
   TUBE: {
     modelId: 'TUBE',
-    displayName: 'Tube',
+    displayName: 'Tube Comp',
     source: 'uc_surface_screenshot',
     sourceConfidence: 'visual_label_observed',
     calibrationStatus: 'front_panel_baseline_only',
     mappingStatus: 'front_panel_labels_only',
-    controls: [],
-    switches: [],
-    sidechain: [SC_DROPDOWN, KEY_FILTER],
-    notes: ['Tube model panel labels are sparse in this baseline set. Calibration remains pending.'],
+    controls: [
+      knob('gain', 'Gain', ['0', '100'], 'exact_digital_readout', 'UI shows numeric readout, example 40.00'),
+      knob('peak_reduction', 'Peak Reduction', ['0', '100'], 'exact_digital_readout', 'UI shows numeric readout, example 0.00'),
+      knob('key_filter', 'Key Filter', ['off', '16 kHz'], 'exact_digital_readout', 'UI shows readout, example off'),
+    ],
+    switches: [
+      toggle('processor', 'Processor', ['off', 'on']),
+      toggle('limit_comp', 'Limit/Comp', ['Limit', 'Comp']),
+      button('key_listen', 'Key Listen', ['off', 'on']),
+    ],
+    sidechain: [SC_DROPDOWN],
+    notes: ['TUBE model has known formula behavior elsewhere in domain mapping; this panel entry is descriptive baseline metadata only and does not override calibrated formulas.'],
   },
   FET: {
     modelId: 'FET',
-    displayName: 'FET',
+    displayName: 'FET Comp',
     source: 'uc_surface_screenshot',
     sourceConfidence: 'visual_label_observed',
     calibrationStatus: 'front_panel_baseline_only',
     mappingStatus: 'front_panel_labels_only',
-    controls: [knob('ratio_buttons', 'Ratio Buttons', ['4:1', '8:1', '12:1', '20:1', 'ALL'], 'FET ratio is stepped/discrete.')],
-    switches: [],
-    sidechain: [SC_DROPDOWN, KEY_FILTER],
-    notes: ['FET ratio is already known discrete in current model mapping; this remains front-panel baseline metadata only.'],
+    controls: [
+      knob('input', 'Input', ['-56 dB', '0 dB'], 'exact_digital_readout', 'UI shows numeric readout, example -43.00 dB'),
+      knob('output', 'Output', ['-56 dB', '0 dB'], 'exact_digital_readout', 'UI shows numeric readout, example 0.00 dB'),
+      knob('attack', 'Attack', ['.8 ms', '.02 ms'], 'visual_pointer_estimate', 'Label direction may be reversed; verify by HIL before formula use'),
+      knob('release', 'Release', ['1.1 sec', '50 ms'], 'visual_pointer_estimate', 'Label direction may be reversed; verify by HIL before formula use'),
+      modeSelect('ratio', 'Ratio', ['20:1', '12:1', '8:1', '4:1', 'All'], 'exact_discrete_state'),
+      knob('key_filter', 'Key Filter', ['off', '16 kHz'], 'exact_digital_readout', 'UI shows readout, example off'),
+    ],
+    switches: [
+      toggle('processor', 'Processor', ['off', 'on']),
+      button('key_listen', 'Key Listen', ['off', 'on']),
+    ],
+    sidechain: [SC_DROPDOWN],
+    notes: ['FET model has known formula behavior elsewhere in domain mapping; this panel entry is descriptive baseline metadata only and does not override calibrated formulas.'],
   },
   COMP_160: {
     modelId: 'COMP_160',

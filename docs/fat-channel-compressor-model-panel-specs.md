@@ -4,6 +4,12 @@ This document defines front-panel label baseline metadata for known Fat Channel 
 
 The eight screenshot-derived add-on models are baseline-only. `STANDARD`, `TUBE`, and `FET` are also present for completeness and do not override existing calibrated mappings elsewhere in the domain layer.
 
+## Known calibrated/partly calibrated models
+
+`TUBE` and `FET` are included as descriptive panel metadata for already-known models. Their front-panel entries are more complete in this baseline set, but they remain metadata only.
+
+This panel metadata does not override existing formula calibration in the domain mapping layer.
+
 ## Scope and intent
 
 - These specs are panel label baselines only.

@@ -31,6 +31,8 @@ The eight screenshot-derived models covered here are:
 - TUBE_CB
 - VT_1_COMPRESSOR
 
+`TUBE` and `FET` are intentionally not part of this eight-model uncalibrated screenshot calibration plan.
+
 ## Behavior class key
 
 - continuous: expected monotonic analog-style curve over raw 0..1
