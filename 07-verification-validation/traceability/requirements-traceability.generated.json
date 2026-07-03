@@ -1022,7 +1022,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 188
+          "line": 189
         }
       ],
       "verifies": [],
@@ -1058,7 +1058,7 @@
       "implements": [
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 244
+          "line": 245
         }
       ],
       "verifies": [],
@@ -1093,7 +1093,7 @@
       "implements": [
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 320
+          "line": 321
         }
       ],
       "verifies": [],
@@ -1130,7 +1130,7 @@
       "implements": [
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 363
+          "line": 364
         }
       ],
       "verifies": [],
@@ -1165,7 +1165,7 @@
       "implements": [
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 472
+          "line": 473
         }
       ],
       "verifies": [],
@@ -1326,7 +1326,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1442
+          "line": 1443
         }
       ],
       "verifies": [],
@@ -1374,7 +1374,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 815
+          "line": 816
         }
       ],
       "verifies": [
@@ -1415,7 +1415,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 850
+          "line": 851
         }
       ],
       "verifies": [
@@ -1456,7 +1456,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 879
+          "line": 880
         }
       ],
       "verifies": [
@@ -1500,7 +1500,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 912
+          "line": 913
         }
       ],
       "verifies": [
@@ -1545,11 +1545,11 @@
         },
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 1146
+          "line": 1151
         },
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 1208
+          "line": 1213
         },
         {
           "file": "packages/presonus-domain/src/schemas/routing.ts",
@@ -1565,15 +1565,15 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 963
+          "line": 964
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 998
+          "line": 999
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1051
+          "line": 1052
         }
       ],
       "verifies": [
@@ -1623,7 +1623,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1106
+          "line": 1107
         }
       ],
       "verifies": [
@@ -2547,7 +2547,7 @@
       "implements": [
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 888
+          "line": 893
         }
       ],
       "verifies": [
@@ -2587,7 +2587,7 @@
       "implements": [
         {
           "file": "packages/presonus-adapter/src/state-mapper.ts",
-          "line": 1024
+          "line": 1029
         }
       ],
       "verifies": [
@@ -2629,19 +2629,19 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1599
+          "line": 1600
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 2060
+          "line": 2078
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 2108
+          "line": 2126
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 2152
+          "line": 2170
         }
       ],
       "verifies": [],
@@ -2677,7 +2677,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1246
+          "line": 1247
         }
       ],
       "verifies": [],
@@ -2718,7 +2718,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1150
+          "line": 1151
         }
       ],
       "verifies": [
@@ -2755,7 +2755,7 @@
       "implements": [
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1070
+          "line": 1071
         }
       ],
       "verifies": [],
@@ -2792,7 +2792,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1283
+          "line": 1284
         }
       ],
       "verifies": [],
@@ -2827,7 +2827,7 @@
       "implements": [
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1362
+          "line": 1363
         }
       ],
       "verifies": [],
@@ -2865,7 +2865,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1329
+          "line": 1330
         }
       ],
       "verifies": [],
@@ -2900,7 +2900,7 @@
       "implements": [
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1408
+          "line": 1409
         }
       ],
       "verifies": [],
@@ -2940,7 +2940,7 @@
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1478
+          "line": 1479
         }
       ],
       "verifies": [],
@@ -2973,7 +2973,7 @@
       "implements": [
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
-          "line": 1501
+          "line": 1502
         }
       ],
       "verifies": [],
