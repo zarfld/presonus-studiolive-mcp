@@ -29,6 +29,7 @@ import {
   normalizedToCompMakeupDb,
   normalizedToCompRatioXByModel,
   normalizedToAttackMs,
+  normalizedToGateAttackMs,
   normalizedToReleaseMs,
   normalizedToGateReleaseMs,
   normalizedToGateThresholdDb,
@@ -330,7 +331,8 @@ export function extractOutputPatchRouter(
  * (e.g. during initial connect before full state is received).
  *
  * De-normalization formulas: see normalizedTo*() functions in @presonus-mcp/domain.
- * All values are CONFIDENCE: 'guessed' until probe-fat-channel calibration confirms.
+ * Current status: mostly guided-calibrated (published as calibrated_inferred) on
+ * StudioLive 32R/32SC fw 3.4.0.111374, with remaining scope caveats.
  *
  * OBSERVED key structure on StudioLive 32SC fw 3.3.0.109659:
  *   line.ch1.eq.eqgain1 = 0.5412 (normalized float)
@@ -427,7 +429,7 @@ export function extractFatChannelState(
     gate: gateOnRaw !== undefined ? {
       enabled:     toBool(gateOnRaw),
       thresholdDb: typeof gateThreshRaw  === 'number' ? normalizedToGateThresholdDb(gateThreshRaw)  : undefined,
-      attackMs:    typeof gateAttackRaw  === 'number' ? normalizedToAttackMs(gateAttackRaw)         : undefined,
+      attackMs:    typeof gateAttackRaw  === 'number' ? normalizedToGateAttackMs(gateAttackRaw)     : undefined,
       releaseMs:   typeof gateReleaseRaw === 'number' ? normalizedToGateReleaseMs(gateReleaseRaw)       : undefined,
       rangeDb:     typeof gateRangeRaw   === 'number' ? normalizedToGateRangeDb(gateRangeRaw)       : undefined,
       expander:    toBool(gateExpanderRaw),

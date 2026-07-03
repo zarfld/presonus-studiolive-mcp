@@ -1964,7 +1964,7 @@ export function registerTools(
     // ─── prepare_fat_channel_change_set ─────────────────────────────────
     server.tool(
       'prepare_fat_channel_change_set',
-      'Prepare a change set for compressor, gate, or limiter parameters. All de-normalization formulas are CONFIDENCE: guessed — verify with probe-fat-channel before use on a real show.',
+      'Prepare a change set for compressor, gate, or limiter parameters. Forward read formulas are guided-calibrated, but several inverse/write helpers are still probe-required (comp makeup, ratio, attack, release, gate range). Keep production Fat Channel writes disabled until inverse helpers are re-calibrated.',
       {
         deviceId: z.string(),
         channelId: z.string().describe('Channel ID, e.g. "line.ch1"'),
@@ -2000,6 +2000,9 @@ export function registerTools(
         const f = (suffix: string) => snap.flatState[`${channelId}${suffix}`]
         const compModelRaw = f('.opt.compmodel.value')
         const compModel = typeof compModelRaw === 'number' ? decodeCompressorModel(compModelRaw).normalized : undefined
+
+        // NOTE: Several inverse helpers used below are intentionally retained as provisional.
+        // See TODO(PROBE_REQUIRED) markers in presonus-domain fat-channel schema before enabling production writes.
 
         if (compressor) {
           if (compressor.enabled !== undefined) changes.push({ parameter: 'comp.enabled', rawKeyPath: `${channelId}.comp.on`, currentRawValue: typeof f('.comp.on') === 'number' ? f('.comp.on') as number : null, proposedRawValue: compressor.enabled ? 1 : 0, currentDisplayValue: String(f('.comp.on')), proposedDisplayValue: compressor.enabled ? 'on' : 'off' })

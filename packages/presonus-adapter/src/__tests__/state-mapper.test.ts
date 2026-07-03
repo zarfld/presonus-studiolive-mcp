@@ -273,9 +273,9 @@ describe('extractFatChannelState', () => {
     expect(fat!.eqBands![0]!.gainDb!).toBeCloseTo(1.24, 0)
   })
 
-  it('EQ band 1 freq ~71 Hz (raw=0.108, formula: 36*502^raw)', () => {
+  it('EQ band 1 freq ~71 Hz (raw=0.108, formula: 36*500^raw)', () => {
     const fat = extractFatChannelState(fatChannelFlat, 'line.ch1')
-    // 36 * 502^0.108 ≈ 71 Hz — calibrated formula (calibrated_inferred on 32SC fw 3.4.0.111374)
+    // 36 * 500^0.108 ≈ 70.5 Hz — calibrated formula (calibrated_inferred on 32SC fw 3.4.0.111374)
     expect(fat!.eqBands![0]!.frequencyHz!).toBeCloseTo(71, -1)  // within ±10 Hz
   })
 
@@ -294,6 +294,16 @@ describe('extractFatChannelState', () => {
     const fat = extractFatChannelState(fatChannelFlat, 'line.ch1')
     expect(fat!.compModel).toBe('FET')
     expect(fat!.comp!.ratioX).toBe(4)
+  })
+
+  it('maps gate attack with gate formula (raw=0.5 -> ~5 ms), not comp attack (~20 ms)', () => {
+    const gateHalfRaw = {
+      ...fatChannelFlat,
+      'line.ch1.gate.attack': 0.5,
+    }
+    const fat = extractFatChannelState(gateHalfRaw, 'line.ch1')
+    expect(fat!.gate!.attackMs).toBeCloseTo(5, 2)
+    expect(fat!.gate!.attackMs).toBeLessThan(10)
   })
 
   it('gate expander mode is true (gate.expander=true)', () => {

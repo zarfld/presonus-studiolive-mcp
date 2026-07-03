@@ -58,33 +58,38 @@ in scene/cache files (live-index-only evidence).
 
 ## DSP parameter values — calibration status
 
-Calibrated from HIL probe on StudioLive 32SC SD7E21010066 fw **3.4.0.111374** (2026-07-01).
-Evidence: `test/fixtures/32sc/fat-channel/fat-channel-calibration.json` (31 anchor points).
+Primarily calibrated from guided HIL probe on StudioLive 32R fw **3.4.0.111374**
+(dense guided runs, 2026-07-03), with 32SC cross-check context where available.
+Evidence: `captures/cal-32r-guided/` and related guided fixtures.
+
+Scope note: formulas below are confirmed for 32R on fw 3.4.0.111374. Cross-model
+behavior (including 32SC) is currently assumed compatible but not fully proven.
 
 | Parameter group | Formula | Confidence | Notes |
 |---|---|---|---|
 | EQ gain | `(raw−0.5)×30` → ±15 dB | **observed** | 5 points, max error 0.005 dB |
-| EQ frequency | `36×502^raw` → 36 Hz–18 kHz | **calibrated\_inferred** | 5 pts band-1, max 0.013% |
+| EQ frequency | `36×500^raw` → 36 Hz–18 kHz | **calibrated\_inferred** | Dense guided anchors on 32R; low residual fit |
 | HPF frequency | `24×42^raw` → 24 Hz–1 kHz | **calibrated\_inferred** | 6 pts, max 0.46% |
-| EQ Q factor | `0.028×466^raw` → 0.03–13 | **calibrated\_inferred** | 5 pts, max 0.17 Q units |
+| EQ Q factor | `clamp(0.0272×522^raw, 0.10, 10.00)` | **calibrated\_inferred** | Dense guided anchors on 32R; clamped to display range |
 | EQ band type | `round(raw×3)` → 3 types in STANDARD EQ | **observed** | BELL(1.0), LOW\_SHELF(0.333), HIGH\_SHELF(0.667) confirmed. LOW\_PASS (raw=0.0) not observed in STANDARD EQ testing on 32SC fw 3.4.0.111374 |
 | Comp threshold (STANDARD) | `(raw−1)×56` → -56 to 0 dBFS | **confirmed** ✅ | 3 pts exact (0%): raw=0/-56dB, raw=0.505/-27.72dB, raw=1/0dB. 32R guided cal 2026-07-02 |
 | Comp makeup (STANDARD) | `raw×28.0` → 0–28 dB | **confirmed** ✅ | 4 pts exact (0%): raw=0/0dB, raw=0.315/8.82dB, raw=0.490/13.72dB, raw=1/28dB. Corrected from raw×27.6 |
-| Comp attack (STANDARD) | `0.20 + 149.8×raw^2.922` ms | **confirmed** ✅ | 3 pts exact (0%): raw≈0/0.20ms, raw=0.525/23.0ms, raw=1/150ms. Key is `comp.attack` |
+| Comp attack (STANDARD) | `0.20 + 149.8×raw^2.922` ms | **confirmed** ✅ | Dense guided anchors on 32R; old 32SC mismatch attributed to stale ZLIB/display mismatch |
 | Comp sidechain keyfilter | `40×400^raw` Hz; raw=0→off | **calibrated\_inferred** | 3 pts: raw=0/off, raw=0.010/42.47Hz, raw=0.495/776.4Hz, raw=1/16kHz. 32R guided cal 2026-07-02 |
 | Gate threshold | `(raw−1)×84` → -84 to 0 dBFS | **calibrated\_inferred** | 2 pts; max 0.007 dB. liveObserved via raw-socket probe 2026-07-02 |
-| **Comp ratio (STANDARD)** | `1 + 0.922×(raw/(1-raw))^0.781` | **needs\_re-derivation** ⚠️ | Old formula 6.3% error at raw=0.175/1.2:1; 3-anchor fit diverges 65% at high range. Need raw 0.7–0.95 anchors |
+| **Comp ratio (STANDARD)** | Quadratic-log fit (10 guided anchors) | **calibrated\_inferred** | Max error ~3.1%, RMS ~1.6% on confirmed anchors |
 | **Comp release (STANDARD)** | `2.5 + 897.5×raw^2.605` ms | **confirmed** ✅ | 5 pts exact: raw≈0/2.5ms, raw=0.530/174ms, raw=0.720/384ms, raw=1/900ms. 32R guided 2026-07-02 |
+| **Gate attack** | Piecewise interpolation, 0.02–500 ms anchors | **calibrated\_inferred** | Dedicated gate mapping; do not reuse compressor attack formula |
 | **Gate release** | `50 + 1950×raw^1.583` ms | **calibrated\_inferred** | 7 pts, max error <3ms: 50ms–2000ms. liveObserved via raw-socket 2026-07-02 |
-| **Gate range (GATE mode)** | `100×(raw^0.46 - 1)` dB | **calibrated\_inferred** | 2 mid-range pts + endpoints; GATE mode (expander=false) only. liveObserved via raw-socket 2026-07-02 |
-| **Limiter threshold** | `(raw−1)×27` → -27 to 0 dBFS | **calibrated\_inferred** | 4 pts, max 0.27 dB |
+| **Gate range (GATE mode)** | Piecewise interpolation, 16 anchors | **calibrated\_inferred** | GATE mode (expander=false) validated on 32R; EXPANDER mode unverified |
+| **Limiter threshold** | `(raw−1)×28` → -28 to 0 dBFS | **calibrated\_inferred** | Guided 32R anchors, exact at display precision |
 | Fader taper | `volumeRaw100ToDb(v)` | **calibrated\_inferred** | `line.chN.volume` is 0–100 scene-stored; see `docs/hil/fader-preamp-calibration-notes.md` |
 
 > **Phase 2 Opportunistic Calibration Evidence**: `test/fixtures/32sc/fat-channel/fat-channel-phase2-calibration.json`
 > Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374, captured 2026-07-02.
 > Endpoints guided-probed; intermediate points from session context.
 > Not a full guided calibration (min/25%/50%/75%/max procedure).
-> Phase 2 parameters bolded above. Comp ratio is LOW CONFIDENCE (~13% error) — treat mid-range as probe_required.
+> Phase 2 data is retained as historical context only where superseded by dense guided 32R runs.
 >
 > **Live Event Probe Evidence** (2026-07-02): `test/fixtures/32sc/fat-channel/live-events/live-event-probe-evidence.json`
 > No PV/JM/data event for the watched `line.*` Fat Channel keys was observed through featherbear
@@ -173,8 +178,7 @@ Command: `pnpm probe:dev probe-fat-write-echo --device <ip> --channel line.ch11 
 
 **Additional findings from guided calibration run** (32SC SD7E21010066 fw 3.4.0.111374):
 - Only the first echo was received (1/5); TCP reconnection disrupted subsequent echoes in multi-point sequences. Echo reliability across reconnects is low.
-- UC Surface display did **NOT** update in response to probe PV writes. The display showed 403ms regardless of written raw value (0, 0.25, 0.5). This confirms UC Surface reflects its own local scene-stored state, not the probe's writes.
-- The display value 403ms for Ch11 comp.release at raw=0.5 is a **valid scene-stored anchor** (`raw=0.5 → 403ms`). This contradicts the Phase 2 formula prediction of 150ms at raw=0.5 — the formula likely needs re-derivation.
+- UC Surface display did **NOT** update in response to probe PV writes; use scene-save+dump for display calibration.
 
 **Revised calibration status for `comp.release`:**
 
@@ -184,7 +188,8 @@ Command: `pnpm probe:dev probe-fat-write-echo --device <ip> --channel line.ch11 
 | Write-echo (display readback) | **NO** | UC Surface does not update display from probe writes |
 | Scene-save + dump (raw + display) | YES | User sets knob → saves scene → probe reads ZLIB raw. Still the required method for display calibration. |
 
-**Correction (2026-07-02):** The "403ms" display value reported during calibration was actually reading the **gate** parameter display, not `comp.release`. The Phase 2 formula for `comp.release` (`2.5 + 897.5 × raw^2.605`) is **not contradicted** by this run. The 403ms anchor point has been invalidated in the fixture.
+**Correction (2026-07-02):** The earlier "403ms" note was a **gate display misread**, not
+`comp.release`. That contradictory anchor is invalid and should not be used for comp release fitting.
 
 The Phase 2 formula remains the current best estimate for `comp.release` pending proper live-PV calibration (now possible with UC Control closed — see 32R live PV evidence above).
 

@@ -391,8 +391,8 @@ export function decodeEqModelFromClassid(classid: string): ModelDecodeResult {
 /**
  * EQ band filter shape types.
  *
- * CONFIDENCE: guessed — requires probe-fat-channel calibration to confirm
- * the exact enum mapping from raw eqtype float to filter shape.
+ * CONFIDENCE: calibrated_inferred for STANDARD EQ band mapping on 32R/32SC fw 3.4.0.111374.
+ * LOW_PASS remains available for compatibility but is not observed in STANDARD EQ guided runs.
  *
  * Mapping (best-estimate): index = Math.round(raw * 4)
  *   0 → BELL, 1 → LOW_SHELF, 2 → HIGH_SHELF, 3 → HIGH_PASS, 4 → LOW_PASS
@@ -415,11 +415,11 @@ export type EqBandType = z.infer<typeof EqBandTypeSchema>
 /**
  * Normalized EQ band — values in real units with best-effort de-normalization.
  *
- * De-normalization formulas (CONFIDENCE: guessed — verify with probe-fat-channel):
- *   gainDb      = (raw - 0.5) × 36                   (linear ±18 dB)
- *   frequencyHz = 20 × 1000^raw                       (log scale 20 Hz – 20 kHz)
- *   q           = 0.1 × 160^raw                       (log scale 0.1 – 16.0)
- *   type        = EqBandTypeSchema[Math.round(raw×4)] (5 types, unverified mapping)
+ * De-normalization formulas (GUIDED_CALIBRATION, 32R fw 3.4.0.111374):
+ *   gainDb      = (raw - 0.5) × 30                          (linear ±15 dB)
+ *   frequencyHz = 36 × 500^raw                              (log scale 36 Hz – 18 kHz)
+ *   q           = clamp(0.0272 × 522^raw, 0.10, 10.00)
+ *   type        = EqBandTypeSchema[Math.round(raw×3)] for STANDARD EQ observed values
  *
  * TODO: confirm with `pnpm probe probe-fat-channel -d <ip> -c LINE:1` after
  * setting known values in UC Surface.
@@ -438,8 +438,10 @@ export type NormalizedEqBand = z.infer<typeof NormalizedEqBandSchema>
  * Normalized Fat Channel state exposed in the channels MCP resource.
  *
  * Combines EQ, compressor, gate, and limiter in real units.
- * All continuous parameter values use best-estimate de-normalization formulas.
- * `parameterConfidence: 'guessed'` until probe-fat-channel calibration confirms.
+ * Continuous parameters are currently published with `parameterConfidence: 'calibrated_inferred'`
+ * in the mapper, based on guided 32R calibration plus 32SC cross-checks.
+ * Scope caveat: validated on StudioLive 32R/32SC fw 3.4.0.111374; cross-model behavior
+ * is assumed but not fully proven.
  *
  * @see packages/presonus-inspector/src/cli/commands/probe-fat-channel.ts
  */
@@ -455,32 +457,32 @@ export const ChannelFatStateSchema = z.object({
    * Absent if no EQ data in state.
    */
   eqBands: z.array(NormalizedEqBandSchema).optional(),
-  /** High-pass filter cutoff frequency in Hz (guessed: same log formula as EQ freq) */
+  /** High-pass filter cutoff frequency in Hz (calibrated separately from EQ frequency). */
   hpfFrequencyHz: z.number().optional(),
   /** Compressor/dynamics state */
   comp: z.object({
     enabled: z.boolean().optional(),
-    /** Threshold in dBFS. Guessed: (raw_input - 1) × 60, giving -60 to 0 dBFS. */
+    /** Threshold in dBFS. Guided fit: (raw - 1) × 56 (STANDARD path). */
     thresholdDb: z.number().optional(),
-    /** Makeup gain in dB. Guessed: raw_output × 24, giving 0 to +24 dB. */
+    /** Makeup gain in dB. Guided fit: raw × 28.0 (STANDARD path). */
     makeupDb: z.number().optional(),
-    /** Ratio (linear). Guessed: 1 + raw_ratio × 15, giving 1.0× to 16.0×. */
+    /** Ratio (linear). Model-aware: STANDARD quadratic-log fit, FET discrete button map. */
     ratioX: z.number().optional(),
-    /** Attack in ms. Guessed: raw × 150 ms. */
+    /** Attack in ms. STANDARD: 0.20 + 149.8 × raw^2.922. */
     attackMs: z.number().optional(),
-    /** Release in ms. Guessed: raw × 2000 ms. */
+    /** Release in ms. STANDARD: 2.5 + 897.5 × raw^2.605. */
     releaseMs: z.number().optional(),
   }).optional(),
   /** Gate/expander state */
   gate: z.object({
     enabled: z.boolean().optional(),
-    /** Threshold in dBFS. Guessed: (raw - 1) × 80, giving -80 to 0 dBFS. */
+    /** Threshold in dBFS. Guided fit: (raw - 1) × 84. */
     thresholdDb: z.number().optional(),
-    /** Attack in ms. Guessed: raw × 150 ms. */
+    /** Attack in ms. Guided piecewise mapping, 0.02–500 ms anchors. */
     attackMs: z.number().optional(),
-    /** Release in ms. Guessed: raw × 2000 ms. */
+    /** Release in ms. Guided fit: 50 + 1950 × raw^1.583. */
     releaseMs: z.number().optional(),
-    /** Range in dB. Guessed: raw × -80 dB. */
+    /** Range in dB. Guided piecewise mapping (GATE mode only); EXPANDER remains unverified. */
     rangeDb: z.number().optional(),
     /** true = expander mode, false = gate mode */
     expander: z.boolean().optional(),
@@ -488,9 +490,9 @@ export const ChannelFatStateSchema = z.object({
   /** Limiter state */
   limiter: z.object({
     enabled: z.boolean().optional(),
-    /** Threshold in dBFS. Guessed: (raw - 1) × 20, giving -20 to 0 dBFS. */
+    /** Threshold in dBFS. Guided fit: (raw - 1) × 28. */
     thresholdDb: z.number().optional(),
-    /** Release in ms. Guessed: raw × 2000 ms. */
+    /** Release in ms. Uses shared release mapping; dedicated limiter release fit still pending. */
     releaseMs: z.number().optional(),
   }).optional(),
   /**
@@ -811,20 +813,23 @@ export function normalizedToGateAttackMs(raw: number): number {
     { raw: 0.75, ms: 50.1 },
     { raw: 1.0, ms: 500.0 },
   ]
+  const first = anchors[0]!
+  const last = anchors[anchors.length - 1]!
 
-  if (raw <= anchors[0].raw) return anchors[0].ms
-  if (raw >= anchors[anchors.length - 1].raw) return anchors[anchors.length - 1].ms
+  if (raw <= first.raw) return first.ms
+  if (raw >= last.raw) return last.ms
 
   for (let i = 1; i < anchors.length; i++) {
     const left = anchors[i - 1]
     const right = anchors[i]
+    if (!left || !right) continue
     if (raw <= right.raw) {
       const t = (raw - left.raw) / (right.raw - left.raw)
       return left.ms + t * (right.ms - left.ms)
     }
   }
 
-  return anchors[anchors.length - 1].ms
+  return last.ms
 }
 
 /**
@@ -968,20 +973,23 @@ export function normalizedToGateRangeDb(raw: number): number {
     { raw: 0.95, db: -1.43 },
     { raw: 1.0, db: 0.0 },
   ]
+  const first = anchors[0]!
+  const last = anchors[anchors.length - 1]!
 
-  if (raw <= anchors[0].raw) return anchors[0].db
-  if (raw >= anchors[anchors.length - 1].raw) return anchors[anchors.length - 1].db
+  if (raw <= first.raw) return first.db
+  if (raw >= last.raw) return last.db
 
   for (let i = 1; i < anchors.length; i++) {
     const left = anchors[i - 1]
     const right = anchors[i]
+    if (!left || !right) continue
     if (raw <= right.raw) {
       const t = (raw - left.raw) / (right.raw - left.raw)
       return left.db + t * (right.db - left.db)
     }
   }
 
-  return anchors[anchors.length - 1].db
+  return last.db
 }
 
 /**
@@ -1062,12 +1070,20 @@ export function compThresholdDbToNormalized(db: number): number {
   return Math.max(0, Math.min(1, db / 56 + 1))
 }
 
-/** Comp makeup dB → raw 0–1. Clamps to 0–27.6 dB. CALIBRATED_INFERRED (STANDARD comp). */
+/**
+ * Comp makeup dB → raw 0–1.
+ * TODO(PROBE_REQUIRED): stale inverse helper still uses 27.6 slope while forward mapping is raw*28.0.
+ * Keep Fat Channel production writes disabled until this inverse is re-calibrated.
+ */
 export function compMakeupDbToNormalized(db: number): number {
   return Math.max(0, Math.min(1, db / 27.6))
 }
 
-/** Comp ratio X → raw 0–1. PROBE_REQUIRED — provisional. */
+/**
+ * Comp ratio X → raw 0–1.
+ * TODO(PROBE_REQUIRED): stale inverse helper still linear while forward STANDARD ratio is quadratic-log.
+ * Keep Fat Channel production writes disabled until model-aware inverse calibration is complete.
+ */
 export function compRatioXToNormalized(ratioX: number): number {
   return Math.max(0, Math.min(1, (ratioX - 1) / 15))
 }
@@ -1081,7 +1097,7 @@ export function compRatioXToNormalized(ratioX: number): number {
 export function fetCompRatioXToNormalized(ratioX: number): number {
   if (!Number.isFinite(ratioX) || ratioX >= 21) return 1
   const targets = [4, 8, 12, 20]
-  let best = targets[0]
+  let best = targets[0]!
   let bestDist = Math.abs(ratioX - best)
   for (const t of targets.slice(1)) {
     const d = Math.abs(ratioX - t)
@@ -1107,13 +1123,23 @@ export function compRatioXToNormalizedByModel(ratioX: number, compModel?: string
   return compRatioXToNormalized(ratioX)
 }
 
-/** Attack ms → raw 0–1. CALIBRATED_INFERRED (validated for 1–10 ms range only). */
+/**
+ * Attack ms → raw 0–1.
+ * TODO(PROBE_REQUIRED): stale inverse helper still uses legacy log formula; forward comp attack
+ * now uses 0.20 + 149.8*raw^2.922 and gate attack uses a separate piecewise curve.
+ * Keep Fat Channel production writes disabled until model-specific inverse helpers are updated.
+ */
 export function attackMsToNormalized(ms: number): number {
   const clamped = Math.max(0.2, ms)
   return Math.log(clamped / 0.2) / 10.3
 }
 
-/** Release ms → raw 0–1. PROBE_REQUIRED — provisional. */
+/**
+ * Release ms → raw 0–1.
+ * TODO(PROBE_REQUIRED): stale inverse helper still linear (ms/2000) while forward comp release
+ * uses 2.5 + 897.5*raw^2.605.
+ * Keep Fat Channel production writes disabled until release inverse calibration is complete.
+ */
 export function releaseMsToNormalized(ms: number): number {
   return Math.max(0, Math.min(1, ms / 2000))
 }
@@ -1128,7 +1154,12 @@ export function gateThresholdDbToNormalized(db: number): number {
   return Math.max(0, Math.min(1, db / 84 + 1))
 }
 
-/** Gate range dB → raw 0–1. PROBE_REQUIRED — provisional. */
+/**
+ * Gate range dB → raw 0–1.
+ * TODO(PROBE_REQUIRED): stale inverse helper still linear; forward gate range is now
+ * a 16-anchor piecewise mapping for GATE mode only.
+ * Keep Fat Channel production writes disabled until gate range inverse is re-derived.
+ */
 export function gateRangeDbToNormalized(rangeDb: number): number {
   return Math.max(0, Math.min(1, rangeDb / -80))
 }

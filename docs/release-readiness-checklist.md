@@ -82,14 +82,14 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
 - [ ] **Core model parameter calibration**: EQ gain, freq, Q, comp threshold, comp ratio,
   and attack/release are confirmed by `probe-fat-channel` for at least STANDARD, FET, and
   COMP_160 models.  
-  _Status: ⬜ Not yet run — all values currently `guessed`_
+  _Status: 🔶 Partially complete — forward read formulas are now largely guided-calibrated (32R fw 3.4.0.111374), with model-scope caveats and remaining gaps (notably expander-mode gate range and cross-model proof)._
 
 - [ ] **Calibration evidence captured**: Evidence in `captures/` with required metadata.  
-  _Status: ⬜ Not yet run_
+  _Status: 🔶 In progress — guided calibration evidence exists under `captures/cal-32r-guided/`; final closure bundle still pending._
 
 - [ ] **`parameterConfidence` updated**: `extractFatChannelState()` sets `parameterConfidence: 'observed'`
   for confirmed parameters after probe calibration.  
-  _Status: ⬜ Blocked on probe run_
+  _Status: 🔶 Partially addressed — mapper currently returns `calibrated_inferred`; promotion to `observed` remains blocked on broader model/firmware confirmation._
 
 ### P2 — Write tools (required before write tools are "field-ready")
 
@@ -121,9 +121,8 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
   - _PV write is accepted by mixer (comp.release confirmed — `probe-fat-write-echo`)_
   - _Echo is received by featherbear client but UC Surface display does NOT update from probe writes_
   - _Write-echo approach cannot provide display-value calibration; scene-save+dump still required_
-  - _Fat Channel formulas are `calibrated_inferred` (opportunistic); some Phase 2 data points may be wrong_
-  - _`comp.release` Phase 2 formula contradicted by new data (raw=0.5 → 403ms vs formula prediction 150ms)_
-  - _Do not enable Fat Channel write tools until formulas are re-validated via scene-save calibration_
+  - _Forward read formulas are substantially improved (`calibrated_inferred`), but inverse/write helpers remain stale for several parameters_
+  - _Do not enable Fat Channel production write tools until inverse helpers are re-derived and write HIL is completed_
 
 - [ ] **Write-tool global safety gate**: All write paths (mute, fader, aux send, Fat Channel)
   HIL-verified or explicitly excluded from supported write scope.
