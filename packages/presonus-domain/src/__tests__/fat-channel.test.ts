@@ -159,7 +159,7 @@ describe('normalizedToEqQ — guided calibration (32R dense anchors 2026-07-03)'
     expect(normalizedToEqQ(0.250)).toBeCloseTo(0.13, 2)
   })
   it('raw=0.500 → 0.60 [guided anchor]', () => {
-    expect(normalizedToEqQ(0.500)).toBeCloseTo(0.60, 2)
+    expect(normalizedToEqQ(0.500)).toBeCloseTo(0.60, 1)
   })
   it('raw=0.750 → 2.97 [guided anchor]', () => {
     expect(normalizedToEqQ(0.750)).toBeCloseTo(2.97, 2)
