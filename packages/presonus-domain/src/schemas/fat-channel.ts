@@ -822,7 +822,7 @@ export function normalizedToLimiterThresholdDb(raw: number): number {
 }
 
 /**
- * Comp sidechain key filter frequency in Hz.
+ * Comp/Gate sidechain key filter frequency in Hz.
  *
  * GUIDED_CALIBRATION (32R Ch11, 2026-07-03) — 7 verified anchors:
  *   raw=0.000 → off
@@ -833,10 +833,16 @@ export function normalizedToLimiterThresholdDb(raw: number): number {
  *   raw=0.750 → 3.58 kHz
  *   raw=1.000 → 16.00 kHz
  *
+ * Verified for both keys on the same device/channel:
+ *   - line.ch11.comp.keyfilter
+ *   - line.ch11.gate.keyfilter
+ *
  * Formula: 40 × 400^raw Hz  (for raw > 0)
  * Error versus guided anchors: max abs 2.29 Hz, max relative 0.064%, RMS 0.94 Hz.
  * Confidence: high (dense guided coverage including min/25/50/75/max + off threshold).
- * See: captures/cal-32r-guided/comp-keyfilter-dense/comp-keyfilter.json
+ * See:
+ * - captures/cal-32r-guided/comp-keyfilter-dense/comp-keyfilter.json
+ * - captures/cal-32r-guided/gate-keyfilter-dense/gate-keyfilter.json
  */
 export function normalizedToKeyfilterHz(raw: number): number | 'off' {
   if (raw <= 0) return 'off'

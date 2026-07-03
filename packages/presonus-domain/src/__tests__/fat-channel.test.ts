@@ -531,6 +531,23 @@ describe('normalizedToKeyfilterHz — guided calibration (32R dense anchors 2026
   })
 })
 
+describe('normalizedToKeyfilterHz — gate.keyfilter parity (32R dense anchors 2026-07-03)', () => {
+  it('matches gate.keyfilter guided anchors (same taper as comp.keyfilter)', () => {
+    expect(normalizedToKeyfilterHz(0)).toBe('off')
+    expect(normalizedToKeyfilterHz(0.01)).toBeCloseTo(42.47, 1)
+    expect(normalizedToKeyfilterHz(0.1)).toBeCloseTo(72.82, 1)
+    expect(normalizedToKeyfilterHz(0.25)).toBeCloseTo(178.9, 1)
+    expect(normalizedToKeyfilterHz(0.5)).toBeCloseTo(800.0, 1)
+
+    const at075 = normalizedToKeyfilterHz(0.75)
+    expect(typeof at075).toBe('number')
+    expect(at075 as number).toBeGreaterThan(3577)
+    expect(at075 as number).toBeLessThan(3583)
+
+    expect(normalizedToKeyfilterHz(1)).toBe(16000)
+  })
+})
+
 // EQ band type Phase 2 — HIGH_SHELF confirmed observed; LOW_PASS not observed
 // in STANDARD EQ testing on 32SC fw 3.4.0.111374 (may exist in other models/firmware).
 
