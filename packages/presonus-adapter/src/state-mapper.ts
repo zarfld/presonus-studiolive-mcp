@@ -30,7 +30,6 @@ import {
   normalizedToCompRatioX,
   normalizedToAttackMs,
   normalizedToReleaseMs,
-  normalizedToDelayMs,
   normalizedToGateReleaseMs,
   normalizedToGateThresholdDb,
   normalizedToGateRangeDb,
@@ -544,7 +543,8 @@ export function extractLineChannels(flat: Record<string, unknown>): MixerChannel
         : undefined,
       // Pan: 0.0 = full left, 0.5 = center, 1.0 = full right — OBSERVED 32SC fw 3.3.0.109659
       pan: typeof pan === 'number' ? Math.max(0, Math.min(1, pan)) : undefined,
-      delayMs: typeof delay === 'number' ? normalizedToDelayMs(delay) : undefined,
+      // Guided calibration (32R 2026-07-03): delay is linear 0-85 ms over raw 0-1.
+      delayMs: typeof delay === 'number' ? Math.max(0, Math.min(1, delay)) * 85 : undefined,
       linked: typeof linked === 'boolean' ? linked : undefined,
       color: typeof color === 'string' ? color : undefined,
       compModelName: compModelResult?.normalized,

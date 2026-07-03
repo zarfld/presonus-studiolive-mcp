@@ -21,6 +21,7 @@ const syntheticState32SC: RawStateTree = {
   'line.ch1.mute': false,
   'line.ch1.solo': false,
   'line.ch1.volume': 73.36,  // real 0-100 scale; 73.36 = unity (0 dB), OBSERVED on 32SC
+  'line.ch1.delay': 0.5,      // guided delay calibration: 0.5 -> 42.5 ms
   'line.ch1.pan': 0.5,
   'line.ch1.link': false,
   'line.ch1.color': '0000ffff',
@@ -77,6 +78,7 @@ describe('extractLineChannels', () => {
     expect(ch1?.fader?.linear).toBeCloseTo(0.7336, 3)  // 73.36 / 100
     // Pan is 0.0-1.0 range (OBSERVED on 32SC fw 3.3.0.109659)
     expect(ch1?.pan).toBeCloseTo(0.5)
+    expect(ch1?.delayMs).toBeCloseTo(42.5, 2)
   })
 
   it('reflects mute=true correctly', () => {
@@ -405,5 +407,17 @@ describe('fader normalization and dB conversion � HIL 2026-07-01', () => {
     const chs = extractLineChannels(noPreamp)
     const ch4 = chs.find(c => c.id === 'line.ch4')
     expect(ch4?.preampGainDb).toBeUndefined()
+  })
+
+  it('delayMs extracted from line.chN.delay and excluded from rawExtra', () => {
+    const delayState: Record<string, unknown> = {
+      'line.ch11.mute': false,
+      'line.ch11.volume': 50,
+      'line.ch11.delay': 0.75, // -> 63.75 ms
+    }
+    const chs = extractLineChannels(delayState)
+    const ch11 = chs.find(c => c.id === 'line.ch11')!
+    expect(ch11.delayMs).toBeCloseTo(63.75, 2)
+    expect(ch11.rawExtra?.['line.ch11.delay']).toBeUndefined()
   })
 })
