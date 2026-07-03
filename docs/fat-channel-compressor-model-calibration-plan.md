@@ -10,6 +10,12 @@ Scope of this plan:
 - classify expected control behavior before probing
 - define evidence needed to promote confidence from baseline-only metadata
 
+Scope note:
+
+- This table covers model-specific dynamics controls only.
+- Generic side-chain, key-listen, key-filter, and processor on/off controls are intentionally excluded unless their behavior differs by compressor model.
+- Those generic controls remain covered by panel baseline metadata and future generic control probes.
+
 This plan does not enable write tools or claim calibrated mappings.
 
 ## Model set
@@ -29,6 +35,9 @@ The eight screenshot-derived models covered here are:
 
 - continuous: expected monotonic analog-style curve over raw 0..1
 - discrete: expected stepped positions or enumerated values
+- continuous_or_stepped_unknown: likely sweep-like behavior, but stepped detents are not ruled out yet
+- discrete_or_continuous_unknown: panel/readout suggests selectable states, but continuous interpolation is not ruled out yet
+- ratio_or_limiter_curve_unknown: ratio-style control that may transition into limiter-style behavior near upper range
 - qualitative: labels likely describe behavior classes rather than fixed numeric units
 - mode-dependent: mapping branch depends on a mode selector
 
@@ -55,16 +64,16 @@ Recommended command family:
 
 | Model | Control | Priority | Expected class | Why first | Probe notes |
 |---|---|---|---|---|---|
-| COMP_160 | compression | P1 | qualitative | Includes infinity endpoint label and may not behave as a normal ratio curve. | Dense points plus endpoint checks; verify where `∞` appears in raw domain and if transition is stepped. |
+| COMP_160 | compression | P1 | ratio_or_limiter_curve_unknown | Includes infinity endpoint label and may not behave as a normal ratio curve. | Dense points plus endpoint checks; verify where `∞` appears in raw domain and if transition is stepped. |
 | COMP_160 | threshold | P1 | continuous | Primary dynamics threshold anchor needed for model usability. | Probe dense anchors and verify sign/unit labeling against UI. |
 | COMP_160 | output_gain | P2 | continuous | Output trim usually monotonic but taper may be non-linear. | Probe dense points; verify endpoints and center feel. |
-| BRIT_COMP | ratio | P1 | discrete | Classic compressor-style ratio often switches among fixed ratios. | Use ordered sweeps; confirm finite set of states and raw breakpoints. |
+| BRIT_COMP | ratio | P1 | discrete_or_continuous_unknown | Classic compressor-style ratio often switches among fixed ratios. | Use ordered sweeps; confirm finite set of states and raw breakpoints. |
 | BRIT_COMP | threshold | P1 | continuous | Required to align effective compression onset. | Probe dense points; validate monotonicity and endpoint labels. |
 | BRIT_COMP | attack | P2 | continuous | Time constants may be log-like and model-specific. | Probe dense points with extra low-end anchors near raw 0..0.1. |
 | BRIT_COMP | release | P2 | continuous | Same risk profile as attack, often highly non-linear. | Probe dense points with high-end anchors near raw 0.9..1.0. |
 | BRIT_COMP | makeup | P3 | continuous | Usually monotonic and lower ambiguity than ratio/time controls. | Probe standard dense anchors and verify endpoint units. |
 | CLASSIC_COMPRESSOR | threshold | P1 | qualitative | Known sign ambiguity in panel labeling must be resolved first. | Capture UI text at each anchor; define canonical sign convention before formula work. |
-| CLASSIC_COMPRESSOR | ratio | P1 | continuous | High impact on perceived behavior and tool expectations. | Probe dense anchors; check for hidden stepped regions. |
+| CLASSIC_COMPRESSOR | ratio | P1 | continuous_or_stepped_unknown | High impact on perceived behavior and tool expectations. | Probe dense anchors; check for hidden stepped regions. |
 | CLASSIC_COMPRESSOR | attack | P2 | continuous | Time-control curve likely non-linear. | Probe dense anchors and compare with release shape. |
 | CLASSIC_COMPRESSOR | release | P2 | continuous | Non-linearity and endpoint interpretation risk. | Probe dense anchors with endpoint repeats for stability. |
 | EVEREST_C100A | attack_toggle | P1 | discrete | Toggle semantics must be exact before any numeric assumptions. | Explicitly test each toggle state and record corresponding raw values. |
@@ -82,7 +91,7 @@ Recommended command family:
 | TUBE_CB | ratio | P1 | mode-dependent | Ratio behavior may differ by mode branch. | Probe separately per mode and compare curve family. |
 | TUBE_CB | threshold | P2 | mode-dependent | Threshold may shift behavior depending on mode. | Dense anchors in each mode; maintain separate fit candidates. |
 | TUBE_CB | gain | P2 | continuous | Output/drive style control likely monotonic but may be mode-influenced. | Probe in both modes to confirm invariance or branch split. |
-| VT_1_COMPRESSOR | ratio | P1 | discrete | Panel ratios include named fixed values (`1:1`, `4:1`) suggesting steps. | Ordered sweep and enumerate all selectable ratio states. |
+| VT_1_COMPRESSOR | ratio | P1 | discrete_or_continuous_unknown | Panel ratios include named fixed values (`1:1`, `4:1`) suggesting steps. | Ordered sweep and enumerate all selectable ratio states. |
 | VT_1_COMPRESSOR | attack | P2 | continuous | Time constant likely non-linear. | Dense anchors with low-end emphasis. |
 | VT_1_COMPRESSOR | release | P2 | continuous | Non-linear slow-end behavior expected. | Dense anchors with high-end emphasis. |
 | VT_1_COMPRESSOR | threshold | P2 | continuous | Core envelope anchor needed for complete mapping. | Standard dense anchors and endpoint checks. |
