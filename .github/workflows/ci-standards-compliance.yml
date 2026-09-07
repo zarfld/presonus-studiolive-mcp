@@ -172,6 +172,9 @@ jobs:
           # and committing the updated lockfile.
           pnpm install --no-frozen-lockfile
 
+      - name: Build workspace
+        run: pnpm build
+
       - name: Verify capability inventory is not stale
         run: |
           pnpm inventory
