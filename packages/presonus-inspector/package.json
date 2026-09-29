@@ -13,7 +13,7 @@
     "typecheck": "tsc --build --dry"
   },
   "dependencies": {
-    "@featherbear/presonus-studiolive-api": "1.8.0",
+    "@featherbear/presonus-studiolive-api": "1.9.1",
     "@presonus-mcp/adapter": "workspace:*",
     "@presonus-mcp/domain": "workspace:*",
     "commander": "^12.0.0"

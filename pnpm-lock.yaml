@@ -14,11 +14,6 @@ overrides:
   brace-expansion@^2: 2.1.4
   brace-expansion@^5: 5.0.9
 
-patchedDependencies:
-  '@featherbear/presonus-studiolive-api@1.8.0':
-    hash: 306ea82fd743a4363bb56ed61791ae9ce32791d547d51aab041535e122f5e97f
-    path: patches/@featherbear__presonus-studiolive-api@1.8.0.patch
-
 importers:
 
   .:
@@ -48,8 +43,8 @@ importers:
   packages/presonus-adapter:
     dependencies:
       '@featherbear/presonus-studiolive-api':
-        specifier: 1.8.0
-        version: 1.8.0(patch_hash=306ea82fd743a4363bb56ed61791ae9ce32791d547d51aab041535e122f5e97f)
+        specifier: 1.9.1
+        version: 1.9.1
       '@presonus-mcp/domain':
         specifier: workspace:*
         version: link:../presonus-domain
@@ -86,8 +81,8 @@ importers:
   packages/presonus-inspector:
     dependencies:
       '@featherbear/presonus-studiolive-api':
-        specifier: 1.8.0
-        version: 1.8.0(patch_hash=306ea82fd743a4363bb56ed61791ae9ce32791d547d51aab041535e122f5e97f)
+        specifier: 1.9.1
+        version: 1.9.1
       '@presonus-mcp/adapter':
         specifier: workspace:*
         version: link:../presonus-adapter
@@ -468,8 +463,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@featherbear/presonus-studiolive-api@1.8.0':
-    resolution: {integrity: sha512-7D7gG/85z8/m+fGaOrkzEtvQZ3P6y9JNVL+uHAEtyjTHTDeBccVJYCNlzJNNWNlGgpkrTENZ0alr/V9G21UWhw==}
+  '@featherbear/presonus-studiolive-api@1.9.1':
+    resolution: {integrity: sha512-6TT1543EE8hHHegv56zFh+CttV9zFwBOIxQFAIOjcifIn9kSlr+Xb0K8mgWDLTyDEaabw4mNCO3LjB8Uc6yJjQ==}
 
   '@hono/node-server@1.19.15':
     resolution: {integrity: sha512-Za2ai6TLdKjUvnur+eenO6nuYYipVAEhyCAdaV8IRvmU9kK8crOZUSYvIXn72E4f8fJqyAbpcJuTsYYmZp9Deg==}
@@ -1565,7 +1560,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@featherbear/presonus-studiolive-api@1.8.0(patch_hash=306ea82fd743a4363bb56ed61791ae9ce32791d547d51aab041535e122f5e97f)':
+  '@featherbear/presonus-studiolive-api@1.9.1':
     dependencies:
       bunyan: 1.8.15
       queue: 6.0.2
