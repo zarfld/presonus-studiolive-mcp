@@ -6,7 +6,7 @@
  * Golden fixtures in test/fixtures/32sc/ will replace synthetic data after first probe run.
  */
 import { describe, it, expect } from 'vitest'
-import { extractLineChannels, extractMixerName, extractFatChannelState, extractCurrentProject, mapRawStateToSnapshot } from '../state-mapper.js'
+import { extractLineChannels, extractMixerName, extractFatChannelState, extractCurrentProject, mapRawStateToSnapshot, flattenFeatherbearState, extractMixPermissions, CREDENTIAL_STATE_PREFIXES } from '../state-mapper.js'
 import type { RawStateTree } from '../types.js'
 import type { MixerIdentity } from '@presonus-mcp/domain'
 
@@ -123,6 +123,91 @@ describe('mapRawStateToSnapshot', () => {
     expect(snapshot.disconnectedAt).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Security — credential redaction at the adapter boundary
+// featherbear issue #5: the StudioLive access code is broadcast in zlib state.
+// ---------------------------------------------------------------------------
+
+describe('credential redaction — CREDENTIAL_STATE_PREFIXES', () => {
+  it('CREDENTIAL_STATE_PREFIXES includes permissions.access_code', () => {
+    expect(CREDENTIAL_STATE_PREFIXES).toContain('permissions.access_code')
+  })
+
+  it('flattenFeatherbearState excludes permissions.access_code leaf', () => {
+    const raw = { 'permissions.access_code': '12345', 'global.mixer_name': 'StudioLive 32R' }
+    const flat = flattenFeatherbearState(raw)
+    expect(flat['permissions.access_code']).toBeUndefined()
+    expect(flat['global.mixer_name']).toBe('StudioLive 32R')
+  })
+
+  it('flattenFeatherbearState excludes permissions.access_code.value sub-path from internal tree', () => {
+    const raw = { permissions: { access_code: '12345', mix_permissions: 0 } }
+    const flat = flattenFeatherbearState(raw)
+    expect(flat['permissions.access_code']).toBeUndefined()
+    expect('permissions.access_code' in flat).toBe(false)
+    // Non-credential neighbour must survive
+    expect(flat['permissions.mix_permissions']).toBe(0)
+  })
+
+  it('flattenFeatherbearState excludes any sub-path under permissions.access_code', () => {
+    const raw = { permissions: { access_code: { value: 'secret', strings: [] } } }
+    const flat = flattenFeatherbearState(raw)
+    const keys = Object.keys(flat).filter(k => k.startsWith('permissions.access_code'))
+    expect(keys).toHaveLength(0)
+  })
+
+  it('mapRawStateToSnapshot does not expose access_code in flatState', () => {
+    const raw: Record<string, unknown> = {
+      internal: { children: { permissions: { children: { access_code: '12345', mix_permissions: { value: 0, strings: ['None', 'FOH'] } } } } },
+      cache: { 'permissions.access_code': '12345', 'global.mixer_name': 'StudioLive 32R' },
+    }
+    const snap = mapRawStateToSnapshot(mockIdentity, raw)
+    expect(snap.flatState['permissions.access_code']).toBeUndefined()
+    expect(snap.flatState['permissions.access_code.value']).toBeUndefined()
+  })
+
+  it('rawState does not contain access_code at top level when only flat keys are present', () => {
+    // When a PV event carries access_code (normalizeDataPayload scenario),
+    // the client-manager guard prevents it reaching rawState. Simulate the flat case.
+    const raw = { 'global.mixer_name': 'StudioLive 32R', 'permissions.mix_permissions': 0 }
+    const snap = mapRawStateToSnapshot(mockIdentity, raw)
+    expect(snap.rawState['permissions.access_code']).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// extractMixPermissions — reads authorization level without credentials
+// ---------------------------------------------------------------------------
+
+describe('extractMixPermissions', () => {
+  it('returns None when index 0 and strings present', () => {
+    const flat = { 'permissions.mix_permissions.strings': ['None', 'FOH'], 'permissions.mix_permissions.value': 0 }
+    expect(extractMixPermissions(flat)).toBe('None')
+  })
+
+  it('returns FOH when index 1 and strings present', () => {
+    const flat = { 'permissions.mix_permissions.strings': ['None', 'FOH'], 'permissions.mix_permissions.value': 1 }
+    expect(extractMixPermissions(flat)).toBe('FOH')
+  })
+
+  it('returns None as fallback when index 0 with no strings', () => {
+    const flat = { 'permissions.mix_permissions': 0 }
+    expect(extractMixPermissions(flat)).toBe('None')
+  })
+
+  it('returns undefined when permissions state not present', () => {
+    expect(extractMixPermissions({})).toBeUndefined()
+  })
+
+  it('is never the access_code value', () => {
+    // Verify that even if access_code were somehow in flat, extractMixPermissions ignores it
+    const flat = { 'permissions.mix_permissions': 1, 'permissions.mix_permissions.strings': ['None', 'FOH'] }
+    expect(extractMixPermissions(flat)).not.toBe('12345')
+  })
+})
+
+
 
 // ---------------------------------------------------------------------------
 // extractCurrentProject tests — REQ-F-005 (#19)

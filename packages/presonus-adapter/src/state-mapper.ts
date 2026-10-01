@@ -67,9 +67,9 @@ export interface MixerSnapshot {
   currentScene: string | undefined
   availableProjects: string[]
   capturedAt: string
-  /** Raw state preserved for diagnostic/probe use (nested tree, pre-flattening) */
+  /** Raw state preserved for diagnostic/probe use (nested tree, pre-flattening). Credentials are pre-redacted. */
   rawState: RawStateTree
-  /** Flattened state (dot-notation keys) used by all mapper functions */
+  /** Flattened state (dot-notation keys) used by all mapper functions. Credentials are pre-redacted. */
   flatState: Record<string, unknown>
   /**
    * True when the connection to the mixer has been lost and state may be stale.
@@ -81,6 +81,12 @@ export interface MixerSnapshot {
   disconnectedAt: string | undefined
   /** Output patch router state (probe-gated: source names are not_verifiable until probe) */
   outputPatch: OutputPatchRouter | undefined
+  /**
+   * Mix permission level granted by the mixer operator (e.g. "None", "FOH").
+   * Derived from permissions.mix_permissions in the zlib state tree.
+   * undefined = permissions state not yet received.
+   */
+  mixPermissions: string | undefined
 }
 
 /**
@@ -92,6 +98,15 @@ export interface MixerSnapshot {
  * Structure: _data.internal.children.<section>.children.<item>.children.<field>
  */
 const STRUCTURAL_SKIP_KEYS = new Set(['internal', 'children', 'cache'])
+
+/**
+ * State key prefixes that contain credentials. Any flat path equal to one of these
+ * or starting with "<path>." is excluded from flatState and from rawState redaction.
+ *
+ * Source: featherbear issue #5 — the StudioLive access code is broadcast in zlib state.
+ * The code appears at permissions.access_code in both the flat cache and the nested tree.
+ */
+export const CREDENTIAL_STATE_PREFIXES: ReadonlyArray<string> = ['permissions.access_code']
 
 /**
  * Flatten the featherbear nested state tree into a flat dot-notation dict.
@@ -121,6 +136,11 @@ export function flattenFeatherbearState(
 
     const nextPrefix = prefix ? `${prefix}.${key}` : key
 
+    // Exclude credential paths at the adapter boundary (see CREDENTIAL_STATE_PREFIXES)
+    if (CREDENTIAL_STATE_PREFIXES.some(p => nextPrefix === p || nextPrefix.startsWith(`${p}.`))) {
+      continue
+    }
+
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       // Non-leaf node — recurse WITH key added to path
       Object.assign(result, flattenFeatherbearState(value as Record<string, unknown>, nextPrefix))
@@ -149,6 +169,28 @@ export function extractMixerName(flat: Record<string, unknown>): string | undefi
 export function extractMixerSerial(flat: Record<string, unknown>): string | undefined {
   const val = flat[KNOWN_GLOBAL_KEYS.MIXER_SERIAL]
   return typeof val === 'string' ? val : undefined
+}
+
+/**
+ * Extract the current mix permission level granted by the mixer operator.
+ *
+ * permissions.mix_permissions (value) = numeric index into the strings array.
+ * permissions.mix_permissions.strings = ["None", "FOH", ...] (from zlib internal tree).
+ * permissions.mix_permissions (cache) = numeric index.
+ *
+ * Returns undefined when the permissions section has not yet been synced.
+ * Never returns the access_code (that path is excluded by CREDENTIAL_STATE_PREFIXES).
+ */
+export function extractMixPermissions(flat: Record<string, unknown>): string | undefined {
+  const index = flat['permissions.mix_permissions.value'] ?? flat['permissions.mix_permissions']
+  const strings = flat['permissions.mix_permissions.strings']
+  if (typeof index === 'number' && Array.isArray(strings) && strings.length > 0) {
+    return String(strings[index] ?? `Permission index ${index}`)
+  }
+  if (typeof index === 'number') {
+    return index === 0 ? 'None' : `Permission level ${index}`
+  }
+  return undefined
 }
 
 /**
@@ -600,6 +642,7 @@ export function buildSnapshotFromFlatState(
     isStale: false,
     disconnectedAt: undefined,
     outputPatch: extractOutputPatchRouter(flat, resolvedIdentity.deviceId),
+    mixPermissions: extractMixPermissions(flat),
   }
 }
 
@@ -639,6 +682,7 @@ export function mapRawStateToSnapshot(
     isStale: false,
     disconnectedAt: undefined,
     outputPatch: extractOutputPatchRouter(flat, resolvedIdentity.deviceId),
+    mixPermissions: extractMixPermissions(flat),
   }
 }
 

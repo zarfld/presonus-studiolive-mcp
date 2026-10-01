@@ -19,7 +19,7 @@
 import type { MixerIdentity } from '@presonus-mcp/domain'
 import type { MixerSnapshot } from './state-mapper.js'
 import type { RawStateTree, RawMeterPacket } from './types.js'
-import { mapRawStateToSnapshot, buildSnapshotFromFlatState, deriveCapabilities } from './state-mapper.js'
+import { mapRawStateToSnapshot, buildSnapshotFromFlatState, deriveCapabilities, CREDENTIAL_STATE_PREFIXES } from './state-mapper.js'
 import { PresonusMeterSummarizer } from './meter-summarizer.js'
 
 /**
@@ -53,12 +53,150 @@ interface DeviceConnection {
   reconnectTimer: ReturnType<typeof setTimeout> | undefined
   /** Timestamp (ms) of last received featherbear 'data' or 'meter' event */
   lastEventAt: number
-  /** Periodic interval for stale-event-gap detection (REQ-NF-003 #23 Scenario 3) */
+  /** Timestamp (ms) of last state-sync or data event. Used for health checks without implying stale on idle traffic. */
+  lastStateSyncAt: number
+  /** Timestamp (ms) of last meter packet. Distinct from state changes. */
+  lastMeterEventAt: number
+  /** Timestamp (ms) of last control/state event. Distinct from meter traffic. */
+  lastControlEventAt: number
+  /** Periodic interval for stale-event-gap detection (disabled for normal idle connections; used only for true refresh failures). */
   stalenessCheckInterval: ReturnType<typeof setInterval> | undefined
 }
 
 export class PresonusClientManager {
   private readonly connections = new Map<string, DeviceConnection>()
+
+  private normalizeDataPayload(payload: unknown): Record<string, unknown> | undefined {
+    if (!payload || typeof payload !== 'object') return undefined
+    const record = payload as Record<string, unknown>
+    if ('code' in record && 'data' in record && record.data && typeof record.data === 'object') {
+      return record.data as Record<string, unknown>
+    }
+    return record
+  }
+
+  /** Remove credential fields from rawState in-place after dumpState() merges them in. */
+  private redactRawStateCredentials(raw: RawStateTree): void {
+    const r = raw as Record<string, unknown>
+    // Flat cache (featherbear CacheProvider._data.toJSON())
+    const cache = r['cache']
+    if (cache && typeof cache === 'object') {
+      const c = cache as Record<string, unknown>
+      for (const p of CREDENTIAL_STATE_PREFIXES) {
+        delete c[p]
+      }
+    }
+    // Nested internal tree: internal → children → permissions → children → access_code
+    const internal = r['internal'] as Record<string, unknown> | undefined
+    const topChildren = internal?.['children'] as Record<string, unknown> | undefined
+    const permNode = topChildren?.['permissions'] as Record<string, unknown> | undefined
+    const permChildren = permNode?.['children'] as Record<string, unknown> | undefined
+    if (permChildren) {
+      delete permChildren['access_code']
+    }
+  }
+
+  private attachClientLifecycle(conn: DeviceConnection, client: any): void {
+    const onLost = (reason: string) => {
+      if (!conn.connected || conn.reconnectTimer !== undefined) return
+      conn.connected = false
+      const disconnectedAt = new Date().toISOString()
+      if (conn.snapshot) {
+        conn.snapshot = { ...conn.snapshot, isStale: true, disconnectedAt }
+      }
+      if (conn.stalenessCheckInterval !== undefined) {
+        clearInterval(conn.stalenessCheckInterval)
+        conn.stalenessCheckInterval = undefined
+      }
+      conn.reconnectAttempts++
+      const delayMs = computeReconnectDelayMs(conn.reconnectAttempts)
+      process.stderr.write(
+        `[presonus-mcp] ${conn.identity.deviceId} disconnected (${reason}); reconnect attempt ${conn.reconnectAttempts} in ${delayMs} ms\n`,
+      )
+      conn.reconnectTimer = setTimeout(
+        () => this._reconnect(conn.identity.deviceId).catch((err: unknown) => {
+          process.stderr.write(`[presonus-mcp] _reconnect error for ${conn.identity.deviceId}: ${String(err)}\n`)
+        }),
+        delayMs,
+      )
+    }
+
+    client.on('data', (payload: unknown) => {
+      const now = Date.now()
+      conn.lastEventAt = now
+      conn.lastControlEventAt = now
+      conn.lastStateSyncAt = now
+      const nextState = this.normalizeDataPayload(payload)
+      if (nextState && typeof nextState === 'object') {
+        // Skip credential-path PV updates (e.g. permissions.access_code) so they
+        // never enter rawState.  featherbear's internal cache handles them separately.
+        const payloadName = typeof nextState['name'] === 'string' ? nextState['name'] : undefined
+        if (payloadName && CREDENTIAL_STATE_PREFIXES.some(p => payloadName === p || payloadName.startsWith(`${p}.`))) {
+          return
+        }
+        Object.assign(conn.rawState, nextState)
+      }
+      conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
+      if (conn.snapshot) {
+        const project = typeof client.currentProject === 'string' && client.currentProject
+          ? client.currentProject : undefined
+        const scene = typeof client.currentScene === 'string' && client.currentScene
+          ? client.currentScene : undefined
+        conn.snapshot = {
+          ...conn.snapshot,
+          currentProject: project ?? conn.snapshot.currentProject,
+          currentScene: scene,
+          isStale: false,
+          disconnectedAt: undefined,
+        }
+      }
+    })
+
+    client.on('meter', (packet: unknown) => {
+      const now = Date.now()
+      conn.lastEventAt = now
+      conn.lastMeterEventAt = now
+      if (packet && typeof packet === 'object') {
+        const lineValues = (packet as Record<string | number, unknown>)[0]
+        if (Array.isArray(lineValues) && lineValues.length > 0) {
+          conn.summarizer.ingest({
+            channels: lineValues as number[],
+            timestamp: now,
+          })
+        }
+      }
+    })
+
+    client.on('setting', () => {
+      if (!conn.snapshot) return
+      const project = typeof client.currentProject === 'string' && client.currentProject
+        ? client.currentProject : undefined
+      const scene = typeof client.currentScene === 'string' && client.currentScene
+        ? client.currentScene : undefined
+      conn.snapshot = { ...conn.snapshot, currentProject: project ?? conn.snapshot.currentProject, currentScene: scene }
+    })
+
+    client.on('closed', () => onLost('closed'))
+    client.on('error', (err: unknown) => {
+      conn.lastError = String(err)
+      onLost(`error: ${String(err)}`)
+    })
+  }
+
+  private startHealthMonitor(conn: DeviceConnection): void {
+    if (conn.stalenessCheckInterval !== undefined) {
+      clearInterval(conn.stalenessCheckInterval)
+    }
+    conn.stalenessCheckInterval = setInterval(() => {
+      if (!conn.connected || conn.reconnectTimer !== undefined) return
+      const gapMs = Date.now() - conn.lastStateSyncAt
+      if (gapMs > 300_000) {
+        process.stderr.write(
+          `[presonus-mcp] WARNING: ${conn.identity.deviceId} — no successful state sync for ${Math.round(gapMs / 1000)} s; refresh required\n`,
+        )
+      }
+    }, 10_000)
+  }
 
   /**
    * Connect to a mixer in read-only mode.
@@ -86,54 +224,44 @@ export class PresonusClientManager {
       reconnectAttempts: 0,
       reconnectTimer: undefined,
       lastEventAt: 0,
+      lastStateSyncAt: 0,
+      lastMeterEventAt: 0,
+      lastControlEventAt: 0,
       stalenessCheckInterval: undefined,
     }
 
     this.connections.set(identity.deviceId, conn)
 
     try {
-      // Pass a unique clientIdentifier per connection.
-      // featherbear docs: "If using multiple instances of this API, it is recommended
-      // to modify the clientIdentifier property." Using the same default ID across
-      // multiple connections causes the mixer to treat them as the same client and
-      // may refuse state sync after repeated connects (e.g. HIL test runs).
       await client.connect({
         clientDescription: 'presonus-mcp-server',
         clientIdentifier: `presonus-mcp-${identity.deviceId}-${Date.now()}`,
       })
       conn.connected = true
+      conn.lastStateSyncAt = Date.now()
+      conn.lastEventAt = Date.now()
 
-      // Verify serial after connect (REQ-F-002 #16)
-      // Also populate model (used by deriveCapabilities) from global.mixer_name.
-      // featherbear Discovery does not always populate device.model in the UDP packet;
-      // reading it from the state tree after connect guarantees the correct value.
       const deviceName = client.state?.get?.('global.mixer_name')
       if (deviceName) {
         conn.identity = {
           ...conn.identity,
           name: String(deviceName),
-          // Use mixer name as model if model was not set by discovery.
-          // global.mixer_name returns the hardware model string (e.g. "StudioLive 32SC"),
-          // which is the key used in MODEL_CAPABILITY_TABLE inside deriveCapabilities().
           model: conn.identity.model ?? String(deviceName),
         }
       }
 
-      // Build initial snapshot
       try {
         const dumped = await client.dumpState?.()
         if (dumped && typeof dumped === 'object') {
           Object.assign(conn.rawState, dumped)
+          this.redactRawStateCredentials(conn.rawState)
         }
       } catch {
         // dumpState may not exist in all firmware versions; graceful fallback
       }
 
-      // No background task needed: dumpState() above already populated rawState.
-
       conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
 
-      // Fetch available projects list (REQ-F-005 #19)
       try {
         const rawProjects = typeof client.getProjects === 'function'
           ? await (client.getProjects(false) as Promise<{ name: string }[]>)
@@ -148,7 +276,6 @@ export class PresonusClientManager {
         // getProjects may fail on some firmware versions; graceful fallback to []
       }
 
-      // Patch project/scene from featherbear client properties (authoritative source — REQ-F-005 #19)
       if (conn.snapshot) {
         const project = typeof client.currentProject === 'string' && client.currentProject
           ? client.currentProject : undefined
@@ -157,106 +284,18 @@ export class PresonusClientManager {
         conn.snapshot = { ...conn.snapshot, currentProject: project ?? conn.snapshot.currentProject, currentScene: scene }
       }
 
-      // Subscribe to state updates.
-      // featherbear 'data' events carry a FLAT key-value delta (e.g. {'global.mixer_name': 'X'}).
-      // We merge the delta into conn.rawState with Object.assign so flattenFeatherbearState()
-      // sees the updated flat keys alongside the original nested tree from dumpState().
-      // NOTE: state._data is featherbear's permission cache ({permissions:{}} only) —
-      // never replace rawState with it; doing so destroys channel state.
-      client.on('data', (data: unknown) => {
-        conn.lastEventAt = Date.now()  // REQ-NF-003 #23: track last event time
-        if (data && typeof data === 'object') {
-          Object.assign(conn.rawState, data as Record<string, unknown>)
-        }
-        conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
-        if (conn.snapshot) {
-          const project = typeof client.currentProject === 'string' && client.currentProject
-            ? client.currentProject : undefined
-          const scene = typeof client.currentScene === 'string' && client.currentScene
-            ? client.currentScene : undefined
-          conn.snapshot = {
-            ...conn.snapshot,
-            currentProject: project ?? conn.snapshot.currentProject,
-            currentScene: scene,
-          }
-        }
-      })
-
-      // Subscribe to meters
-      client.on('meter', (packet: unknown) => {
-        conn.lastEventAt = Date.now()  // REQ-NF-003 #23: track last event time
-        // featherbear emits meter as { 0: lineValues[], 1: returnValues[], ..., type: "level" }
-        // Key 0 = LINE channels (group 0 in StudioLive metering protocol)
-        if (packet && typeof packet === 'object') {
-          const lineValues = (packet as Record<string | number, unknown>)[0]
-          if (Array.isArray(lineValues) && lineValues.length > 0) {
-            conn.summarizer.ingest({
-              channels: lineValues as number[],
-              timestamp: Date.now(),
-            })
-          }
-        }
-      })
-
       if (typeof client.meterSubscribe === 'function') {
         client.meterSubscribe()
       }
 
-      // Initialise lastEventAt and start stale-event-gap monitor (REQ-NF-003 #23 Scenario 3)
-      conn.lastEventAt = Date.now()
-      conn.stalenessCheckInterval = setInterval(() => {
-        if (!conn.connected) return  // suppress if already disconnected
-        const gapMs = Date.now() - conn.lastEventAt
-        if (gapMs > 2000) {
-          process.stderr.write(
-            `[presonus-mcp] WARNING: ${identity.deviceId} — no featherbear events for ${Math.round(gapMs / 1000)} s` +
-            ` (last: ${new Date(conn.lastEventAt).toISOString()}); state may be stale\n`,
-          )
-        }
-      }, 1000)
-      client.on('setting', () => {
-        if (!conn.snapshot) return
-        const project = typeof client.currentProject === 'string' && client.currentProject
-          ? client.currentProject : undefined
-        const scene = typeof client.currentScene === 'string' && client.currentScene
-          ? client.currentScene : undefined
-        conn.snapshot = { ...conn.snapshot, currentProject: project ?? conn.snapshot.currentProject, currentScene: scene }
-      })
-
-      // Subscribe to disconnect/error events for reconnect logic (QA-SC-003 #27, REQ-NF-004 #24)
-      const onLost = (reason: string) => {
-        if (!conn.connected) return  // already handling
-        conn.connected = false
-        const disconnectedAt = new Date().toISOString()
-        if (conn.snapshot) {
-          conn.snapshot = { ...conn.snapshot, isStale: true, disconnectedAt }
-        }
-        // Stop stale-event-gap monitor (no more events expected while disconnected)
-        if (conn.stalenessCheckInterval !== undefined) {
-          clearInterval(conn.stalenessCheckInterval)
-          conn.stalenessCheckInterval = undefined
-        }
-        conn.reconnectAttempts++
-        const delayMs = computeReconnectDelayMs(conn.reconnectAttempts)
-        process.stderr.write(
-          `[presonus-mcp] ${identity.deviceId} disconnected (${reason}); reconnect attempt ${conn.reconnectAttempts} in ${delayMs} ms\n`,
-        )
-        conn.reconnectTimer = setTimeout(
-          () => this._reconnect(identity.deviceId).catch((err: unknown) => {
-            process.stderr.write(`[presonus-mcp] _reconnect error for ${identity.deviceId}: ${String(err)}\n`)
-          }),
-          delayMs,
-        )
-      }
-
-      client.on('disconnect', () => onLost('disconnect'))
-      client.on('error', (err: unknown) => {
-        conn.lastError = String(err)
-        onLost(`error: ${String(err)}`)
-      })
+      this.attachClientLifecycle(conn, client)
+      this.startHealthMonitor(conn)
+      const perm = conn.snapshot?.mixPermissions ?? 'unknown'
+      process.stderr.write(`[presonus-mcp] ${identity.deviceId} connected | Mix permission: ${perm}\n`)
     } catch (err) {
       conn.lastError = String(err)
       conn.connected = false
+      conn.snapshot = conn.snapshot ? { ...conn.snapshot, isStale: true, disconnectedAt: new Date().toISOString() } : conn.snapshot
     }
   }
 
@@ -274,13 +313,11 @@ export class PresonusClientManager {
     if (!conn) return
     if (conn.connected) return  // already recovered (race condition guard)
 
-    // Clear the scheduled timer
     if (conn.reconnectTimer !== undefined) {
       clearTimeout(conn.reconnectTimer)
       conn.reconnectTimer = undefined
     }
 
-    // Close old client (best-effort)
     try { await conn.client.close?.() } catch { /* ignore */ }
 
     try {
@@ -293,83 +330,55 @@ export class PresonusClientManager {
         clientDescription: 'presonus-mcp-server',
         clientIdentifier: `presonus-mcp-${conn.identity.deviceId}-${Date.now()}`,
       })
+
       conn.connected = true
       conn.reconnectAttempts = 0
       conn.lastError = undefined
+      conn.lastStateSyncAt = Date.now()
+      conn.lastEventAt = Date.now()
 
-      // Refresh snapshot
+      const deviceName = client.state?.get?.('global.mixer_name')
+      if (deviceName) {
+        conn.identity = {
+          ...conn.identity,
+          name: String(deviceName),
+          model: conn.identity.model ?? String(deviceName),
+        }
+      }
+
       try {
         const dumped = await client.dumpState?.()
-        if (dumped && typeof dumped === 'object') Object.assign(conn.rawState, dumped)
+        if (dumped && typeof dumped === 'object') {
+          Object.assign(conn.rawState, dumped)
+          this.redactRawStateCredentials(conn.rawState)
+        }
       } catch { /* graceful fallback */ }
+
       conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
       if (conn.snapshot) {
         const project = typeof client.currentProject === 'string' && client.currentProject
           ? client.currentProject : undefined
+        const scene = typeof client.currentScene === 'string' && client.currentScene
+          ? client.currentScene : undefined
         conn.snapshot = {
           ...conn.snapshot,
           currentProject: project ?? conn.snapshot.currentProject,
-          currentScene: typeof client.currentScene === 'string' && client.currentScene
-            ? client.currentScene : undefined,
+          currentScene: scene,
           isStale: false,
           disconnectedAt: undefined,
         }
       }
       conn.writeEnabled = this._globalWriteEnabled
 
-      // Re-subscribe to events (same as connect())
-      client.on('data', (data: unknown) => {
-        conn.lastEventAt = Date.now()
-        if (data && typeof data === 'object') {
-          Object.assign(conn.rawState, data)
-          conn.snapshot = mapRawStateToSnapshot(conn.identity, conn.rawState)
-        }
-      })
-      client.on('meter', (packet: unknown) => {
-        conn.lastEventAt = Date.now()
-        if (packet && typeof packet === 'object') {
-          const lineValues = (packet as Record<string | number, unknown>)[0]
-          if (Array.isArray(lineValues) && lineValues.length > 0) {
-            conn.summarizer.ingest({ channels: lineValues as number[], timestamp: Date.now() })
-          }
-        }
-      })
-      if (typeof client.meterSubscribe === 'function') client.meterSubscribe()
-
-      // Restart stale-event-gap monitor after reconnect (REQ-NF-003 #23)
-      conn.lastEventAt = Date.now()
-      conn.stalenessCheckInterval = setInterval(() => {
-        if (!conn.connected) return
-        const gapMs = Date.now() - conn.lastEventAt
-        if (gapMs > 2000) {
-          process.stderr.write(
-            `[presonus-mcp] WARNING: ${deviceId} — no featherbear events for ${Math.round(gapMs / 1000)} s` +
-            ` (last: ${new Date(conn.lastEventAt).toISOString()}); state may be stale\n`,
-          )
-        }
-      }, 1000)
-
-      const onLost = (reason: string) => {
-        if (!conn.connected) return
-        conn.connected = false
-        const disconnectedAt = new Date().toISOString()
-        if (conn.snapshot) conn.snapshot = { ...conn.snapshot, isStale: true, disconnectedAt }
-        if (conn.stalenessCheckInterval !== undefined) {
-          clearInterval(conn.stalenessCheckInterval)
-          conn.stalenessCheckInterval = undefined
-        }
-        conn.reconnectAttempts++
-        const delayMs = computeReconnectDelayMs(conn.reconnectAttempts)
-        process.stderr.write(`[presonus-mcp] ${deviceId} disconnected (${reason}); reconnect in ${delayMs} ms\n`)
-        conn.reconnectTimer = setTimeout(
-          () => this._reconnect(deviceId).catch(() => undefined),
-          delayMs,
-        )
+      if (typeof client.meterSubscribe === 'function') {
+        client.meterSubscribe()
       }
-      client.on('disconnect', () => onLost('disconnect'))
-      client.on('error', (err: unknown) => { conn.lastError = String(err); onLost(`error: ${String(err)}`) })
 
-      process.stderr.write(`[presonus-mcp] ${deviceId} reconnected successfully\n`)
+      this.attachClientLifecycle(conn, client)
+      this.startHealthMonitor(conn)
+
+      const perm = conn.snapshot?.mixPermissions ?? 'unknown'
+      process.stderr.write(`[presonus-mcp] ${deviceId} reconnected successfully | Mix permission: ${perm}\n`)
     } catch (err) {
       conn.lastError = String(err)
       conn.connected = false

@@ -42,7 +42,12 @@ async function main(): Promise<void> {
   })
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  // Server now running — process stays alive via event loop
+
+  // MCP stdio servers must be spawned by a client that owns their stdin/stdout
+  // (Claude Desktop, VS Code, MCP Inspector).  Direct invocation is for diagnostics only.
+  server.server.onclose = () => {
+    process.stderr.write('[presonus-mcp] MCP transport closed\n')
+  }
 }
 
 main().catch((err: unknown) => {

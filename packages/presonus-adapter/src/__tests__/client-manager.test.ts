@@ -131,8 +131,8 @@ describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
-    // Simulate mixer disconnect
-    currentMockClient.emit('disconnect')
+    // Simulate the real Featherbear lifecycle signal on loss of the TCP session.
+    currentMockClient.emit('closed')
 
     const snap = manager.getSnapshot(testIdentity.deviceId)
     expect(snap?.isStale).toBe(true)
@@ -143,7 +143,7 @@ describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
-    currentMockClient.emit('disconnect')
+    currentMockClient.emit('closed')
 
     // Last known state must still be available
     const snap = manager.getSnapshot(testIdentity.deviceId)
@@ -155,7 +155,7 @@ describe('PresonusClientManager — disconnect + stale state (REQ-NF-004, QA-SC-
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
-    currentMockClient.emit('disconnect')
+    currentMockClient.emit('closed')
 
     // A reconnect timer is scheduled; advance to just before it fires to verify no crash
     // (The timer is cleared by afterEach — firing _reconnect() across test boundaries
@@ -317,7 +317,7 @@ describe('PresonusClientManager — reconnect timer scheduling (QA-SC-003 #27)',
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
-    currentMockClient.emit('disconnect')
+    currentMockClient.emit('closed')
 
     // At 999ms: reconnect NOT yet triggered (proves delay is ≥ 1000 ms — QA-SC-003 requirement)
     await vi.advanceTimersByTimeAsync(999)
@@ -338,95 +338,173 @@ describe('PresonusClientManager — reconnect timer scheduling (QA-SC-003 #27)',
 })
 
 // ---------------------------------------------------------------------------
-// Phase D: stale event-gap warning — REQ-NF-003 (#23) Scenario 3
+// Phase D: lifecycle health — no idle stale warnings, real closed-event recovery
 // ---------------------------------------------------------------------------
 
-describe('PresonusClientManager — stale event-gap warning (REQ-NF-003 #23 Scenario 3)', () => {
+describe('PresonusClientManager — reactive lifecycle health', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
   beforeEach(() => {
+    vi.useFakeTimers()
     currentMockClient = makeMockClient()
   })
 
-  it('logs warning when no featherbear events arrive for > 2 s', async () => {
-    vi.useFakeTimers()
+  it('reconnects on the upstream closed event with the expected backoff', async () => {
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+
+    const liveClient = currentMockClient
+    liveClient.emit('closed')
+    currentMockClient = makeMockClient()
+
+    await vi.advanceTimersByTimeAsync(999)
+    expect(manager.getConnectedDeviceIds()).not.toContain(testIdentity.deviceId)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(manager.getConnectedDeviceIds()).toContain(testIdentity.deviceId)
+    expect(currentMockClient.connect).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not schedule duplicate reconnect timers when closed and error fire back-to-back', async () => {
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+
+    const liveClient = currentMockClient
+    liveClient.emit('closed')
+    liveClient.emit('error', new Error('reconnect race'))
+    currentMockClient = makeMockClient()
+
+    expect(vi.getTimerCount()).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(currentMockClient.connect).toHaveBeenCalledTimes(1)
+  })
+
+  it('normal idle connections do not trigger stale warnings', async () => {
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
-    // Advance 3100ms with no 'data' or 'meter' events
-    // Interval fires at t=1000 (gap=1000: no warn), t=2000 (gap=2000: no warn), t=3000 (gap=3000: WARN)
     await vi.advanceTimersByTimeAsync(3100)
 
     const warnCalls = stderrSpy.mock.calls
       .map((c) => String(c[0]))
       .filter((s) => s.includes('WARNING') && s.includes('no featherbear events'))
-    expect(warnCalls.length).toBeGreaterThanOrEqual(1)
-    expect(warnCalls[0]).toContain(testIdentity.deviceId)
-  })
-
-  it('no warning when events arrive regularly', async () => {
-    vi.useFakeTimers()
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    const manager = new PresonusClientManager()
-    await manager.connect(testIdentity)
-
-    // Emit a data event every 500ms to reset lastEventAt
-    for (let i = 0; i < 6; i++) {
-      await vi.advanceTimersByTimeAsync(500)
-      currentMockClient.emit('data', {})
-    }
-    // 3000ms passed but events kept lastEventAt fresh
-
-    const warnCalls = stderrSpy.mock.calls
-      .map((c) => String(c[0]))
-      .filter((s) => s.includes('WARNING') && s.includes('no featherbear events'))
     expect(warnCalls.length).toBe(0)
   })
 
-  it('no warning logged after explicit disconnect (interval cleared)', async () => {
-    vi.useFakeTimers()
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    const manager = new PresonusClientManager()
-    await manager.connect(testIdentity)
-    await manager.disconnect(testIdentity.deviceId)
-
-    // Advance past what would trigger warning if interval were still running
-    await vi.advanceTimersByTimeAsync(5000)
-
-    const warnCalls = stderrSpy.mock.calls
-      .map((c) => String(c[0]))
-      .filter((s) => s.includes('WARNING') && s.includes('no featherbear events'))
-    expect(warnCalls.length).toBe(0)
-  })
-
-  it('no warning while disconnected (guard: !conn.connected)', async () => {
-    vi.useFakeTimers()
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  it('reconnect re-subscribes meters exactly once per successful session', async () => {
     const manager = new PresonusClientManager()
     await manager.connect(testIdentity)
 
-    // Disconnect (sets conn.connected = false and clears interval)
-    currentMockClient.emit('disconnect')
-    // Advance to just before the automatic reconnect fires (reconnect delay = 1000ms for attempt 1).
-    // Within this 999ms window, conn.connected is false so the guard suppresses any interval fires.
-    // Advancing further (> 1000ms) would trigger reconnect, which restarts the interval — that would
-    // be testing reconnect behaviour, not the disconnect guard.
-    await vi.advanceTimersByTimeAsync(999)
+    expect(currentMockClient.meterSubscribe).toHaveBeenCalledTimes(1)
 
-    const warnCalls = stderrSpy.mock.calls
-      .map((c) => String(c[0]))
-      .filter((s) => s.includes('WARNING') && s.includes('no featherbear events'))
-    expect(warnCalls.length).toBe(0)
+    const liveClient = currentMockClient
+    liveClient.emit('closed')
+    currentMockClient = makeMockClient()
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(currentMockClient.meterSubscribe).toHaveBeenCalledTimes(1)
   })
 })
 
 // ---------------------------------------------------------------------------
-// Phase E: serial-stable identity in snapshot — REQ-F-002 (#16) / Issue #62
+// Security — access_code must never reach snapshot/flatState/rawState
 // ---------------------------------------------------------------------------
+
+describe('PresonusClientManager — credential redaction (security)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    currentMockClient = makeMockClient()
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
+  })
+
+  it('access_code in dumpState cache is not present in snapshot flatState', async () => {
+    currentMockClient = {
+      ...makeMockClient(),
+      dumpState: vi.fn(async () => ({
+        internal: {},
+        cache: { 'permissions.access_code': '12345', 'global.mixer_name': 'StudioLive 32R' },
+      })),
+    }
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+    const snap = manager.getSnapshot(testIdentity.deviceId)
+    expect(snap?.flatState?.['permissions.access_code']).toBeUndefined()
+  })
+
+  it('access_code in dumpState internal tree is not present in snapshot flatState', async () => {
+    currentMockClient = {
+      ...makeMockClient(),
+      dumpState: vi.fn(async () => ({
+        internal: { children: { permissions: { children: { access_code: '12345' } } } },
+        cache: {},
+      })),
+    }
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+    const snap = manager.getSnapshot(testIdentity.deviceId)
+    const keys = Object.keys(snap?.flatState ?? {}).filter(k => k.includes('access_code'))
+    expect(keys).toHaveLength(0)
+  })
+
+  it('access_code in dumpState cache is stripped from rawState', async () => {
+    currentMockClient = {
+      ...makeMockClient(),
+      dumpState: vi.fn(async () => ({
+        internal: {},
+        cache: { 'permissions.access_code': 'secret', 'global.mixer_name': 'StudioLive 32R' },
+      })),
+    }
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+    const snap = manager.getSnapshot(testIdentity.deviceId)
+    const cache = (snap?.rawState as Record<string, unknown>)?.['cache'] as Record<string, unknown>
+    expect(cache?.['permissions.access_code']).toBeUndefined()
+  })
+
+  it('data event carrying permissions.access_code is silently ignored', async () => {
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+
+    const snapBefore = manager.getSnapshot(testIdentity.deviceId)
+    currentMockClient.emit('data', { code: 'PV', data: { name: 'permissions.access_code', value: 'newcode' } })
+    const snapAfter = manager.getSnapshot(testIdentity.deviceId)
+
+    // The credential update must not dirty the snapshot identity or any observable field
+    expect(snapAfter?.flatState?.['permissions.access_code']).toBeUndefined()
+    // Snapshot timestamp should NOT have changed (no state rebuild was triggered)
+    expect(snapAfter?.capturedAt).toBe(snapBefore?.capturedAt)
+  })
+
+  it('mixPermissions is populated from flatState without exposing access_code', async () => {
+    currentMockClient = {
+      ...makeMockClient(),
+      dumpState: vi.fn(async () => ({
+        internal: {},
+        cache: {
+          'permissions.access_code': '12345',
+          'permissions.mix_permissions': 0,
+        },
+      })),
+    }
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+    const snap = manager.getSnapshot(testIdentity.deviceId)
+    expect(snap?.flatState?.['permissions.access_code']).toBeUndefined()
+    // mixPermissions defaults to "None" for index 0 with no strings
+    expect(snap?.mixPermissions).toBe('None')
+  })
+})
+
+
 
 describe('PresonusClientManager — serial-stable identity in snapshot (REQ-F-002 #16)', () => {
   /**
@@ -490,7 +568,7 @@ describe('PresonusClientManager — serial-stable identity in snapshot (REQ-F-00
     expect(manager.getConnectedDeviceIds()).toContain(testIdentity.deviceId)
 
     // When: mixer disconnects
-    currentMockClient.emit('disconnect')
+    currentMockClient.emit('closed')
 
     // Then (immediate): the stale snapshot is preserved under the SAME serial-derived key.
     // This proves _reconnect() reuses the existing connection entry keyed by 'serial:TEST001',
@@ -512,7 +590,7 @@ describe('PresonusClientManager — serial-stable identity in snapshot (REQ-F-00
     await manager.connect(testIdentity)
 
     // Simulate disconnect and clean up the connection so connect() can be called again
-    currentMockClient.emit('disconnect')
+    currentMockClient.emit('closed')
     await manager.disconnect(testIdentity.deviceId)  // explicit cleanup
 
     // Reconnect with same identity (same serial — serial:TEST001)
