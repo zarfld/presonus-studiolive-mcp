@@ -6,6 +6,14 @@
 repos:
   - repo: local
     hooks:
+      # Privacy guard — must run before other hooks so leaks are caught first
+      - id: check-sensitive-staged
+        name: Privacy Guard — staged content
+        entry: node scripts/check-sensitive-staged.mjs --staged
+        language: system
+        pass_filenames: false
+        always_run: true
+
       # Validate specification files
       - id: validate-specs
         name: Validate Specification Files

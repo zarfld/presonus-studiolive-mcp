@@ -5,5 +5,6 @@ export default defineConfig({
     include: ['packages/*/src/**/*.test.ts'],
     exclude: ['packages/*/src/**/*.hil.test.ts', '**/node_modules/**'],
     environment: 'node',
+    pool: 'forks',
   },
 })

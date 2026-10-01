@@ -1,0 +1,49 @@
+{
+  "_comment": "Privacy guard configuration for presonus-studiolive-mcp. See scripts/check-sensitive-staged.mjs for usage.",
+
+  "ipDenyPrefixes": [
+    "10.",
+    "172.16.",
+    "172.17.",
+    "172.18.",
+    "172.19.",
+    "172.20.",
+    "172.21.",
+    "172.22.",
+    "172.23.",
+    "172.24.",
+    "172.25.",
+    "172.26.",
+    "172.27.",
+    "172.28.",
+    "172.29.",
+    "172.30.",
+    "172.31.",
+    "192.168."
+  ],
+
+  "serialPattern": "\\b[A-Z]{2}[A-Z0-9]{2}\\d{8}\\b",
+
+  "allowlistIps": [
+    "127.0.0.1",
+    "0.0.0.0",
+    "192.168.1.1",
+    "192.168.1.50",
+    "192.168.1.100",
+    "192.168.10.50",
+    "192.168.10.51",
+    "10.0.0.1",
+    "10.0.1.50"
+  ],
+
+  "allowlistFiles": [
+    "pnpm-lock.yaml"
+  ],
+
+  "_allowlistNotes": [
+    "allowlistIps contains IPs committed intentionally as documentation/test-fixture examples.",
+    "To add your real mixer-network prefix (e.g. a non-RFC-1918 range) add it to the gitignored",
+    ".privacy-guard-local.json at the repo root — never commit real network prefixes here.",
+    "Local file may contain the same keys as this file; arrays are merged, not replaced."
+  ]
+}

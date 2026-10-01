@@ -56,6 +56,9 @@ tsconfig.tsbuildinfo
 # pnpm
 .pnpm-store/
 
+# Privacy guard local overrides (developer-specific allowlist/deny additions)
+.privacy-guard-local.json
+
 # Captures (runtime mixer state dumps — not committed; only test/fixtures/ is committed)
 captures/**/*.json
 captures/**/*.jsonl

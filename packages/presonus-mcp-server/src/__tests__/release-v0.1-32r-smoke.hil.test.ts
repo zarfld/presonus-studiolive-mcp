@@ -35,15 +35,15 @@
  *   HIL_PRESONUS=1         — required by vitest.hil.config.ts to include *.hil.test.ts
  *   HIL_PRESONUS_32R=1     — gate for this file's describe groups
  *   HIL_32R_IP             — IPv4 address of the StudioLive 32R under test
- *   HIL_32R_SERIAL         — expected serial number (e.g. "SD7E21030001")
+ *   HIL_32R_SERIAL         — expected serial number (e.g. "SD7E***0001")
  *   HIL_32R_MODEL          — expected model name (default: "StudioLive 32R")
  *
  * RUN EXAMPLE
  * ------------
  *   $env:HIL_PRESONUS        = "1"
  *   $env:HIL_PRESONUS_32R    = "1"
- *   $env:HIL_32R_IP          = "192.168.1.42"
- *   $env:HIL_32R_SERIAL      = "SD7E21030001"
+ *   $env:HIL_32R_IP          = "<mixer-ip>"
+ *   $env:HIL_32R_SERIAL      = "SD7E***0001"
  *   pnpm test:hil -- --reporter=verbose 2>&1 | Out-File hil-32r-smoke.txt
  *
  * CONFIDENCE MODEL

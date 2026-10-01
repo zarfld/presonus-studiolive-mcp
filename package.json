@@ -23,7 +23,12 @@
     "mcp:server:dev": "tsx packages/presonus-mcp-server/src/index.ts",
     "typecheck": "tsc --build --dry",
     "inventory": "tsx scripts/generate-capability-matrix.ts",
-    "traceability": "node scripts/run-python-script.mjs scripts/github-issues-to-traceability-json.py"
+    "traceability": "node scripts/run-python-script.mjs scripts/github-issues-to-traceability-json.py",
+    "check:privacy": "node scripts/check-sensitive-staged.mjs --all",
+    "check:privacy:staged": "node scripts/check-sensitive-staged.mjs --staged",
+    "test:privacy": "node --test test/check-sensitive.test.mjs",
+    "install:hooks": "node scripts/install-hooks.mjs",
+    "prepare": "node scripts/install-hooks.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

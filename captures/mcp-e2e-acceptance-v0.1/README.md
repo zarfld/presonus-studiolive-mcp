@@ -51,7 +51,7 @@ access to `@modelcontextprotocol/sdk`.
 | MCP handshake over stdio | **PASS** | `connect()` resolved without error |
 | `tools/list` | **PASS** | 34 tools returned; all required tools present (see `tools-list.txt`) |
 | resources discovery | **PASS** | 2 resources: `presonus://mixers`, `presonus://mixer-graph/current` |
-| `discover_mixers` | **PASS** | UDP returned 0 (cross-subnet expected); configured fallback via `presonus://mixers` resource returned `serial:RA3E18030194`, IP `<ip.hidden>`, model `StudioLive 32R`, role `FOH`, `confidence=configured` |
+| `discover_mixers` | **PASS** | UDP returned 0 (cross-subnet expected); configured fallback via `presonus://mixers` resource returned `serial:RA3E****0194`, IP `<ip.hidden>`, model `StudioLive 32R`, role `FOH`, `confidence=configured` |
 | expected serial verified | **PASS** | `validate_mixer_identity` → `valid=true`, expected `RA3E***0194` |
 | `refresh_mixer_state` | **PASS** | `capturedAt=2026-10-01T17:03:26.453Z`, `channelCount=32`, `success=true` |
 | real channel state read | **PASS** | `line.ch1` → name=`Kick In`, mute=`true`, fader=`-29.95 dB` (via `presonus://mixer/{id}/channels` resource) |
@@ -90,7 +90,7 @@ From `get_mixer_capabilities`:
 
 ```json
 {
-  "deviceId": "serial:RA3E18030194",
+  "deviceId": "serial:RA3E****0194",
   "model": "StudioLive 32R",
   "role": "FOH",
   "capabilities": {

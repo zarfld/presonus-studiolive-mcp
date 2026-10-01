@@ -175,6 +175,14 @@ jobs:
       - name: Build workspace
         run: pnpm build
 
+      - name: Privacy scan — full repository
+        env:
+          PRIVACY_GUARD_DENY_PREFIXES: ${{ secrets.PRIVACY_GUARD_DENY_PREFIXES }}
+        run: |
+          echo "🔒 Scanning tracked files for exposed mixer IPs or serial numbers..."
+          pnpm check:privacy
+          echo "✅ Privacy scan passed."
+
       - name: Verify capability inventory is not stale
         run: |
           pnpm inventory
@@ -367,6 +375,9 @@ jobs:
 
           echo "🧪 Running vitest unit tests..."
           pnpm test
+
+          echo "🔒 Running privacy guard unit tests..."
+          pnpm test:privacy
 
       - name: Report test status
         shell: bash
