@@ -40,6 +40,16 @@ Secondary validation: StudioLive 32R firmware 3.4.0.111374 (49/49 read-only smok
   with confirmed impact on reliability or safety.  
   _Status: ⬜ Verify in issue tracker_
 
+- [x] **Actual MCP client stdio E2E**: Real MCP client (`@modelcontextprotocol/sdk` `StdioClientTransport`)
+  launched the built server as a child process, completed MCP handshake over stdio, called
+  `discover_mixers`, `validate_mixer_identity` (valid=true), `refresh_mixer_state` (32 channels),
+  read `line.ch1` state (name=`Kick In`, mute=true, fader=−30 dB), called `get_mixer_capabilities`
+  (32 line inputs, 16 aux mixes, 4 subgroups, 4 FX buses, Fat Channel=true, AVB stagebox=true),
+  confirmed 34 read tools and 0 write tools registered (PRESONUS_WRITE absent), and shut down cleanly.
+  Hardware: StudioLive 32R serial `RA3E***0194`, firmware 3.4.0.111374 (2026-10-01).
+  Evidence: `captures/mcp-e2e-acceptance-v0.1/`.
+  _Status: ✅ Completed 2026-10-01 — all 11 steps PASS; V0_1_RELEASE_READY (E2E gate)_
+
 ### P1 — Routing confidence (required for routing claims)
 
 - [x] **Input source routing probe**: `probe-routing diff --kind input-source` run on

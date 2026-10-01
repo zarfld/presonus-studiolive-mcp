@@ -1,0 +1,24 @@
+MCP E2E Acceptance — v0.1.0
+Date: 2026-10-01T17:03:13.671Z
+Release candidate: 38a02ad (or later with lockfile fix)
+Client: @modelcontextprotocol/sdk StdioClientTransport
+Server: packages/presonus-mcp-server/dist/index.js
+Transport: stdio
+Mixer IP: *.*.1.112
+Mixer serial (partial): RA3E***0194
+PRESONUS_WRITE: (not set — read-only)
+
+Steps:
+  [PASS] Real client launches built server: node C:\Users\User\projects\presonus-studiolive-mcp\packages\presonus-mcp-server\dist\index.js
+  [PASS] MCP handshake over stdio: connect() resolved without error
+  [PASS] tools/list: 34 tools discovered, all required tools present
+  [PASS] writes disabled by default: No write tools registered — PRESONUS_WRITE not set
+  [PASS] resources discovery: 2 resources discovered
+  [PASS] discover_mixers: deviceId=serial:RA3E18030194 serial=RA3E***0194 role=FOH
+  [PASS] expected serial verified: valid=true expectedSerial=RA3E***0194
+  [PASS] refresh_mixer_state: capturedAt=2026-10-01T17:03:26.453Z channelCount=32
+  [PASS] real channel state read: ch=line.ch1 name=Kick In mute=true fader=-30.0dB
+  [PASS] get_mixer_capabilities: lineInputs=undefined auxMixes=undefined subgroups=undefined fxBuses=undefined fatChannel=undefined
+  [PASS] clean shutdown: client.close() completed without error
+
+Completed: 2026-10-01T17:03:29.257Z
