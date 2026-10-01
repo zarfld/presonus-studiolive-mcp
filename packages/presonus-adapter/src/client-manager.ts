@@ -396,6 +396,9 @@ export class PresonusClientManager {
   async disconnect(deviceId: string): Promise<void> {
     const conn = this.connections.get(deviceId)
     if (!conn) return
+    // Mark disconnected before close() so the 'closed' event fired by the featherbear
+    // keepAlive timer does not schedule a ghost _reconnect that races connect().
+    conn.connected = false
     // Stop staleness monitor before cleanup
     if (conn.stalenessCheckInterval !== undefined) {
       clearInterval(conn.stalenessCheckInterval)

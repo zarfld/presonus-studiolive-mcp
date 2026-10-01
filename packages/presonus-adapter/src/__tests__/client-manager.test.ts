@@ -604,3 +604,93 @@ describe('PresonusClientManager — serial-stable identity in snapshot (REQ-F-00
     expect(snap?.isStale).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Regression: disconnect() must suppress ghost _reconnect after explicit close
+//
+// Root cause (2026-10-01): disconnect() did not set conn.connected = false before
+// calling client.close().  The featherbear keepAlive timer fires 'closed' ~3 s after
+// close(), which caused onLost() to schedule _reconnect.  If connect() had already
+// added a new conn under the same deviceId by the time _reconnect fired, _reconnect
+// would operate on the NEW conn, create a competing featherbear client, and kick the
+// new client's TCP connection mid-handshake.  featherbear's client.connect() awaits
+// "ZB" + "JM" events with no timeout; a kicked connection hangs forever, causing
+// refresh_mixer_state to never resolve.
+//
+// Fix: set conn.connected = false in disconnect() before close() so onLost() sees
+// !conn.connected and returns without scheduling _reconnect.
+// ---------------------------------------------------------------------------
+
+describe('PresonusClientManager — ghost _reconnect suppressed after explicit disconnect (regression)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    currentMockClient = makeMockClient()
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
+  })
+
+  it('closed event after disconnect() does not schedule _reconnect timer', async () => {
+    // Reproduce the race:
+    //   1. connect()
+    //   2. disconnect() — should mark conn.connected = false BEFORE close()
+    //   3. 'closed' event fires on the OLD client (featherbear keepAlive ~3 s later)
+    //   4. No new _reconnect timer must be scheduled
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+    const oldClient = currentMockClient
+
+    await manager.disconnect(testIdentity.deviceId)
+
+    // Simulate featherbear keepAlive timer firing 'closed' on the OLD client after disconnect.
+    oldClient.emit('closed')
+
+    // No reconnect timer must be running (timer count should be zero / health monitor only).
+    // The health-monitor setInterval is started in connect() and cleaned up in disconnect().
+    // After an explicit disconnect the connection is removed; no timers should remain.
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('error event after disconnect() does not schedule _reconnect timer', async () => {
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+    const oldClient = currentMockClient
+
+    await manager.disconnect(testIdentity.deviceId)
+
+    oldClient.emit('error', new Error('ECONNRESET after explicit close'))
+
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('disconnect() + connect() + delayed closed event does not kick new connection', async () => {
+    // This is the exact scenario that caused refresh_mixer_state to hang:
+    //   1. disconnect() — removes old conn
+    //   2. connect() — adds new conn under same deviceId
+    //   3. OLD 'closed' event fires — must NOT call _reconnect on the new conn
+    const manager = new PresonusClientManager()
+    await manager.connect(testIdentity)
+    const oldClient = currentMockClient
+
+    // Simulate the refresh_mixer_state sequence
+    await manager.disconnect(testIdentity.deviceId)
+    currentMockClient = makeMockClient()
+    await manager.connect(testIdentity)
+
+    // Now the OLD featherbear keepAlive fires 'closed' on the OLD client object.
+    // With the fix: onLost sees conn.connected=false on the OLD conn and returns early.
+    // Without the fix: onLost would schedule _reconnect which finds NEW conn in map
+    // and creates a competing featherbear client that kicks the new connection.
+    oldClient.emit('closed')
+
+    // Advance time past the reconnect delay — no timer must fire
+    await vi.advanceTimersByTimeAsync(2000)
+
+    // New connection is still intact — not kicked by ghost _reconnect
+    expect(manager.getConnectedDeviceIds()).toContain(testIdentity.deviceId)
+    const snap = manager.getSnapshot(testIdentity.deviceId)
+    expect(snap?.isStale).toBe(false)
+  })
+})
