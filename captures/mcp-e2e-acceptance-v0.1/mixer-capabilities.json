@@ -1,0 +1,14 @@
+{
+  "deviceId": "serial:RA3E***0194",
+  "model": "StudioLive 32R",
+  "role": "FOH",
+  "capabilities": {
+    "lineInputs": 32,
+    "auxMixes": 16,
+    "subgroups": 4,
+    "fxBuses": 4,
+    "mainOutputs": true,
+    "fatChannel": true,
+    "avbStagebox": true
+  }
+}

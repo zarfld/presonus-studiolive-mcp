@@ -1,0 +1,18 @@
+{
+  "discoveredViaUdp": 0,
+  "devices": [
+    {
+      "deviceId": "serial:RA3E***0194",
+      "serial": "RA3E***0194",
+      "configuredAlias": "env-device",
+      "ip": "<ip.hidden>",
+      "port": 53000,
+      "lastSeen": "2026-10-01T17:03:19.114Z",
+      "role": "FOH",
+      "controllable": false,
+      "confidence": "configured",
+      "name": "StudioLive 32R",
+      "model": "StudioLive 32R"
+    }
+  ]
+}
