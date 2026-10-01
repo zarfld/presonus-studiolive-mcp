@@ -79,5 +79,5 @@ The mixer stores the exact GUID in scene JSON like this:
 
 - StudioLive 32SC
 - Firmware `3.3.0.109659`
-- Mixer serial `SD7E21010066`
+- Mixer serial `<id.hidden>`
 - Current scene `_classID_Map.scn`

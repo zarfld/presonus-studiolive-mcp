@@ -5,9 +5,17 @@
 **Supersedes**: ADR-005 (extends, does not replace)  
 **Issue**: (pending GitHub issue creation)
 
-## Status
+## Amendment — v0.1 public release scope (2026-10-01)
 
-Accepted
+The original decision listed EQ as the initial scope for write tools (Phase C). However, as of the v0.1 public release:
+
+- **EQ write is deferred**: `propose_eq_change` is hard-disabled. De-normalization formulas remain `guessed` pending probe-fat-channel calibration. UC Surface display does not update from probe writes, blocking write HIL.
+- **Channel mute write is the only v0.1 supported public write**: `prepare_mute_change_set` + `apply_change_set` — HIL-verified on StudioLive 32SC <id.hidden> firmware 3.4.0.111374 (T1–T9 passed 2026-07-01).
+- `prepare_fader_change_set`, `prepare_fat_channel_change_set` are hard-disabled pending scale investigation and HIL.
+
+This amendment does not rewrite the original decision. The two-step proposal → confirmation safety framework and all safety constraints described below remain exactly as accepted. Only the supported parameter scope for v0.1 is narrowed from EQ-first to mute-only.
+
+---
 
 ## Traceability
 - Traces to: ADR-005 (read-only-first policy)

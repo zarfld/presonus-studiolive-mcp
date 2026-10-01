@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "device": "157.247.1.112",
+    "device": "<ip.hidden>",
     "capturedAt": "2026-07-02T11:34:46.739Z",
     "duration_ms": 180000,
     "watchedKeys": [
@@ -406,7 +406,7 @@
     "decodedEvents": "captures\\parallel-probe\\32r\\decoded-events.ndjson"
   },
   "_meta_interpretation": {
-    "device": "StudioLive 32R RA3E18030194",
+    "device": "StudioLive 32R <id_hidden>",
     "condition": "UC Control closed, physical mixer knob movement",
     "finding": "liveObserved — 32R sends live PV for comp.release and comp.ratio when UC Control is not connected",
     "pvEventsTotal": 110,

@@ -15,7 +15,7 @@ import type { MixerIdentity } from '@presonus-mcp/domain'
  */
 const syntheticState32SC: RawStateTree = {
   'global.mixer_name': 'StudioLive 32SC',
-  'global.mixer_serial': 'SD7E21010066',
+  'global.mixer_serial': '<id.hidden>',
   'global.mixer_version': '3.3.0.109659',
   'line.ch1.name': 'Kick',
   'line.ch1.mute': false,

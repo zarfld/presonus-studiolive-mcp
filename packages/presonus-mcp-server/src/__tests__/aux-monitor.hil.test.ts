@@ -1,7 +1,7 @@
 /**
  * Hardware-in-Loop (HIL) tests for AUX monitor tools via MCP server layer.
  *
- * Verifies against real StudioLive 32SC (serial SD7E21010066):
+ * Verifies against real StudioLive 32SC (serial <id.hidden>):
  *   REQ-F-AUX-002 (#55) — find_missing_monitor_sends
  *   REQ-F-AUX-003 (#56) — find_muted_monitor_sends
  *   REQ-F-AUX-004 (#57) — find_hot_monitor_sends

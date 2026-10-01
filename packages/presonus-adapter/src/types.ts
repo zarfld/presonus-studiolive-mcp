@@ -48,7 +48,7 @@ export const KNOWN_GLOBAL_KEYS = {
   MIXER_NAME: 'global.mixer_name',
   /** Firmware version string, e.g. "3.3.0.109659" */
   FIRMWARE: 'global.mixer_version',
-  /** Serial number, e.g. "SD7E21010066" */
+  /** Serial number, e.g. "<id.hidden>" */
   MIXER_SERIAL: 'global.mixer_serial',
   /**
    * Stagebox slave mode (0 = standalone FOH, 1 = stagebox/slave to another mixer).

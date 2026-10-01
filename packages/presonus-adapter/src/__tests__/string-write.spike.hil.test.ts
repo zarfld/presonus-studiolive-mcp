@@ -13,7 +13,7 @@
  *   - `line.chN.username` is the scribble-strip label for line channels.
  *   - Same key pattern applies to fxreturn, sub, aux, fxbus, main channels.
  *
- * Run: HIL_PRESONUS=1 HIL_PRESONUS_IP=157.247.3.13 HIL_PRESONUS_SERIAL=SD7E21010066 pnpm test:hil
+ * Run: HIL_PRESONUS=1 HIL_PRESONUS_IP=<ip.hidden> HIL_PRESONUS_SERIAL=<id.hidden> pnpm test:hil
  *
  * Verifies: REQ-F-WRITE-005a (#86)
  * Traces to: #2 (StR-002: Show preparation)

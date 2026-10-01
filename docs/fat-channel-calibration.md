@@ -86,7 +86,7 @@ behavior (including 32SC) is currently assumed compatible but not fully proven.
 | Fader taper | `volumeRaw100ToDb(v)` | **calibrated\_inferred** | `line.chN.volume` is 0–100 scene-stored; see `docs/hil/fader-preamp-calibration-notes.md` |
 
 > **Phase 2 Opportunistic Calibration Evidence**: `test/fixtures/32sc/fat-channel/fat-channel-phase2-calibration.json`
-> Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374, captured 2026-07-02.
+> Device: StudioLive 32SC <id.hidden> fw 3.4.0.111374, captured 2026-07-02.
 > Endpoints guided-probed; intermediate points from session context.
 > Not a full guided calibration (min/25%/50%/75%/max procedure).
 > Phase 2 data is retained as historical context only where superseded by dense guided 32R runs.
@@ -182,7 +182,7 @@ Command: `pnpm probe:dev probe-fat-write-echo --device <ip> --channel line.ch11 
 
 **New command**: `pnpm probe:dev probe-fat-guided-calibration --device <ip> --channel line.ch11 --key comp.release --points 0,0.25,0.5,0.75,1 --restore`
 
-**Additional findings from guided calibration run** (32SC SD7E21010066 fw 3.4.0.111374):
+**Additional findings from guided calibration run** (32SC <id.hidden> fw 3.4.0.111374):
 - Only the first echo was received (1/5); TCP reconnection disrupted subsequent echoes in multi-point sequences. Echo reliability across reconnects is low.
 - UC Surface display did **NOT** update in response to probe PV writes; use scene-save+dump for display calibration.
 

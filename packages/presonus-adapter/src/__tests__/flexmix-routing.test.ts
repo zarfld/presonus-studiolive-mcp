@@ -2,7 +2,7 @@
  * Unit tests for extractFlexMixBusTopology — CI (no hardware required).
  *
  * Fixture values are taken verbatim from the 2026-06-26 HIL capture
- * (StudioLive 32SC, SD7E21010066, fw 3.3.0.109659, 22786 keys).
+ * (StudioLive 32SC, <id.hidden>, fw 3.3.0.109659, 22786 keys).
  *
  * Mixer configuration at capture time:
  *   aux.ch2 → "Sub 2" (SubGroup mode, busmode.value=0.5)

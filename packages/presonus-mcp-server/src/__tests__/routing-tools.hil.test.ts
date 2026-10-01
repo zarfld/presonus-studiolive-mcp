@@ -1,7 +1,7 @@
 /**
  * Hardware-in-Loop (HIL) tests for routing MCP tools.
  *
- * Verifies against real StudioLive 32SC (serial SD7E21010066):
+ * Verifies against real StudioLive 32SC (serial <id.hidden>):
  *   REQ-F-ROUT-002 (#32) — get_routing_graph structural on real state
  *   REQ-F-ROUT-005 (#35) — diagnose_no_signal_routing on real CH1
  *   REQ-F-ROUT-006 (#36) — detect_possible_patch_swap structural

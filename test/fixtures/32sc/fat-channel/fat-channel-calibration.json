@@ -1,6 +1,6 @@
 {
-  "_description": "Fat Channel calibration fixture — StudioLive 32SC SD7E21010066 fw 3.4.0.111374, 2026-07-01",
-  "_device": "StudioLive 32SC SD7E21010066 firmware 3.4.0.111374",
+  "_description": "Fat Channel calibration fixture — StudioLive 32SC <id.hidden> fw 3.4.0.111374, 2026-07-01",
+  "_device": "StudioLive 32SC <id.hidden> firmware 3.4.0.111374",
   "_date": "2026-07-01",
   "_method": "Live UC Surface reading + probe dump (157.247.3.12)",
   "_calibration_table": [

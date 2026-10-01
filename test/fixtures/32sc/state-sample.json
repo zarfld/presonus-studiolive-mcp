@@ -10,7 +10,7 @@
                   "global.devicegroupname":  "",
                   "global.mixer_version":  "3.3.0.109659",
                   "global.mixer_version_date":  "Dec  6 2025",
-                  "global.mixer_serial":  "SD7E21010066",
+                  "global.mixer_serial":  "<id.hidden>",
                   "global.registered_user":  "",
                   "global.progress_text1":  "",
                   "global.progress_text2":  "",
@@ -64,9 +64,9 @@
               },
     "mixer":  {
                   "name":  "StudioLive 32SC",
-                  "serial":  "SD7E21010066",
+                  "serial":  "<id.hidden>",
                   "firmware":  "3.3.0.109659",
-                  "host":  "157.247.3.13",
+                  "host":  "<ip.hidden>",
                   "port":  53000
               },
     "firmware":  "3.3.0.109659",

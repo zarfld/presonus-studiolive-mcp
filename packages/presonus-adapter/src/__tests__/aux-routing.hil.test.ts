@@ -1,7 +1,7 @@
 /**
  * Hardware-in-Loop (HIL) tests for AUX routing extraction.
  *
- * Verifies against real StudioLive 32SC (serial SD7E21010066):
+ * Verifies against real StudioLive 32SC (serial <id.hidden>):
  *   REQ-F-AUX-001 (#55) — AUX mix state extraction
  *   REQ-F-ROUT-010 (#54) — Non-LINE channel AUX routing
  *
@@ -15,7 +15,7 @@
  *   Test "masterLevel values differ between buses (not all clipped to constant)"
  *   will also be RED since 51.37 ≠ 1.0 but several buses would exceed 1.0.
  *
- * Observed values from captures/2026-06-24/SD7E21010066/state-full.json:
+ * Observed values from captures/2026-06-24/<id.hidden>/state-full.json:
  *   aux.ch1.volume  = 51.3671875   → expected masterLevel ≈ 0.514
  *   aux.ch4.volume  = 74.8046875   → expected masterLevel ≈ 0.748 (near unity)
  *   aux.ch11.volume = 0            → expected masterLevel = 0.0 (fader fully down)

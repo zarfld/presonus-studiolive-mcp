@@ -2,7 +2,7 @@
  * Fat Channel de-normalization formula tests.
  *
  * HIL Evidence: test/fixtures/32sc/fat-channel/fat-channel-calibration.json
- *   Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374 (2026-07-01)
+ *   Device: StudioLive 32SC <id.hidden> fw 3.4.0.111374 (2026-07-01)
  *   31 calibration anchor points across EQ gain, HPF, EQ freq, EQ Q, band type,
  *   comp threshold/gain/attack, gate threshold.
  *
@@ -361,7 +361,7 @@ describe('normalizedToAttackMs — guided calibration (32R dense anchors 2026-07
 // ---------------------------------------------------------------------------
 // Phase 2 — Opportunistic Calibration
 // HIL Evidence: test/fixtures/32sc/fat-channel/fat-channel-phase2-calibration.json
-//   Device: StudioLive 32SC SD7E21010066 fw 3.4.0.111374 (2026-07-02)
+//   Device: StudioLive 32SC <id.hidden> fw 3.4.0.111374 (2026-07-02)
 //   Endpoints guided-probed; intermediate points from session context (see fixture).
 // ---------------------------------------------------------------------------
 import {

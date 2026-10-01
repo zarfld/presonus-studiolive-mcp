@@ -38,7 +38,7 @@ const LABELS_1_8 = [
 
 /** Before: default sequential mapping (block 1→stream 1, block 9-16→stream 2, etc.) */
 const avbBeforeFlatState: Record<string, unknown> = {
-  'global.mixer_serial': 'SD7E21010066',
+  'global.mixer_serial': '<id.hidden>',
   'global.mixer_version': '3.4.0.111374',
   'stageboxsetup.connect_status': 1,
   'stageboxsetup.selected_name': 'PreSonus StudioLive 32R',
@@ -59,7 +59,7 @@ const avbAfterFlatState: Record<string, unknown> = {
 
 /** Not connected: connect_status absent */
 const avbDisconnectedFlatState: Record<string, unknown> = {
-  'global.mixer_serial': 'SD7E21010066',
+  'global.mixer_serial': '<id.hidden>',
   'global.mixer_version': '3.4.0.111374',
   'stageboxsetup.connect_status': 0,
   'stageboxsetup.avb_src_1_8.value': 0,         // index 0 = "None"
@@ -160,7 +160,7 @@ describe('extractAvbStreamRouting — REQ-F-ROUT-011 (#45)', () => {
 
   it('extracts mixer serial and firmware from flat state', () => {
     const result = extractAvbStreamRouting(avbBeforeFlatState)!
-    expect(result.mixerSerial).toBe('SD7E21010066')
+    expect(result.mixerSerial).toBe('<id.hidden>')
     expect(result.firmware).toBe('3.4.0.111374')
   })
 })

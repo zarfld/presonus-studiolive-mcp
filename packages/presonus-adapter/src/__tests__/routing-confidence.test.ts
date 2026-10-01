@@ -1,7 +1,7 @@
 /**
  * Mock tests for routing confidence model — output patch router extraction and QA-SC-ROUT-001.
  *
- * Uses REALISTIC fixture values from captures/2026-06-24/SD7E21010066/state-full.json.
+ * Uses REALISTIC fixture values from captures/2026-06-24/<id.hidden>/state-full.json.
  *
  * FIXTURE NOTES (from HIL captures):
  *   outputpatchrouter.mix1_src.value = 0              → sourceIndex = 0

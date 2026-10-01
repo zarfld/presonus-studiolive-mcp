@@ -4,7 +4,7 @@
  * Verifies REQ-F-FIXEDSUB-001 (#85) against real StudioLive 32SC
  * with user-configured Sub A (mono), Sub B (mono), Sub C+D (stereolinked pair).
  *
- * OBSERVED values from captures/2026-06-26/SD7E21010066/state-full.json:
+ * OBSERVED values from captures/2026-06-26/<id.hidden>/state-full.json:
  *   sub.ch1: chnum="Sb A", username="Sub A", link=0, linkmaster=0
  *            assigned: line.ch3, ch4 (sub1=1)
  *   sub.ch2: chnum="Sb B", username="Sub B", link=0, linkmaster=0

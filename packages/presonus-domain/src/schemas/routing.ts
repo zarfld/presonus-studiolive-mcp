@@ -23,7 +23,7 @@ import { z } from 'zod'
 
 // ---------------------------------------------------------------------------
 // Per-channel send routing — OBSERVED on StudioLive 32SC fw 3.3.0.109659
-// State keys confirmed from captures/2026-06-24/SD7E21010066/state-full.json
+// State keys confirmed from captures/2026-06-24/<id.hidden>/state-full.json
 // ---------------------------------------------------------------------------
 
 /**

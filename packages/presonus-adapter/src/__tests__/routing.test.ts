@@ -7,7 +7,7 @@
  * Architecture: #29 ADR-007
  *
  * TDD — tests written before implementation is complete.
- * Fixture values taken directly from captures/2026-06-24/SD7E21010066/state-full.json
+ * Fixture values taken directly from captures/2026-06-24/<id.hidden>/state-full.json
  * OBSERVED: StudioLive 32SC firmware 3.3.0.109659 (2026-06-24)
  */
 import { describe, it, expect } from 'vitest'

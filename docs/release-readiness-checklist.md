@@ -12,7 +12,8 @@
 
 **Status: EXPERIMENTAL** — Not all gates below are met.
 
-Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + partial HIL).
+Primary validation: StudioLive 32SC firmware 3.3.0.109659 and 3.4.0.111374 (state capture + full HIL).
+Secondary validation: StudioLive 32R firmware 3.4.0.111374 (49/49 read-only smoke tests passed 2026-10-01).
 
 ---
 
@@ -107,7 +108,7 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
   _Status: ✅ Implemented and unit-tested (2026-07-01)_
 
 - [x] **Mute write HIL roundtrip**: `prepare_mute_change_set` + `apply_change_set` tested on
-  StudioLive 32SC SD7E21010066, firmware 3.4.0.111374 (2026-07-01). Mute/unmute confirmed
+  StudioLive 32SC <id.hidden>, firmware 3.4.0.111374 (2026-07-01). Mute/unmute confirmed
   via mixer echo; dry-run verified (no mixer write); post-write verification and rollbackHint
   confirmed in response; Ch11 reverted to original state after every test via try/finally.
   _Status: ✅ Observed on 32SC fw 3.4.0.111374 — HIL T9.1–9.4 passed_
@@ -131,7 +132,7 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
 ### P2 — HIL tests
 
 - [x] **HIL write tests pass on 32SC**: `pnpm test:hil write-channel-scene.hil` passed on
-  StudioLive 32SC SD7E21010066 fw 3.4.0.111374 (2026-07-01, T1–T9).
+  StudioLive 32SC <id.hidden> fw 3.4.0.111374 (2026-07-01, T1–T9).
   **Known sensitivity**: T3 (`list_sub_groups` fxreturn membership) is scene-topology dependent —
   if the live scene does not contain `fxreturn.ch4` in a sub group, T3 will fail. This is
   not a code regression; it reflects the current mixer scene state.
@@ -143,8 +144,10 @@ Primary validation: StudioLive 32SC firmware 3.3.0.109659 (static inspection + p
 
 ### P3 — Hardware support matrix (required for "all StudioLive III models supported" claim)
 
-- [ ] **StudioLive 32R HIL**: Discovery, channel state, routing confirmed.  
-  _Status: ⬜ Not yet run_
+- [x] **StudioLive 32R HIL**: Discovery, serial identity, TCP connection, 32-channel state, capabilities, AVB/AUX read, disconnect/reconnect lifecycle confirmed.
+  StudioLive 32R, firmware 3.4.0.111374.
+  Evidence: `hil-32r-smoke.txt` — 49/49 tests passed 2026-10-01.
+  _Status: ✅ v0.1 read-only baseline observed — `release-v0.1-32r-smoke.hil.test.ts` all passed_
 
 - [ ] **StudioLive 24R HIL**: Discovery, channel state confirmed.  
   _Status: ⬜ Not yet run_

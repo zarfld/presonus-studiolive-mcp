@@ -458,8 +458,8 @@ Discovers StudioLive III mixers on the local network.
 // Returns: JSON array of mixer identity objects
 [
   {
-    deviceId: string,        // e.g. "StudioLive32SC-SD7E21010066"
-    serial: string,          // e.g. "SD7E21010066"
+    deviceId: string,        // e.g. "StudioLive32SC-<id.hidden>"
+    serial: string,          // e.g. "<id.hidden>"
     model: string,           // e.g. "StudioLive 32SC"
     firmware: string,        // e.g. "3.3.0.109659"
     role: "FOH" | "STAGEBOX" | "MONITOR" | "UNKNOWN",
@@ -480,7 +480,7 @@ Reconnects to a mixer and rebuilds its state cache, including Fat Channel model 
 ```typescript
 // Input schema (all fields required)
 {
-  deviceId: string   // from discover_mixers — e.g. "StudioLive32SC-SD7E21010066"
+  deviceId: string   // from discover_mixers — e.g. "StudioLive32SC-<id.hidden>"
 }
 
 // Returns: JSON object
@@ -528,7 +528,7 @@ Resources are read by URI. Fat Channel data appears in two resources.
 
 Returns all normalized channels for a connected mixer. This is the main resource for Fat Channel state.
 
-**URI pattern**: `presonus://mixer/StudioLive32SC-SD7E21010066/channels`
+**URI pattern**: `presonus://mixer/StudioLive32SC-<id.hidden>/channels`
 
 **Response schema** — array of `MixerChannel` objects:
 
@@ -576,7 +576,7 @@ MixerChannel {
 
 Full raw state dump. Use for reading actual compressor/EQ parameter values. Not intended for agent reasoning logic — always prefer the normalized channels resource for model identification.
 
-**URI pattern**: `presonus://mixer/StudioLive32SC-SD7E21010066/raw/state`
+**URI pattern**: `presonus://mixer/StudioLive32SC-<id.hidden>/raw/state`
 
 **Relevant raw key paths for Fat Channel**:
 

@@ -2,7 +2,7 @@
   "_meta": {
     "description": "STANDARD comp ~50% guided calibration anchors — 32R Ch11 (all params simultaneously at 50%)",
     "device": "32R",
-    "serial": "RA3E18030194",
+    "serial": "<id_hidden>",
     "captureDate": "2026-07-02",
     "captureMethod": "probe-routing dump + concurrent probe-raw-socket",
     "notes": "All sliders set to visual ~50% simultaneously. ZLIB matches raw-socket state."

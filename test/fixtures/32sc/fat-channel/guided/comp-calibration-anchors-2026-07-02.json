@@ -2,7 +2,7 @@
   "_meta": {
     "description": "STANDARD compressor calibration anchors – StudioLive 32SC, live simultaneous dump + UC Surface readback",
     "device": "32SC",
-    "serial": "SD7E21010066",
+    "serial": "<id.hidden>",
     "firmware": "3.4.0.111374",
     "channel": "line.ch11",
     "compmodel": "STANDARD",

@@ -1,14 +1,14 @@
 /**
  * One-shot live state probe — dumps username, FX, DCA, and sub-group membership keys
- * from the live StudioLive 32SC at 157.247.3.13.
+ * from the live StudioLive 32SC at <ip.hidden>.
  *
  * Usage: npx tsx scripts/probe-live-state.ts
  */
 import { discoverMixers, PresonusClientManager } from '../packages/presonus-adapter/src/index.ts'
 import { writeFileSync } from 'fs'
 
-const IP     = process.env.PRESONUS_IP     ?? '157.247.3.13'
-const SERIAL = process.env.PRESONUS_SERIAL ?? 'SD7E21010066'
+const IP     = process.env.PRESONUS_IP     ?? '<ip.hidden>'
+const SERIAL = process.env.PRESONUS_SERIAL ?? '<id.hidden>'
 const OUT    = process.env.PROBE_OUT       ?? 'scripts/probe-live-state-out.txt'
 
 const result = await discoverMixers({

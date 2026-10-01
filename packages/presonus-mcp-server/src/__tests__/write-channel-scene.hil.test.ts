@@ -8,7 +8,7 @@
  * Verifies: REQ-F-WRITE-005 (#86)
  * Traces to: #2 (StR-002: Show preparation)
  *
- * Run: HIL_PRESONUS=1 HIL_PRESONUS_IP=157.247.3.13 HIL_PRESONUS_SERIAL=SD7E21010066 pnpm test:hil
+ * Run: HIL_PRESONUS=1 HIL_PRESONUS_IP=<ip.hidden> HIL_PRESONUS_SERIAL=<id.hidden> pnpm test:hil
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { discoverMixers, PresonusClientManager } from '@presonus-mcp/adapter'

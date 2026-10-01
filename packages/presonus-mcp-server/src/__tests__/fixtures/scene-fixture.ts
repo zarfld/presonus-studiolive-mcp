@@ -2,12 +2,12 @@
  * Live-derived fixture factory for write-channel-scene mocked tests.
  *
  * This fixture is a TypeScript const derived from a live HIL probe of
- * SD7E21010066 on 2026-06-26. It is NOT loaded from any JSON file.
+ * <id.hidden> on 2026-06-26. It is NOT loaded from any JSON file.
  *
  * When the HIL probe reveals topology changes, update this file to match
  * and annotate with the new observation date.
  *
- * Annotated: 2026-06-26, SD7E21010066, scene "Live set"
+ * Annotated: 2026-06-26, <id.hidden>, scene "Live set"
  */
 
 /** Minimal flatState covering all keys used by the new write tools */
@@ -137,11 +137,11 @@ export function makeFixtureSnapshot(overrides: Record<string, unknown> = {}) {
     currentScene: null,
     currentProject: null,
     identity: {
-      deviceId: 'serial:SD7E21010066',
-      serial: 'SD7E21010066',
+      deviceId: 'serial:<id.hidden>',
+      serial: '<id.hidden>',
       name: 'StudioLive 32SC',
       model: 'StudioLive 32SC',
-      ip: '157.247.3.13',
+      ip: '<ip.hidden>',
       port: 53000,
       role: 'FOH' as const,
       controllable: true,

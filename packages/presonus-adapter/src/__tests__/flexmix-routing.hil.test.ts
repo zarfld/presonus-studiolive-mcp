@@ -4,7 +4,7 @@
  * Verifies REQ-F-FLEXMIX-001 (#84) against real StudioLive 32SC
  * with user-configured SubGroups "Sub 2" (FlexMix2) and "Sub 3" (FlexMix3).
  *
- * OBSERVED values from captures/2026-06-26/SD7E21010066/state-full.json:
+ * OBSERVED values from captures/2026-06-26/<id.hidden>/state-full.json:
  *   aux.ch1.busmode.value = 0     → AUX mode (chnum="Ax 1")
  *   aux.ch2.busmode.value = 0.5   → SUBGROUP mode (chnum="Sb 2", username="Sub 2")
  *   aux.ch3.busmode.value = 0.5   → SUBGROUP mode (chnum="Sb 3", username="Sub 3")

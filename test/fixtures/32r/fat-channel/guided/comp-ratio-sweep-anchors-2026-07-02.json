@@ -2,7 +2,7 @@
   "_meta": {
     "description": "comp.ratio sweep calibration anchors — 32R Ch11 STANDARD, 10 confirmed anchors",
     "device": "32R",
-    "serial": "RA3E18030194",
+    "serial": "<id_hidden>",
     "captureDate": "2026-07-02",
     "formula": "1 + exp(-0.0647 + 0.9332*x - 0.0481*x^2) where x = ln(raw/(1-raw))",
     "formulaMaxErr_pct": 3.1,

@@ -32,7 +32,7 @@ interface ThresholdConfig {
 }
 
 const DEFAULT_THRESHOLDS: ThresholdConfig = {
-  // Calibrated 2026-06-24 from StudioLive 32SC hardware capture (serial SD7E21010066).
+  // Calibrated 2026-06-24 from StudioLive 32SC hardware capture (serial <id.hidden>).
   // Raw meter values are uint16 (0–65535). Empirical noise floor: ~220 (quiet room).
   // dBFS mapping assumes linear amplitude: dBFS = 20 * log10(value / 65535)
   //   clipThreshold ≈ -0.75 dBFS (60 000 / 65535)

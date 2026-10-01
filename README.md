@@ -4,7 +4,7 @@ An **MCP (Model Context Protocol) server** that connects AI coding agents and as
 
 Exposes live mixer context â€” channel names, mute/solo/fader state, Fat Channel compressor/EQ models, meter activity, and scene information â€” as MCP resources and tools so that AI agents can read, reason about, and assist with live sound engineering without touching hardware autonomously.
 
-> **Current status**: Experimental read-mostly backend (`v0.1.0`). Primary empirical inspection on **StudioLive 32SC firmware 3.3.0.109659**. Other StudioLive III models are expected-compatible but require additional HIL testing. Some routing and Fat Channel parameter values are confidence-tagged as `inferred` or `probe_required`. Write tools are gated and experimental.
+> **Current status**: Experimental read-mostly backend (`v0.1.0`). Verified on **StudioLive 32SC** (firmware 3.3.0.109659 and 3.4.0.111374) and **StudioLive 32R** (firmware 3.4.0.111374) — read-only baseline observed on both. Channel mute write is HIL-verified on 32SC only. Other StudioLive III models are unverified/experimental. Some routing and Fat Channel parameter values are confidence-tagged as `inferred` or `probe_required`. Write tools are disabled by default.
 >
 > See [docs/capability-matrix.generated.md](docs/capability-matrix.generated.md) for the current generated MCP tool/resource inventory.
 
@@ -79,13 +79,36 @@ By default agents **cannot** change mixer parameters. Write tools require `write
 
 | Model | Status |
 |---|---|
-| StudioLive 32SC firmware 3.3.0.109659 | Empirically inspected â€” state capture validated, routing and Fat Channel partially probed |
-| StudioLive 32R | Expected-compatible (same protocol); requires HIL testing to confirm |
-| StudioLive 24R | Expected-compatible; requires HIL testing to confirm |
-| StudioLive 16R | Expected-compatible; requires HIL testing to confirm |
-| StudioLive 16 | Expected-compatible; requires HIL testing to confirm |
+| StudioLive 32SC firmware 3.3.0.109659 | `observed` — state capture validated, routing and Fat Channel partially probed |
+| StudioLive 32SC firmware 3.4.0.111374 | `observed` — mute write HIL verified (T1–T9); fader taper and preamp gain probed |
+| StudioLive 32R firmware 3.4.0.111374 | `observed` — discovery, TCP, 32-channel state, capabilities, AVB/AUX read, disconnect/reconnect lifecycle all confirmed (49/49 HIL smoke tests passed 2026-10-01) |
+| StudioLive 24R | Unverified — no HIL evidence; may be protocol-compatible |
+| StudioLive 16R | Unverified — no HIL evidence; may be protocol-compatible |
+| StudioLive 16 | Unverified — no HIL evidence; may be protocol-compatible |
 
 See [docs/release-readiness-checklist.md](docs/release-readiness-checklist.md) for gates required before any model is claimed as validated or production-ready.
+
+### v0.1 capability matrix
+
+| Capability | StudioLive 32SC | StudioLive 32R |
+|---|---|---|
+| Discovery / configured fallback | `observed` | `observed` |
+| Serial-stable identity | `observed` | `observed` |
+| TCP connection | `observed` | `observed` |
+| State synchronization | `observed` | `observed` |
+| Core channel-state read (mute, fader, name, pan) | `observed` | `observed` |
+| Mixer capabilities | `observed` | `observed` |
+| `refresh_mixer_state` lifecycle | `observed` | `observed` |
+| Disconnect / reconnect lifecycle | `observed` | `observed` |
+| AVB stream-routing read | `observed` | `observed` |
+| AUX/send read | `observed` | `observed` |
+| Output-patch source index | `observed` | `observed` |
+| Output-patch source name mapping | `observed` | `inferred` — calibration not independently confirmed on 32R |
+| Fat Channel model name read | `observed` | `observed` |
+| Fat Channel parameter values (EQ/comp) | `calibrated_inferred` | `calibrated_inferred` |
+| Channel mute write | `observed` / HIL-verified (32SC only) | not claimed for v0.1 |
+
+Confidence labels follow the repository vocabulary: `observed` = confirmed from live hardware; `calibrated_inferred` = formula calibrated on at least one device but not independently confirmed on this model; `inferred` = derived from code/pattern without calibration; `probe_required` = requires targeted hardware probe before promotion.
 
 ---
 
@@ -101,40 +124,127 @@ See [docs/release-readiness-checklist.md](docs/release-readiness-checklist.md) f
 ```bash
 git clone https://github.com/zarfld/presonus-studiolive-mcp.git
 cd presonus-studiolive-mcp
-pnpm install          # installs all workspace packages + applies featherbear patch
-pnpm build            # compiles all 4 packages
+pnpm install --frozen-lockfile   # installs all workspace packages + applies featherbear patch
+pnpm build                       # compiles all 4 packages
 ```
 
-### Run the MCP server (stdio transport)
+### Configure your mixer
+
+Set environment variables before starting the server:
 
 ```bash
-pnpm mcp:server
+# The mixer's IP address (required)
+export PRESONUS_IP=192.168.1.50
+
+# TCP port (default: 53000 — same as UC Surface)
+export PRESONUS_PORT=53000
+
+# Strongly recommended: serial number to lock identity
+# Run `pnpm probe:dev discover` to find the serial for your mixer
+export PRESONUS_SERIAL=<id.hidden>
+
+# Optional: expected role (FOH | STAGEBOX | MONITOR | UNKNOWN)
+export PRESONUS_ROLE=FOH
 ```
 
-Or without a prior build, using `tsx`:
+On Windows PowerShell:
 
-```bash
-pnpm mcp:server:dev
+```powershell
+$env:PRESONUS_IP="192.168.1.50"
+$env:PRESONUS_PORT="53000"
+$env:PRESONUS_SERIAL="<id.hidden>"
+$env:PRESONUS_ROLE="FOH"
 ```
 
-The server logs to `stderr`, connects to discovered mixers on startup, and accepts MCP requests on `stdin`/`stdout`.
+Setting `PRESONUS_SERIAL` is strongly recommended. It prevents the server from silently using a different mixer if discovery returns multiple devices or the IP changes.
 
-### Connect from Claude Desktop / VS Code
+### Connect from Claude Desktop (primary tested MCP client)
 
-Add to your MCP client config:
+Add to `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`, Windows: `%APPDATA%\Claude\claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "presonus-studiolive": {
       "command": "node",
-      "args": ["<absolute-path>/packages/presonus-mcp-server/dist/index.js"]
+      "args": ["<absolute-path-to-repo>/packages/presonus-mcp-server/dist/index.js"],
+      "env": {
+        "PRESONUS_IP": "192.168.1.50",
+        "PRESONUS_SERIAL": "<id.hidden>"
+      }
     }
   }
 }
 ```
 
-### Probe the hardware first (optional but recommended)
+Replace `<absolute-path-to-repo>` with the actual path. Claude Desktop launches the server via stdio on startup.
+
+### VS Code / GitHub Copilot
+
+Add to `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "presonus-studiolive": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["<absolute-path-to-repo>/packages/presonus-mcp-server/dist/index.js"],
+      "env": {
+        "PRESONUS_IP": "192.168.1.50",
+        "PRESONUS_SERIAL": "<id.hidden>"
+      }
+    }
+  }
+}
+```
+
+### Read-only workflow
+
+Once connected, an AI agent can follow this sequence:
+
+```
+discover_mixers                      → find mixer on LAN (or use configured fallback)
+validate_mixer_identity              → confirm expected serial matches
+refresh_mixer_state                  → force fresh state from mixer
+presonus://mixer/{deviceId}/channels → read channel names, mute, fader, Fat Channel models
+get_mixer_capabilities               → know mixer capacity (inputs, aux mixes, FX buses)
+```
+
+### Write opt-in (32SC channel mute only — disabled by default)
+
+> ⚠️ **Writes are disabled by default.** Enabling writes allows the server to change real mixer state.
+> v0.1 supported mutation: **channel mute on StudioLive 32SC only**.
+> Do not enable writes during live performance unless you understand the change workflow.
+
+Enable writes by setting:
+
+```bash
+export PRESONUS_WRITE=1
+```
+
+In your MCP client config `env` block:
+
+```json
+"env": {
+  "PRESONUS_IP": "192.168.1.50",
+  "PRESONUS_SERIAL": "<id.hidden>",
+  "PRESONUS_WRITE": "1"
+}
+```
+
+Supported write workflow:
+
+```
+prepare_mute_change_set              → propose mute state change (no mixer write yet)
+validate_change_set                  → confirm proposal is valid and not expired
+apply_change_set (dryRun: true)      → preview without writing
+apply_change_set (confirmationNote)  → apply to hardware; returns fresh state + rollbackHint
+```
+
+The change set expires after 60 seconds. Only one proposal per channel is active at a time. Every applied change is written to the audit log on stderr.
+
+### Probe the hardware (optional but recommended for first use)
 
 ```bash
 pnpm probe:dev discover             # find mixers on your LAN
@@ -171,7 +281,7 @@ Hardware adapter wrapping `@featherbear/presonus-studiolive-api`. Manages connec
 - `PresonusMeterSummarizer` â€” ring-buffer of raw uint16 meter packets â†’ time-windowed `MeterSummary`
 - `mapRawStateToSnapshot()` â€” translates flat state keys to normalized `MixerSnapshot`
 
-The featherbear dependency is patched (`patches/@featherbear__presonus-studiolive-api@1.8.0.patch`) to add UBJSON `I` (int16) and `D` (float64) type support missing from the original.
+The featherbear dependency is patched (`patches/@featherbear__presonus-studiolive-api@1.9.1.patch`) to add UBJSON `I` (int16) and `D` (float64) type support missing from the original.
 
 ### `@presonus-mcp/inspector`
 
@@ -203,7 +313,9 @@ Write tools are registered only when `writeEnabled: true` (default: false). All 
 | Line check | `analyze_line_check_step`, `detect_possible_patch_swap` |
 | Routing | `get_routing_graph`, `validate_input_routing`, `validate_stagebox_routing`, `diagnose_no_signal_routing`, `get_input_routing`\*, `validate_avb_routing`\*, `validate_output_routing`â€  |
 | Monitor / aux | `get_aux_mix`, `validate_monitor_requirements`, `find_missing_monitor_sends`, `find_muted_monitor_sends`, `find_hot_monitor_sends`, `validate_aux_mix` |
-| Write (gated) | `propose_eq_change`, `apply_change_set` |
+| Write (gated) | `prepare_mute_change_set`, `apply_change_set` (v0.1: channel mute only, 32SC HIL-verified) |
+| Write (internal/experimental) | `prepare_channel_rename_change_set`, `prepare_sub_group_membership_change_set`, `prepare_aux_assignment_change_set` — implemented but outside v0.1 public contract |
+| Write (hard-disabled) | `propose_eq_change`, `prepare_fader_change_set`, `prepare_fat_channel_change_set` — deferred pending HIL |
 
 \* Layer B stub â€” returns `not_verifiable_with_current_adapter` with probe instructions.  
 â€  Layer B partial â€” source index known; source name requires probe.
@@ -417,7 +529,7 @@ HIL tests require a physical StudioLive III mixer on the local network. Set the 
 # Required
 export HIL_PRESONUS=1                        # enables HIL test suite
 export HIL_PRESONUS_IP=<mixer-ip-address>    # e.g. 192.168.1.50
-export HIL_PRESONUS_SERIAL=<serial-number>   # e.g. SD7E21010066
+export HIL_PRESONUS_SERIAL=<serial-number>   # e.g. <id.hidden>
 
 # Then run
 pnpm test:hil

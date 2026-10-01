@@ -1,7 +1,7 @@
 /**
  * Hardware-in-Loop (HIL) tests for the probe session lifecycle.
  *
- * Verifies against real StudioLive 32SC (serial SD7E21010066):
+ * Verifies against real StudioLive 32SC (serial <id.hidden>):
  *   REQ-F-PROBE-001 (#68) — start_routing_probe captures real mixer baseline
  *   REQ-F-PROBE-002 (#46) — complete_routing_probe diffs real state
  *   QA-SC-PROBE-001 (#50) — probe session error guidance (invalid kind)

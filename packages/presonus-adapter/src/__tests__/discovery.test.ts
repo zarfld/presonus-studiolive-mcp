@@ -69,10 +69,10 @@ describe('buildDeviceId — REQ-F-002: serial-based stable identity', () => {
 
 describe('normalizeDiscoveredDevice — domain type mapping', () => {
   it('maps raw device to MixerIdentity with correct fields', () => {
-    const raw = { name: 'StudioLive 32SC', serial: 'SD7E21010066', ip: '192.168.10.50', port: 53000 }
+    const raw = { name: 'StudioLive 32SC', serial: '<id.hidden>', ip: '192.168.10.50', port: 53000 }
     const identity = normalizeDiscoveredDevice(raw)
-    expect(identity.deviceId).toBe('serial:SD7E21010066')
-    expect(identity.serial).toBe('SD7E21010066')
+    expect(identity.deviceId).toBe('serial:<id.hidden>')
+    expect(identity.serial).toBe('<id.hidden>')
     expect(identity.ip).toBe('192.168.10.50')
     expect(identity.port).toBe(53000)
     expect(identity.controllable).toBe(false)

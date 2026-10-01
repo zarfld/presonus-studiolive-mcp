@@ -8,7 +8,7 @@
 | Property | Value |
 |---|---|
 | Mixer model | PreSonus StudioLive 32SC |
-| Serial | SD7E21010066 |
+| Serial | <id.hidden> |
 | Firmware | 3.4.0.111374 |
 | Date | 2026-07-01 |
 | IP | 157.247.3.12 |

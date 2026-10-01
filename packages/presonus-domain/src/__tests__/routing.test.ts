@@ -119,7 +119,7 @@ describe('MixerRouteSchema', () => {
 describe('MixerRoutingGraphSchema', () => {
   it('parses a valid routing graph with summary', () => {
     const result = MixerRoutingGraphSchema.parse({
-      deviceId: 'SD7E21010066',
+      deviceId: '<id.hidden>',
       capturedAt: new Date().toISOString(),
       routes: [
         { kind: 'channel-to-aux', source: 'line.ch1', destination: 'aux.ch3', level: 0.5, confidence: 'inferred' },

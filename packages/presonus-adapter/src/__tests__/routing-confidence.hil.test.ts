@@ -1,13 +1,13 @@
 /**
  * Hardware-in-Loop (HIL) tests for routing confidence model.
  *
- * Verifies against real StudioLive 32SC (serial SD7E21010066):
+ * Verifies against real StudioLive 32SC (serial <id.hidden>):
  *   REQ-F-ROUT-007 (#37) — Output patch router (extractOutputPatchRouter formula)
  *   REQ-F-ROUT-001 (#31) — Channel send routing (extractChannelSendRouting)
  *   QA-SC-ROUT-001 (#49) — Routing confidence never misrepresents unverified routes
  *   ADR-008 (#47)        — Layer A/B split: Layer B is always not_verifiable
  *
- * OBSERVED values from captures/2026-06-24/SD7E21010066/state-full.json:
+ * OBSERVED values from captures/2026-06-24/<id.hidden>/state-full.json:
  *   outputpatchrouter.mix1_src.value = 0              → sourceIndex = 0
  *   outputpatchrouter.mix2_src.value = 0.03703703...  → sourceIndex = 1 (Math.round(0.037 × 27))
  *   outputpatchrouter.mix3_src.value = 0.07407407...  → sourceIndex = 2

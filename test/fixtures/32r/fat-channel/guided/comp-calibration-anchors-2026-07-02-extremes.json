@@ -2,7 +2,7 @@
   "_meta": {
     "description": "STANDARD comp all-max and all-min guided calibration anchors — 32R Ch11",
     "device": "32R",
-    "serial": "RA3E18030194",
+    "serial": "<id_hidden>",
     "captureDate": "2026-07-02",
     "captureMethod": "probe-routing dump with concurrent probe-raw-socket + probe-live-events background probes",
     "ucSurfaceDisplayReadback": "user-confirmed display values for each extreme position",

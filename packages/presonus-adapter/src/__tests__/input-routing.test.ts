@@ -27,7 +27,7 @@ import { extractInputRouting } from '../state-mapper.js'
 
 /** Before-state: all channels at Local (index 0, value 0) */
 const beforeFlatState: Record<string, unknown> = {
-  'global.mixer_serial': 'SD7E21010066',
+  'global.mixer_serial': '<id.hidden>',
   'global.mixer_version': '3.4.0.111374',
   'line.ch1.inputsrc.value': 0,   // index 0 = Local (confirmed)
   'line.ch2.inputsrc.value': 0,
@@ -36,7 +36,7 @@ const beforeFlatState: Record<string, unknown> = {
 
 /** After-state: Ch1–Ch12 switched to Stage Box (index 1, value ≈ 1/3) */
 const afterFlatState: Record<string, unknown> = {
-  'global.mixer_serial': 'SD7E21010066',
+  'global.mixer_serial': '<id.hidden>',
   'global.mixer_version': '3.4.0.111374',
   'line.ch1.inputsrc.value':  0.3333333432674408,  // index 1 = Stage Box (confirmed)
   'line.ch2.inputsrc.value':  0.3333333432674408,
@@ -54,7 +54,7 @@ const afterFlatState: Record<string, unknown> = {
 
 /**
  * All-four-indices fixture derived from captures/probe-idx23/baseline.json
- * (StudioLive 32SC SD7E21010066, fw 3.4.0.111374, 2026-07-01)
+ * (StudioLive 32SC <id.hidden>, fw 3.4.0.111374, 2026-07-01)
  *
  * UC Surface labels confirmed directly:
  *   Ch13 = index 0 = Local     (value 0.0000)
@@ -64,7 +64,7 @@ const afterFlatState: Record<string, unknown> = {
  *                                Ch17 changed SD Card→USB confirmed by probe diff)
  */
 const allFourIndicesFlatState: Record<string, unknown> = {
-  'global.mixer_serial': 'SD7E21010066',
+  'global.mixer_serial': '<id.hidden>',
   'global.mixer_version': '3.4.0.111374',
   'line.ch13.inputsrc.value': 0,                     // index 0 = Local
   'line.ch1.inputsrc.value':  0.3333333432674408,    // index 1 = Stage Box
@@ -151,7 +151,7 @@ describe('extractInputRouting — REQ-F-ROUT-011 (#45)', () => {
 
   it('extracts mixer serial and firmware from flat state', () => {
     const result = extractInputRouting(afterFlatState)!
-    expect(result.mixerSerial).toBe('SD7E21010066')
+    expect(result.mixerSerial).toBe('<id.hidden>')
     expect(result.firmware).toBe('3.4.0.111374')
   })
 

@@ -2,7 +2,7 @@
   "_meta": {
     "description": "comp.ratio 1.2:1 guided calibration anchor — 32R Ch11",
     "device": "32R",
-    "serial": "RA3E18030194",
+    "serial": "<id_hidden>",
     "captureDate": "2026-07-02",
     "captureMethod": "probe-routing dump concurrent with probe-raw-socket"
   },
