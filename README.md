@@ -59,7 +59,7 @@ The MCP server gives an AI agent these capabilities:
 | Inspect FX send routing | `presonus://mixer/{id}/fx-sends` resource |
 | Inspect flat channel-to-aux routing graph | `presonus://mixer/{id}/monitor-routing` resource |
 | Raw diagnostic state dump | `presonus://mixer/{id}/raw/state` resource |
-| Propose and apply an EQ change (write-enabled only) | `propose_eq_change` + `apply_change_set` tools |
+| Prepare and apply a channel mute change (write-enabled, 32SC only) | `prepare_mute_change_set` + `apply_change_set` tools |
 
 By default agents **cannot** change mixer parameters. Write tools require `writeEnabled: true` and use a ProposedChangeSet workflow with 60 s TTL and operator confirmation â€” see ADR-006. All write tool responses include a `changeSetConfidence` field (`observed` / `inferred` / `guessed`) indicating how well-calibrated the proposed values are.
 
@@ -124,7 +124,7 @@ Confidence labels follow the repository vocabulary: `observed` = confirmed from 
 ```bash
 git clone https://github.com/zarfld/presonus-studiolive-mcp.git
 cd presonus-studiolive-mcp
-pnpm install --frozen-lockfile   # installs all workspace packages + applies featherbear patch
+pnpm install --frozen-lockfile   # installs all workspace packages
 pnpm build                       # compiles all 4 packages
 ```
 
@@ -281,7 +281,7 @@ Hardware adapter wrapping `@featherbear/presonus-studiolive-api`. Manages connec
 - `PresonusMeterSummarizer` â€” ring-buffer of raw uint16 meter packets â†’ time-windowed `MeterSummary`
 - `mapRawStateToSnapshot()` â€” translates flat state keys to normalized `MixerSnapshot`
 
-The featherbear dependency is patched (`patches/@featherbear__presonus-studiolive-api@1.9.1.patch`) to add UBJSON `I` (int16) and `D` (float64) type support missing from the original.
+Uses `@featherbear/presonus-studiolive-api` 1.9.1. No active patch — 1.9.1 includes `I` (int16) UBJSON type support natively. The stale `patches/@featherbear__presonus-studiolive-api@1.8.0.patch` artifact remains in the repository for historical reference but is not applied.
 
 ### `@presonus-mcp/inspector`
 
@@ -494,7 +494,7 @@ It gives AI agents:
 ### Commands
 
 ```bash
-pnpm install          # install + apply featherbear patch
+pnpm install          # install workspace packages
 pnpm build            # compile all packages
 pnpm build:watch      # watch mode
 pnpm clean            # remove all dist/ and tsbuildinfo
@@ -605,12 +605,12 @@ Key decisions:
 - **ADR-001** â€” TypeScript/Node.js 20+
 - **ADR-002** â€” Three-layer architecture above
 - **ADR-003** â€” pnpm monorepo, 4 packages
-- **ADR-004** â€” `@featherbear/presonus-studiolive-api` v1.8.0 pinned + patched as hardware adapter
+- **ADR-004** — `@featherbear/presonus-studiolive-api` 1.9.1 as hardware adapter (no active patch; v1.8.0 patch artifact in `patches/` is stale)
 - **ADR-005** â€” Read-only-first; write operations require a `ProposedChangeSet` + audit log + confirmation flow before being enabled
 
 ### Known gaps / future work
 
-- **Write tools** â€” `propose_eq_change` + `apply_change_set` are available (write-enabled mode). Extended change-set framework (rename, mute, fader, aux send, comp/gate/limiter) planned.
+- **Write tools (v0.1)** — `prepare_mute_change_set` + `apply_change_set` are available when `PRESONUS_WRITE=1`. Only channel mute is HIL-verified on 32SC. EQ, fader, and Fat Channel writes are hard-disabled pending calibration.
 - **Layer B routing** â€” Physical input source routing and AVB stream routing require probe-diff sessions (`probe-routing diff --kind input-source/avb-stream`). `get_input_routing` and `validate_avb_routing` return probe instructions.
 - **Output patch source names** â€” `validate_output_routing` knows source indices but not names; probe-diff with `--kind bus-to-output` needed.
 - **Stereo IEM pair model** â€” Monitor layout and stereo-pair validation planned (Phase 4).
