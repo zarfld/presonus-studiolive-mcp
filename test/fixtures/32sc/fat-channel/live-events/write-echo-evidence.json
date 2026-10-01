@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "device": "157.247.3.12",
+    "device": "*.*.3.12",
     "firmware": "check device",
     "capturedAt": "2026-07-02T10:30:40.148Z",
     "key": "line.ch11.comp.release",

@@ -16,7 +16,7 @@
  *   unknown               — no movement performed / inconclusive
  *
  * Usage:
- *   pnpm probe:dev probe-live-events --device 157.247.3.12 --duration 60000 \
+ *   pnpm probe:dev probe-live-events --device *.*.3.12 --duration 60000 \
  *     --filter "line.ch11.comp.release,line.ch11.gate.range,line.ch11.comp.ratio,line.ch11.limit.threshold"
  *
  * Implements: ARC-C-003 (#13)

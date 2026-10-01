@@ -11,7 +11,7 @@
 | Serial | <id.hidden> |
 | Firmware | 3.4.0.111374 |
 | Date | 2026-07-01 |
-| IP | 157.247.3.12 |
+| IP | *.*.3.12 |
 | Capture method | Live HIL probe: `captures/probe-fader-preamp-cal/` (gitignored) |
 
 ## Captured channels

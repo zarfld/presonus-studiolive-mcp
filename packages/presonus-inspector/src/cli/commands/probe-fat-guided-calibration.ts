@@ -30,7 +30,7 @@
  *
  * Usage:
  *   pnpm probe:dev probe-fat-guided-calibration \
- *     --device 157.247.3.12 --channel line.ch11 --key comp.release \
+ *     --device *.*.3.12 --channel line.ch11 --key comp.release \
  *     --points 0,0.25,0.5,0.75,1 --restore
  *
  * Implements: ARC-C-003 (#13)

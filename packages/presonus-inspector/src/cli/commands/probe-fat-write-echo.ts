@@ -22,11 +22,11 @@
  *   Key uses SLASH separators (e.g. line/ch11/comp/release)
  *
  * Usage:
- *   pnpm probe:dev probe-fat-write-echo --device 157.247.3.12 \
+ *   pnpm probe:dev probe-fat-write-echo --device *.*.3.12 \
  *     --channel line.ch11 --key comp.release --delta 0.01 --duration 10000
  *
  *   # Dry run (no write sent):
- *   pnpm probe:dev probe-fat-write-echo --device 157.247.3.12 \
+ *   pnpm probe:dev probe-fat-write-echo --device *.*.3.12 \
  *     --channel line.ch11 --key comp.release --delta 0.01 --dry-run
  *
  * Implements: ARC-C-003 (#13)

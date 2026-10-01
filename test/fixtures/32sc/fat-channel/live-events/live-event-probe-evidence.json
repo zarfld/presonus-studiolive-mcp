@@ -4,7 +4,7 @@
     "serialRedacted": "<id.hidden>",
     "firmware": "3.4.0.111374",
     "capturedAt": "2026-07-02T08:40:10Z",
-    "probeCommand": "pnpm probe:dev probe-live-events --device 157.247.3.12 --duration 60000 --filter 'line.ch11.comp.release,line.ch11.gate.range,line.ch11.comp.ratio,line.ch11.limit.threshold,line.ch11.comp.attack,line.ch11.gate.release'",
+    "probeCommand": "pnpm probe:dev probe-live-events --device *.*.3.12 --duration 60000 --filter 'line.ch11.comp.release,line.ch11.gate.range,line.ch11.comp.ratio,line.ch11.limit.threshold,line.ch11.comp.attack,line.ch11.gate.release'",
     "watchedChannel": "Ch11 (STANDARD comp, gate enabled)",
     "userAction": "User confirmed moving knobs in UC Surface (comp.release and others) during the 60-second observation window",
     "featherbear_version": "@featherbear/presonus-studiolive-api (installed version)"
@@ -68,7 +68,7 @@
   },
   "probe_raw_socket_pending": {
     "note": "The probe-live-events command only monitored featherbear DECODED events. It could not distinguish between: (A) mixer sent no raw PV packet, or (B) mixer sent raw PV but featherbear failed to decode/emit it. The probe-raw-socket command must be run to resolve this distinction.",
-    "command": "pnpm probe:dev probe-raw-socket --device 157.247.3.12 --duration 60000 --filter 'line.ch11.comp.release,line.ch11.gate.range,line.ch11.comp.ratio,line.ch11.limit.threshold'"
+    "command": "pnpm probe:dev probe-raw-socket --device *.*.3.12 --duration 60000 --filter 'line.ch11.comp.release,line.ch11.gate.range,line.ch11.comp.ratio,line.ch11.limit.threshold'"
   },
 
   "results": [

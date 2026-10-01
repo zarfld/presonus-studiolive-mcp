@@ -26,7 +26,7 @@
  *   For PV (ParamValue) packets, payload = <key>\0<partA:2><value:N>
  *
  * Usage:
- *   pnpm probe:dev probe-raw-socket --device 157.247.3.12 --duration 60000 \
+ *   pnpm probe:dev probe-raw-socket --device *.*.3.12 --duration 60000 \
  *     --filter "line.ch11.comp.release,line.ch11.gate.range" \
  *     --out captures/probe-fat-cal/raw-socket
  *
