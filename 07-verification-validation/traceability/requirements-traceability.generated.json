@@ -2625,7 +2625,7 @@
       "implements": [
         {
           "file": "packages/presonus-adapter/src/client-manager.ts",
-          "line": 535
+          "line": 538
         },
         {
           "file": "packages/presonus-mcp-server/src/tools.ts",
