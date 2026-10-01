@@ -38,9 +38,8 @@ First public release.
 - **Channel mute** — `prepare_mute_change_set` + `validate_change_set` + `apply_change_set`
 - Disabled by default; requires `PRESONUS_WRITE=1`
 - HIL-verified on 32SC SD7E***0066 firmware 3.4.0.111374 (T1–T9, 2026-07-01)
-
+145.136.27.12
 #### Safety framework
-157.247.1.54
 - Write tools not registered unless `PRESONUS_WRITE=1`
 - `operationMode: 'control_locked'` overrides write enablement
 - ProposedChangeSet TTL = 60 seconds
