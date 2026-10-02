@@ -7,7 +7,6 @@
         "${workspaceFolder}/packages/presonus-mcp-server/dist/index.js"
       ],
       "env": {
-        "PRESONUS_WRITE": "1",
         "PRESONUS_IP": "<ip.hidden>",
         "PRESONUS_SERIAL": "<id.hidden>",
         "PRESONUS_MODE": "soundcheck_assist"
