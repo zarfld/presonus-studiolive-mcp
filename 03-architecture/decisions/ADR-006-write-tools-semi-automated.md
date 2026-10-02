@@ -5,6 +5,12 @@
 **Supersedes**: ADR-005 (extends, does not replace)  
 **Issue**: (pending GitHub issue creation)
 
+## Status
+
+Accepted
+
+---
+
 ## Amendment — v0.1 public release scope (2026-10-01)
 
 The original decision listed EQ as the initial scope for write tools (Phase C). However, as of the v0.1 public release:
